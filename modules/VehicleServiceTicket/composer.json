@@ -1,0 +1,31 @@
+{
+    "name": "bdtask/vehicleserviceticket",
+    "description": "",
+    "authors": [
+        {
+            "name": "Bdtask Limited",
+            "email": "business@bdtask.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\VehicleServiceTicket\\": "",
+            "Modules\\VehicleServiceTicket\\App\\": "app/",
+            "Modules\\VehicleServiceTicket\\Database\\Factories\\": "database/factories/",
+            "Modules\\VehicleServiceTicket\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\VehicleServiceTicket\\Tests\\": "tests/"
+        }
+    }
+}

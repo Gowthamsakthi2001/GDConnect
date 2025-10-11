@@ -1,0 +1,11 @@
+{
+    "name": "VehicleRefueling",
+    "alias": "vehiclerefueling",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\VehicleRefueling\\Providers\\VehicleRefuelingServiceProvider"
+    ],
+    "files": []
+}

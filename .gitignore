@@ -1,0 +1,31 @@
+/node_modules
+# /public/build
+/public
+/public/hot
+/public/storage
+/storage/*.key
+/storage/installed.txt
+/vendor
+/cron_job.log
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+*.log
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+# /.vscode
+
+
+
+*.zip
+*.rar
+/public/storage
+# /public/front-assets
+# /public/portfolio-assets
+# /public/module-assets
