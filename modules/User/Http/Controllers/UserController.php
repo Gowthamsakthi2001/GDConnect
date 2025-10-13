@@ -497,7 +497,7 @@ class UserController extends Controller
             ]);
            
             $data['password'] = Hash::make($request->password);
-            $data['password_checked_at'] = now();
+            $data['password_changed_at'] = now();
         } else {
             unset($data['password']);
         }
@@ -544,7 +544,7 @@ class UserController extends Controller
             DB::table('users')
             ->where('id', $user->id)
             ->update([
-                'password_checked_at' => now(),
+                'password_changed_at' => now(),
             ]);
           $this->StaffPasswordUpdateNotify($request->phone,$user,$user->get_role->name);
           $this->StaffSentEmail($request->phone,$user,$user->get_role->name,'staff_password_update_notify');

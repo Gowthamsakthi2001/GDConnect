@@ -48,7 +48,7 @@ class B2BRiderController extends Controller
             "message" => "Rider Not Found"
         ], 404);
     }
-
+    $terms_condition = BusinessSetting::where('key_name', 'rider_terms_condition')->value('value') ?? ''; 
     $getFullUrl = function ($file, $folder) {
         return $file ? "b2b/{$folder}/" . $file : null;
     };
@@ -74,7 +74,8 @@ class B2BRiderController extends Controller
         "driving_license_back"   => $getFullUrl($existingUser->driving_license_back, "driving_license_images"),
         "llr_image"              => $getFullUrl($existingUser->llr_image, "llr_images"),
         "profile_image"              => $getFullUrl($existingUser->profile_image, "profile_images"),
-        "show_edit_option"       => true
+        "show_edit_option"       => true,
+        "terms_condition_content"        =>$terms_condition,
     ];
 
     return response()->json([

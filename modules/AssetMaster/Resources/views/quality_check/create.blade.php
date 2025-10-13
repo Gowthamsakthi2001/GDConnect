@@ -76,6 +76,89 @@
     }
   }
 
+
+/* Form Label Styling */
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #333;
+    font-size: 14px;
+}
+
+/* Toggle Switch Wrapper */
+.toggle-wrapper {
+    padding-left: 0;
+    min-height: 42px; /* Match input field height */
+    display: flex;
+    align-items: center;
+}
+
+/* Toggle Switch Styling */
+.form-switch .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    cursor: pointer;
+    margin-left: 0;
+    margin-top: 0;
+    background-color: #ffff;
+    border: 1px solid #ced4da;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-switch .form-check-input:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Match form control height */
+.form-control {
+    height: 42px;
+    padding: 0.375rem 0.75rem;
+    font-size: 14px;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+}
+
+.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Form Group Spacing */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .col-md-6 {
+        margin-bottom: 1rem;
+    }
+    
+    .toggle-wrapper {
+        min-height: 38px;
+    }
+    
+    .form-control {
+        height: 38px;
+    }
+}
+
+@media (max-width: 576px) {
+    .form-label {
+        font-size: 13px;
+    }
+    
+    .form-switch .form-check-input {
+        width: 2.75em;
+        height: 1.4em;
+    }
+}
 </style>
 
 
@@ -261,7 +344,17 @@
                         
                           </div>
                 		     </div>
-                			 
+                		     
+                		     
+                		                  <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label class="form-label">Is Recoverable</label>
+                                <div class="form-check form-switch toggle-wrapper">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="isRecoverable" name="is_recoverable" value="1">
+                                </div>
+                            </div>
+                        </div>
+                            			 
                 			 
                            <div class="col-md-6 mb-3">
                 		 <div class="form-group">

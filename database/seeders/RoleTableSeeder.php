@@ -161,6 +161,7 @@ class RoleTableSeeder extends Seeder
                 'vehicle_types',
                 'color_master',
                 'state',
+                'customer_type_master',
             ],
             'Zones' => [
                 'zone',

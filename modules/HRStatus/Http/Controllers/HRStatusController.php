@@ -17,6 +17,8 @@ use App\Models\BgvDocument;
 use Modules\RiderType\Entities\RiderType;
 use App\Models\HrQuery;
 use App\Models\BusinessSetting;
+use Spatie\Permission\Models\Role; // Updated by logesh
+use Modules\Zones\Entities\Zones; // Updated by logesh
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -802,18 +804,54 @@ class HRStatusController extends Controller
         return $dm->emp_id;
     }
     
-    public function recruiter_preview(Request $request,$id)
+    // public function recruiter_preview(Request $request,$id)
+    // {
+
+    //     $dm = Deliveryman::where('delete_status', 0)->where('id',$id)->first();
+    //     $cities = City::all();
+    //     $areas = Area::where('city_id',$dm->current_city_id)->get();
+    //     $rider_types = RiderType::where('status', 1)->get();
+    //      if (!$dm) {
+    //         return back()->with('error', 'Rider Not found');
+    //     }
+
+    //     return view('hrstatus::recruiter_preview', compact('dm','cities','areas','rider_types'));
+    // }
+    
+     public function recruiter_preview(Request $request,$id)
     {
 
         $dm = Deliveryman::where('delete_status', 0)->where('id',$id)->first();
-        $cities = City::all();
+        // $cities = City::all();
         $areas = Area::where('city_id',$dm->current_city_id)->get();
         $rider_types = RiderType::where('status', 1)->get();
          if (!$dm) {
             return back()->with('error', 'Rider Not found');
         }
+        $roles = Role::where('id',22)->get();
+        $cities = City::where('id',$dm->current_city_id)->where('status',1)->get();
+        $zones = Zones::where('city_id',$dm->current_city_id)->where('status',1)->get();
+        return view('hrstatus::recruiter_preview', compact('dm','cities','areas','rider_types','roles','zones'));
+    }
+    
+    public function update_teams(Request $request) //updated by Logesh
+    {
+        $request->validate([
+            'id' => 'required|exists:ev_tbl_delivery_men,id',
+            'team_type' => 'nullable',
+            'city_id' =>'nullable',
+            'zone_id' => 'nullable'
+        ]);
+        
+        $agent = Deliveryman::where('id',$request->id)->first();
+        $agent->team_type = $request->team_type;
+        $agent->zone_id = $request->zone_id;
+        $agent->save();
 
-        return view('hrstatus::recruiter_preview', compact('dm','cities','areas','rider_types'));
+        return response()->json([
+            'status' => true,
+            'message' => 'Team updated successfully.'
+        ]);
     }
     
             public function add_candidate(Request $request)

@@ -20,8 +20,8 @@ class QualityCheckImportSheetHeaders implements FromArray
 {
     public function array(): array
     {
-        return [
-            ['Vehicle_Type', 'Vehicle_Model', 'Location', 'Chassis_Number', 'Battery_Number', 'Telematics_Number', 'Motor_Number', 'Image'],
+     return [
+            ['Vehicle_Type', 'Vehicle_Model', 'City' , 'Zone' , 'Accountability_Type', 'Customer_Trade_Name' , 'Is_Recoverable' , 'Chassis_Number', 'Battery_Number', 'Telematics_Number', 'Motor_Number', 'Image'],
         ];
     }
 }
