@@ -164,7 +164,7 @@ table thead th {
                                            name="password" 
                                            id="password" 
                                            placeholder="Enter Your Password" 
-                                           autocomplete="off" 
+                                          autocomplete="new-password"
                                            required>
                                     <!-- Eye toggle button -->
                                     <span class="position-absolute top-50 end-0 translate-middle-y me-3 " 
@@ -187,7 +187,7 @@ table thead th {
                                            name="password_confirmation" 
                                            id="password_confirmation" 
                                            placeholder="Enter Your Confirm Password" 
-                                           autocomplete="off" 
+                                           autocomplete="new-password"
                                            required>
                                     <span class="position-absolute top-50 end-0 translate-middle-y me-3 " 
                                           style="cursor:pointer;" 
@@ -331,8 +331,14 @@ table thead th {
                        <div class="col-md-6 mb-3">
                             <div class="form-group row">
                                 <label for="edit_password" class="col-12 col-md-4 col-form-label text-start ">Password<span class="text-danger">*</span></label>
-                                <div class="col-12 col-md-8">
-                                    <input type="password" class="form-control border-0 border-bottom rounded-0 shadow-none" name="edit_password" id="edit_password" placeholder="Enter Your Password" autocomplete="off">
+                               <div class="col-12 col-md-8 position-relative">
+                                    <input type="password" class="form-control border-0 border-bottom rounded-0 shadow-none" name="edit_password" id="edit_password" placeholder="Enter Your Password" autocomplete="new-password">
+                                    <!-- Eye toggle button -->
+                                    <span class="position-absolute top-50 end-0 translate-middle-y me-3 " 
+                                          style="cursor:pointer;" 
+                                          onclick="updatetogglePassword()">
+                                        <i id="eyeIcon2" class="bi bi-eye"></i>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -341,8 +347,13 @@ table thead th {
                        <div class="col-md-6 mb-3">
                             <div class="form-group row">
                                 <label for="passwordconfirmation" class="col-12 col-md-4 col-form-label text-start ">Confirm Password<span class="text-danger">*</span></label>
-                                <div class="col-12 col-md-8">
-                                    <input type="password" class="form-control border-0 border-bottom rounded-0 shadow-none" name="passwordconfirmation" id="passwordconfirmation" placeholder="Enter Your Confirm Password" autocomplete="off">
+                               <div class="col-12 col-md-8 position-relative">
+                                    <input type="password" class="form-control border-0 border-bottom rounded-0 shadow-none" name="passwordconfirmation" id="passwordconfirmation" placeholder="Enter Your Confirm Password" autocomplete="new-password">
+                                        <span class="position-absolute top-50 end-0 translate-middle-y me-3 " 
+                                          style="cursor:pointer;" 
+                                          onclick="updatetoggleConfirmPassword()">
+                                        <i id="eyeIcon3" class="bi bi-eye"></i>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -409,6 +420,38 @@ function toggleConfirmPassword() {
         eyeIcon1.classList.add("bi-eye");
     }
 }
+
+
+function updatetogglePassword() {
+    const passwordField = document.getElementById("edit_password");
+    const eyeIcon = document.getElementById("eyeIcon2");
+    if (passwordField.type === "password") {
+        passwordField.type = "text";
+        eyeIcon.classList.remove("bi-eye");
+        eyeIcon.classList.add("bi-eye-slash");
+    } else {
+        passwordField.type = "password";
+        eyeIcon.classList.remove("bi-eye-slash");
+        eyeIcon.classList.add("bi-eye");
+    }
+}
+
+function updatetoggleConfirmPassword() {
+    const passwordField = document.getElementById("passwordconfirmation");
+    const eyeIcon1 = document.getElementById("eyeIcon3");
+    if (passwordField.type === "password") {
+        passwordField.type = "text";
+        eyeIcon1.classList.remove("bi-eye");
+        eyeIcon1.classList.add("bi-eye-slash");
+    } else {
+        passwordField.type = "password";
+        eyeIcon1.classList.remove("bi-eye-slash");
+        eyeIcon1.classList.add("bi-eye");
+    }
+}
+
+
+
 </script>
 
 <script>

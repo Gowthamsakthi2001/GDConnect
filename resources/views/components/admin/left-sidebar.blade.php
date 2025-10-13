@@ -488,6 +488,23 @@
                                 
                                 
                                  @php
+                                    $isCustomerTypeMasterActive = request()->routeIs('admin.Green-Drive-Ev.master_management.customer_type_master.*');
+                                    $fillColor_CustomerTypeMaster = $isCustomerTypeMasterActive ? '#52c552' : '#bbbfc4';
+                                  @endphp
+                                @if (can('customer_type_master'))
+                                    <li class="{{ $isCustomerTypeMasterActive ? 'mm-active' : '' }}">
+                                        <a class="text-capitalize {{ $isCustomerTypeMasterActive == true ? 'submenu-activeclass' : '' }}" style="color:{{$isCustomerTypeMasterActive == true ? '#52c552' : '#8a8e91'}}" href="{{route('admin.Green-Drive-Ev.master_management.customer_type_master.index')}}" target="_self">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="21" viewBox="0 0 24 21" fill="{{$fillColor_CustomerTypeMaster}}">
+                                        <path d="M5.75 15.25H23.75V17.75H5.75V20.499L0.416992 16.5L5.75 12.5V15.25ZM23.582 4.5L18.25 8.49902V5.75H0.25V3.25H18.25V0.5L23.582 4.5Z" stroke="#4B5563" stroke-width="0.5"/>
+                                        </svg>
+                                           Customer Types
+                                        </a>
+                                    </li>
+                                 @endif
+                                 
+                                 
+                                
+                                 @php
                                     $isColorMasterActive = request()->routeIs('admin.Green-Drive-Ev.master_management.color_master.*');
                                     $fillColor_ColorMaster = $isColorMasterActive ? '#52c552' : '#bbbfc4';
                                   @endphp

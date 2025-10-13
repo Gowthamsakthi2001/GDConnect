@@ -1,4 +1,4 @@
-<x-app-layout>
+ <x-app-layout>
     <div class="main-content">
 
            <div class="card bg-transparent my-4">
@@ -28,6 +28,54 @@
              $work_type = $dm->work_type ?? '';
             ?>
             
+            <div class="card mb-2">
+                <div class="card-body">
+                @if($dm->work_type == "in-house")
+                        <div class="row">
+                            @if($dm->team_type)
+                            <div class="col-md-12 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1">Assigned Team</label>
+                                    <div class="bg-light p-3 rounded d-flex justify-content-between align-items-center">
+                                        @php
+                                            $assignedTeam = $roles->firstWhere('id', $dm->team_type);
+                                        @endphp
+                                        <p class="mb-0">
+                                            This employee has been assigned as 
+                                            <strong>{{ $assignedTeam ? $assignedTeam->name : 'Unknown Team' }}</strong>.
+                                            If you want to remove the team, press the <strong>Remove</strong> button.
+                                        </p>
+                                        <button type="button" id="remove_team" class="btn btn-danger btn-sm ">
+                                            Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                                
+                           
+                            @else
+                            
+                             <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="team_type">Assign Team</label>
+                                    <select class="form-control basic-single bg-white" id="team_type" name="team_type">
+                                        <option value="">Select Team</option>
+                                        @if($roles)
+                                            @foreach($roles as $data)
+                                                <option value="{{ $data->id }}" {{ old('team_type', $dm->team_type) == $data->id ? 'selected' : '' }}>
+                                                    {{ $data->name }}
+                                                </option>
+                                            @endforeach
+                                        @endif
+                                    </select>
+                                </div>
+                            </div>
+                                
+                            @endif
+                        </div>
+                       @endif
+                </div>
+            </div>
             <div class="card">
                 <div class="card-body">
                     <div class="row">
@@ -346,5 +394,168 @@
         });
     }
 </script>
+<script>
+$(document).ready(function() {
+
+    // On team change
+    $('#team_type').on('change', function() {
+        let teamId = $(this).val() || null;
+        let deliverymanId = "{{ $dm->id }}"; // current employee id
+
+        Swal.fire({
+            title: 'Update Team Assignment',
+            html: `
+                <p class="mb-2 text-start">Please confirm the team update and select the location details:</p>
+                <div class="form-group text-start">
+                    <label for="city_select" class="fw-bold mb-1">City <span style="color:red">*</span></label>
+                    <select id="city_select" class="form-control">
+                        <option value="">Select City</option>
+                        @foreach($cities as $city)
+                            <option value="{{ $city->id }}" style="color:#000;background:#fff;" {{ ($city->id == $dm->current_city_id) ? 'selected' : '' }}>{{ $city->city_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group text-start mt-3">
+                    <label for="zone_select" class="fw-bold mb-1">Zone <span style="color:red">*</span></label>
+                    <select id="zone_id" class="form-control">
+                        <option value="">Select Zone</option>
+                        @foreach($zones as $zone)
+                            <option value="{{ $zone->id }}" style="color:#000;background:#fff;" {{ ($zone->id == $dm->zone_id) ? 'selected' : '' }} >{{ $zone->name }}</option>
+                        @endforeach
+                    </select>
+                    
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Yes, update it!',
+            cancelButtonText: 'Cancel',
+            focusConfirm: false,
+            didOpen: () => {
+                // Attach change event for city dropdown when modal opens
+                $('#city_select').on('change', function() {
+                    const cityID = $(this).val();
+                    getZones(cityID); // load zones dynamically
+                });
+            },
+            preConfirm: () => {
+                const cityId = $('#city_select').val();
+                const zoneId = $('#zone_id').val();
+
+                if (!cityId) {
+                    Swal.showValidationMessage('City is required!');
+                    return false;
+                }
+                
+                if (!zoneId) {
+                    Swal.showValidationMessage('Zone is required!');
+                    return false;
+                }
+                
+                return { cityId: cityId, zoneId: zoneId };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const { cityId, zoneId } = result.value;
+
+                $.ajax({
+                    url: "{{ route('admin.Green-Drive-Ev.hr_status.update_teams') }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        id: deliverymanId,
+                        team_type: teamId,
+                        city_id: cityId,
+                        zone_id: zoneId
+                    },
+                    beforeSend: function() {
+                        Swal.showLoading();
+                    },
+                    success: function(response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Updated!',
+                            text: response.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: xhr.responseJSON?.message || 'Something went wrong.',
+                        });
+                    }
+                });
+            } else {
+                // Reset dropdown to previous value if cancelled
+                $('#team_type').val("{{ $dm->team_type }}");
+            }
+        });
+    });
+});
+
+</script>
+
+<script>
+$(document).ready(function() {
+    $('#remove_team').on('click', function() {
+        let teamId = null;
+        let zone_id = null;
+        let deliverymanId = "{{ $dm->id }}"; // assuming $dm is passed to view
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'Do you want to remove the team for this employee?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, remove it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: "{{ route('admin.Green-Drive-Ev.hr_status.update_teams') }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        id: deliverymanId,
+                        team_type: teamId,
+                        zone_id: zone_id
+                    },
+                    beforeSend: function() {
+                        Swal.showLoading();
+                    },
+                    success: function(response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Removed!',
+                            text: 'Team removed successfully',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            // Reload the page after the alert closes
+                            location.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: xhr.responseJSON?.message || 'Something went wrong.',
+                        });
+                    }
+                });
+            } else {
+                // Reset the dropdown to previous value if cancelled
+                $(this).val("{{ $dm->team_type }}");
+            }
+        });
+    });
+});
+</script>
+
 @endsection
 </x-app-layout>

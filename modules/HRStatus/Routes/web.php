@@ -34,7 +34,8 @@ Route::prefix('admin/Green-Drive-Ev/hr-status')->as('admin.Green-Drive-Ev.hr_sta
     Route::post('/update-candidate', 'update_candidate')->name('update_candidate');
     Route::get('/reinitiate-candidate/{id}', 'reinitiate_candidate')->name('reinitiate_candidate');
     Route::post('/approve-candidate/{id}', 'update_approve_candidate')->name('update_approve_candidate');
-
+    Route::post('/update-teams', 'update_teams')->name('update_teams'); //  Updated by logesh
+     
 });
 
 Route::prefix('admin/hr-level-one')->as('admin.Green-Drive-Ev.hr_level_one.')->controller(HRLevelOneController::class)->middleware('auth')->group(function () {

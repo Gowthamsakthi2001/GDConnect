@@ -140,6 +140,21 @@ Route::prefix('admin/master-management/color-master') //updated by Mugesh.B
 
 
 
+
+Route::prefix('admin/master-management/customer-type-master') //updated by Mugesh.B
+->as('admin.Green-Drive-Ev.master_management.customer_type_master.')
+->controller(CustomerTypeMasterController::class)
+->middleware('auth')
+->group(function () {
+    Route::get('/', 'index')->name('index');
+     Route::post('/store', 'store')->name('store');
+     Route::post('/update', 'update')->name('update');
+     Route::post('/update-status', 'update_status')->name('status_update');
+     Route::get('/export', 'export_customer_type_master')->name('export');
+});
+
+
+
 Route::prefix('admin/master-management/customer-master') //created by Gowtham.S
     ->as('admin.Green-Drive-Ev.master_management.customer_master.')
     ->controller(CustomerMasterController::class)

@@ -22,7 +22,6 @@ class QualityCheck extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-
     protected $fillable = [
         'id',
         'vehicle_type',
@@ -32,6 +31,7 @@ class QualityCheck extends Model
         'accountability_type',
         'chassis_number',
         'customer_id' ,
+        'is_recoverable',
         'battery_number',
         'telematics_number',
         'motor_number',

@@ -553,6 +553,7 @@ public function quality_check_list(Request $request)
                 'datetime' => $request->datetime ?? '',
                 'status' => $request->result ?? '',
                 'remarks' => $request->remarks ?? '',
+                'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
                 'technician' => $user->id ?? '' ,
                  'check_lists' => !empty($request->qc) ? json_encode($request->qc) : null,
                  'image' => $imageName, 
@@ -743,18 +744,43 @@ public function quality_check_list(Request $request)
         if ($existing->status != $request->result) {
             $changes[] = 'Status';
         }
-            
-            
-        $oldChecklist = json_decode($existing->check_lists ?? '[]', true);
-        $newChecklist = $request->qc ?? [];
-
-
-        $oldDecoded = is_string($oldChecklist) ? json_decode($oldChecklist, true) : $oldChecklist;
-        $newDecoded = is_string($newChecklist) ? json_decode($newChecklist, true) : $newChecklist;
         
-        if ($oldDecoded !== $newDecoded) {
+        if ($existing->is_recoverable != $request->is_recoverable) {
+            $changes[] = 'Is Recoverable';
+        }
+            
+            
+        // $oldChecklist = json_decode($existing->check_lists ?? '[]', true);
+        // $newChecklist = $request->qc ?? [];
+
+
+        // $oldDecoded = is_string($oldChecklist) ? json_decode($oldChecklist, true) : $oldChecklist;
+        // $newDecoded = is_string($newChecklist) ? json_decode($newChecklist, true) : $newChecklist;
+        
+        // if ($oldDecoded !== $newDecoded) {
+        //     $changes[] = 'Checklist';
+        // }
+        
+        
+        // Decode old checklist safely
+        $oldChecklist = json_decode($existing->check_lists ?? '[]', true);
+        if (!is_array($oldChecklist)) {
+            $oldChecklist = [];
+        }
+        
+        // Ensure new checklist is an array
+        $newChecklist = $request->qc ?? [];
+        if (!is_array($newChecklist)) {
+            $newChecklist = [];
+        }
+        
+        
+        // Compare checklists
+        if ($oldChecklist !== $newChecklist) {
             $changes[] = 'Checklist';
         }
+        
+        
         
          
             
@@ -819,6 +845,7 @@ public function quality_check_list(Request $request)
                 'battery_number'     => $request->battery_number ?? '',
                 'telematics_number'  => $request->telematics_number ?? '',
                 'motor_number'       => $request->motor_number ?? '',
+                'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
                 'datetime'           => $request->datetime ?? '',
                 'status'             => $request->result ?? '',
                 'remarks'            => $request->remarks ?? '',
@@ -899,6 +926,379 @@ public function quality_check_list(Request $request)
     
     
     
+//     public function bulk_upload_data(Request $request){
+        
+//      $request->validate([
+//                 'excel_file' => 'required|file|mimes:xls,xlsx'
+//             ]);
+
+//     //  Excel::import(new QualityCheckBulkImport, $request->file('excel_file'));
+     
+//     //  return back()->with('success', 'Bulk upload successful!');
+    
+    
+//     $file = $request->file('excel_file');
+//     $excelPath = $file->getPathname();
+
+//     $saveRoot = public_path('EV/images');
+//     if (!file_exists($saveRoot)) mkdir($saveRoot, 0777, true);
+
+//     $spreadsheet = IOFactory::load($excelPath);
+//     $sheet = $spreadsheet->getActiveSheet();
+//     $highestColumn = $sheet->getHighestColumn();
+//     $highestRow = $sheet->getHighestRow();
+    
+    
+        
+//     if (($highestRow - 1) < 2) {
+//         return response()->json([
+//             'success' => false,
+//             'message' => 'Excel must contain at least 2 rows of data (excluding the header).'
+//         ], 422);
+//     }
+
+
+
+//         $folder = 'quality_check';
+//         $saveFolder = $saveRoot . '/' . $folder;
+//         if (!file_exists($saveFolder)) mkdir($saveFolder, 0777, true);
+        
+        
+//     // Map headers A => vehicle_type, B => vehicle_model, ...
+//     $headerMap = [];
+//     foreach (range('A', $highestColumn) as $col) {
+//         $headerMap[$col] = strtolower(str_replace(' ', '_', trim($sheet->getCell($col . '1')->getValue())));
+//     }
+
+//     $imageMap = [];
+//     $pdfMap = [];
+//     $assignedFiles = [];
+
+//     // STEP 1: Extract images
+//     foreach ($sheet->getDrawingCollection() as $drawing) {
+//         $coords = $drawing->getCoordinates(); // e.g., H2
+//         preg_match('/([A-Z]+)(\d+)/', $coords, $matches);
+//         $row = $matches[2];
+
+
+
+//         if ($drawing instanceof \PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing) {
+//             ob_start();
+//             call_user_func($drawing->getRenderingFunction(), $drawing->getImageResource());
+//             $imageContents = ob_get_clean();
+//             $ext = 'png';
+//         } else {
+//             $path = $drawing->getPath();
+//             $imageContents = file_get_contents($path);
+//             $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+//             if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
+//         }
+
+//         // do {
+//         //     $imgName = mt_rand(1000000000, 999999999999999) . '.' . $ext;
+//         // } while (file_exists($saveFolder . '/' . $imgName));
+
+//         // file_put_contents($saveFolder . '/' . $imgName, $imageContents);
+//         // $imageMap[$row] = $imgName;
+//         // $assignedFiles[$row] = true;
+//                 $imageMap[$row] = [
+//             'ext' => $ext,
+//             'content' => $imageContents
+//         ];
+//     }
+
+//     // STEP 2: Extract PDFs from ZIP and map by unassigned rows
+//     // $zip = new \ZipArchive();
+//     // if ($zip->open($excelPath)) {
+//     //     $pdfCandidates = [];
+//     //     for ($i = 0; $i < $zip->numFiles; $i++) {
+//     //         $entryName = $zip->getNameIndex($i);
+//     //         if (str_starts_with($entryName, 'xl/embeddings/')) {
+//     //             $stream = $zip->getFromIndex($i);
+//     //             $pdfStart = strpos($stream, '%PDF');
+
+//     //             if ($pdfStart !== false) {
+//     //                 $pdfData = substr($stream, $pdfStart);
+//     //                 $pdfEnd = strpos($pdfData, '%%EOF');
+//     //                 if ($pdfEnd !== false) {
+//     //                     $pdfData = substr($pdfData, 0, $pdfEnd + 6);
+//     //                 }
+
+//     //                 $folder = 'quality_check';
+//     //                 $saveFolder = $saveRoot . '/' . $folder;
+//     //                 if (!file_exists($saveFolder)) mkdir($saveFolder, 0777, true);
+
+//     //                 do {
+//     //                     $pdfName = mt_rand(1000000000, 999999999999999) . '.pdf';
+//     //                 } while (file_exists($saveFolder . '/' . $pdfName));
+
+//     //                 file_put_contents($saveFolder . '/' . $pdfName, $pdfData);
+//     //                 $pdfCandidates[] = $pdfName;
+//     //             }
+//     //         }
+//     //     }
+//     //     $zip->close();
+
+//     //     // Assign each unassigned row in order
+//     //     $pdfIndex = 0;
+//     //     for ($r = 2; $r <= $highestRow; $r++) {
+//     //         if (!isset($assignedFiles[$r]) && isset($pdfCandidates[$pdfIndex])) {
+//     //             $pdfMap[$r] = $pdfCandidates[$pdfIndex];
+//     //             $assignedFiles[$r] = true;
+//     //             $pdfIndex++;
+//     //         }
+//     //     }
+//     // }
+
+//     // STEP 3: Loop and insert row-wise
+//     $inserted = [];
+
+
+    
+    
+
+//     foreach ($sheet->getRowIterator(2) as $rowObj) {
+//         $rowIndex = $rowObj->getRowIndex();
+
+//         $cellValues = [];
+//         foreach ($headerMap as $col => $heading) {
+//             $cellValues[$heading] = $sheet->getCell($col . $rowIndex)->getValue() ?? null;
+//         }
+        
+       
+        
+
+//         // Access fields individually
+//         $vehicleType        = $cellValues['vehicle_type']        ?? null;
+//         $vehicleModel       = $cellValues['vehicle_model']       ?? null;
+//         $location           = $cellValues['location']            ?? null;
+//         $chassisNumber      = $cellValues['chassis_number']      ?? null;
+//         $telematicsNumber   = $cellValues['telematics_number']   ?? null;
+//         $motor_number   = $cellValues['motor_number']   ?? null;
+//         $battery_number   = $cellValues['battery_number']   ?? null;
+//         $image = $cellValues['image']   ?? null;
+        
+//         // if(empty($chassisNumber) || empty($telematicsNumber)){
+//         //     continue;
+//         // }
+        
+        
+//               $missingFields = [];
+//         if (empty($chassisNumber)) $missingFields[] = 'Chassis Number';
+//         if (empty($telematicsNumber)) $missingFields[] = 'Telematics Number';
+//         if (empty($vehicleType)) $missingFields[] = 'Vehicle Type';
+//         if (empty($vehicleModel)) $missingFields[] = 'Vehicle Model';
+//         if (empty($location)) $missingFields[] = 'Location';
+//         if (empty($battery_number)) $missingFields[] = 'Battery Number';
+//         if (empty($motor_number)) $missingFields[] = 'Motor Number';
+
+//         if (count($missingFields) > 0) {
+//             $errorRows[] = [
+//                 'row' => $rowIndex,
+//                 'chassis_number' => $chassisNumber,
+//                 'fields' => $missingFields
+//             ];
+//             continue;
+//         }
+        
+        
+//         $vehicle_type_id = null;
+//         $vehicleModel_id = null;
+//         $location_id = null;
+        
+//         // Vehicle Type
+//         if (!empty($vehicleType)) {
+//             $vehicle_type = VehicleType::whereRaw('LOWER(name) = ?', [trim(strtolower($vehicleType))])->first();
+//             $vehicle_type_id = $vehicle_type?->id ?? null;
+//         }
+        
+//         // Vehicle Model
+//         if (!empty($vehicleModel)) {
+//             $vehicleModelRecord = DB::table('ev_tbl_vehicle_models')
+//                 ->whereRaw('LOWER(vehicle_model) = ?', [trim(strtolower($vehicleModel))])
+//                 ->first();
+//             $vehicleModel_id = $vehicleModelRecord?->id ?? null;
+//         }
+        
+//         // Location
+//         if (!empty($location)) {
+//             $locationRecord = LocationMaster::whereRaw('LOWER(name) = ?', [trim(strtolower($location))])->first();
+//             $location_id = $locationRecord?->id ?? null;
+//         }
+
+
+
+
+
+//         if(empty($vehicle_type_id) || empty($vehicleModel_id) || empty($location_id)){
+//                         $invalids = [];
+//             if (empty($vehicle_type_id)) $invalids[] = 'Vehicle Type (invalid)';
+//             if (empty($vehicleModel_id)) $invalids[] = 'Vehicle Model (invalid)';
+//             if (empty($location_id)) $invalids[] = 'Location (invalid)';
+
+//             $errorRows[] = [
+//                 'row' => $rowIndex,
+//                 'chassis_number' => $chassisNumber,
+//                 'fields' => $invalids
+//             ];
+            
+//             continue;
+//         }
+        
+        
+
+//         // Skip if no file (image or pdf)
+//         // $fileName = $imageMap[$rowIndex] ?? $pdfMap[$rowIndex] ?? null;
+//         // if (!$fileName) continue;
+        
+//         // $fileName = $imageMap[$rowIndex] ?? null;
+
+//         // Generate custom ID
+//           $lastCode = QualityCheck::orderBy('id', 'desc')->value('id');
+        
+//             if ($lastCode && preg_match('/QC(\d+)/', $lastCode, $matches)) {
+//                 $lastNumber = (int)$matches[1];
+//                 $newNumber = $lastNumber + 1;
+//             } else {
+//                 $newNumber = 1001; // Start from QC1001
+//             }
+        
+//             // ✅ Generate new QC code
+//             $qcId = 'QC' . $newNumber;
+            
+            
+        
+                
+        
+//         $data = [
+//             'id'                => $qcId,
+//             'vehicle_type'      => $vehicle_type_id,
+//             'vehicle_model'     => $vehicleModel_id,
+//             'location'          => $location_id ,
+//             'chassis_number'    => $chassisNumber,
+//             'telematics_number' => $telematicsNumber,
+//             'battery_number' => $battery_number,
+//             'motor_number' => $motor_number,
+//             'image'             => null, // PDF or image
+//             'technician'        => Auth::id(),
+//              'datetime' => now(),
+//             'status'            => 'qc_pending',
+//             'created_at'        => now(),
+//             'updated_at'        => now(),
+//         ];
+        
+//             $values = [
+//             'id'                => $qcId,
+//             'vehicle_type'      => $vehicle_type_id,
+//             'vehicle_model'     => $vehicleModel_id,
+//             'location'          => $location_id ,
+//             'chassis_number'    => trim($chassisNumber),
+//             'telematics_number' => trim($telematicsNumber),
+//             'battery_number' => $battery_number,
+//             'motor_number' => $motor_number,
+//             'image'             => null, // PDF or image
+//             'technician'        => Auth::id(),
+//              'datetime' => now(),
+//             'status'            => 'qc_pending',
+//             'created_at'        => now(),
+//             'updated_at'        => now(),
+//         ];
+
+
+//         $validator = Validator::make($values, [
+//             'chassis_number'    => 'required|unique:vehicle_qc_check_lists,chassis_number',
+//             'telematics_number' => 'required|unique:vehicle_qc_check_lists,telematics_number',
+//             'vehicle_type' =>'required' ,
+//             'vehicle_model' =>'required' ,
+//             'location' =>'required' ,
+//             'battery_number' =>'required' ,
+//             'motor_number' =>'required' ,
+            
+//         ]);
+       
+        
+
+//         // if ($validator->fails()) continue;
+//                 if ($validator->fails()) {
+//             $errorRows[] = [
+//                 'row' => $rowIndex,
+//                 'chassis_number' => $chassisNumber,
+//                 'fields' => $validator->errors()->all()
+//             ];
+//             continue;
+//         }
+        
+  
+         
+        
+//          $fileName = null;
+         
+//         //  dd($imageMap);
+         
+//         if (!empty($imageMap[$rowIndex])) {
+//             $imgData = $imageMap[$rowIndex];
+            
+//             // do {
+//             //     $imgName = mt_rand(1000000000, 999999999999999) . '.' . $imgData['ext'];
+//             // } while (file_exists($saveRoot . '/' . $imgName));
+
+//             do {
+//                 $imgName = mt_rand(1000000000, 999999999999999) . '.' . $imgData['ext'];
+//             } while (file_exists($saveFolder . '/' . $imgName));
+    
+//             file_put_contents($saveFolder . '/' . $imgName, $imgData['content']);
+        
+//             // file_put_contents($saveRoot . '/' . $imgName, $imgData['content']);
+            
+//             $fileName = $imgName;
+            
+    
+//         }
+       
+        
+//         $data['image'] = $fileName;
+        
+        
+
+//         // ✅ Insert into DB
+//          QualityCheck::insert($data);
+         
+//         $user = Auth::user();
+
+
+//           QualityCheckReinitiate::insert([
+//                 'qc_id'=>$qcId ?? '' ,
+//                 'status' =>  'qc_pending',
+//                 'remarks' =>  '',
+//                 'initiated_by' => $user->id ?? '' ,
+//                 'created_at'=>now() ,
+//                 'updated_at' => now()
+//             ]);
+            
+    
+//         $inserted[] = $data;
+//     }
+
+
+//     $chassisNumbers = array_column($inserted, 'chassis_number');
+    
+//     return response()->json([
+//         'success' => true,
+//         'message' => count($chassisNumbers) . ' records inserted successfully.',
+//         'inserted_count' => count($chassisNumbers),
+//         'chassis_numbers' => array_column($inserted, 'chassis_number'),
+//         'error_rows' => $errorRows  // send skipped row details
+//     ]);
+
+
+
+// //   return redirect()->route('admin.asset_management.quality_check.list')
+// //                  ->with('success', 'Bulk upload successful!');
+
+        
+//     }
+    
+    
     public function bulk_upload_data(Request $request){
         
         
@@ -907,9 +1307,6 @@ public function quality_check_list(Request $request)
                 'excel_file' => 'required|file|mimes:xls,xlsx'
             ]);
 
-    //  Excel::import(new QualityCheckBulkImport, $request->file('excel_file'));
-     
-    //  return back()->with('success', 'Bulk upload successful!');
     
     
     $file = $request->file('excel_file');
@@ -923,14 +1320,13 @@ public function quality_check_list(Request $request)
     $highestColumn = $sheet->getHighestColumn();
     $highestRow = $sheet->getHighestRow();
     
-    
-        
-    if (($highestRow - 1) < 2) {
+    if (($highestRow - 1) < 1) {
         return response()->json([
             'success' => false,
-            'message' => 'Excel must contain at least 2 rows of data (excluding the header).'
+            'message' => 'Excel must contain at least 1 row of data (excluding the header).'
         ], 422);
     }
+
 
 
 
@@ -939,11 +1335,39 @@ public function quality_check_list(Request $request)
         if (!file_exists($saveFolder)) mkdir($saveFolder, 0777, true);
         
         
+        $requiredHeaders = [
+        'vehicle_type',
+        'vehicle_model',
+        'city',
+        'zone',
+        'accountability_type',
+        'customer_trade_name',
+        'is_recoverable',
+        'chassis_number',
+        'telematics_number',
+        'battery_number',
+        'motor_number',
+        'image'
+        ];
+
+        
     // Map headers A => vehicle_type, B => vehicle_model, ...
     $headerMap = [];
     foreach (range('A', $highestColumn) as $col) {
         $headerMap[$col] = strtolower(str_replace(' ', '_', trim($sheet->getCell($col . '1')->getValue())));
     }
+    
+    
+    $missingHeaders = array_diff($requiredHeaders, $headerMap);
+    
+    
+    if (!empty($missingHeaders)) {
+    return response()->json([
+        'success' => false,
+        'message' => 'The Excel file is missing the following required columns: ' . implode(', ', $missingHeaders)
+    ], 422);
+    }
+
 
     $imageMap = [];
     $pdfMap = [];
@@ -969,67 +1393,15 @@ public function quality_check_list(Request $request)
             if (!in_array($ext, ['jpg', 'jpeg', 'png'])) continue;
         }
 
-        // do {
-        //     $imgName = mt_rand(1000000000, 999999999999999) . '.' . $ext;
-        // } while (file_exists($saveFolder . '/' . $imgName));
-
-        // file_put_contents($saveFolder . '/' . $imgName, $imageContents);
-        // $imageMap[$row] = $imgName;
-        // $assignedFiles[$row] = true;
                 $imageMap[$row] = [
             'ext' => $ext,
             'content' => $imageContents
         ];
     }
 
-    // STEP 2: Extract PDFs from ZIP and map by unassigned rows
-    // $zip = new \ZipArchive();
-    // if ($zip->open($excelPath)) {
-    //     $pdfCandidates = [];
-    //     for ($i = 0; $i < $zip->numFiles; $i++) {
-    //         $entryName = $zip->getNameIndex($i);
-    //         if (str_starts_with($entryName, 'xl/embeddings/')) {
-    //             $stream = $zip->getFromIndex($i);
-    //             $pdfStart = strpos($stream, '%PDF');
-
-    //             if ($pdfStart !== false) {
-    //                 $pdfData = substr($stream, $pdfStart);
-    //                 $pdfEnd = strpos($pdfData, '%%EOF');
-    //                 if ($pdfEnd !== false) {
-    //                     $pdfData = substr($pdfData, 0, $pdfEnd + 6);
-    //                 }
-
-    //                 $folder = 'quality_check';
-    //                 $saveFolder = $saveRoot . '/' . $folder;
-    //                 if (!file_exists($saveFolder)) mkdir($saveFolder, 0777, true);
-
-    //                 do {
-    //                     $pdfName = mt_rand(1000000000, 999999999999999) . '.pdf';
-    //                 } while (file_exists($saveFolder . '/' . $pdfName));
-
-    //                 file_put_contents($saveFolder . '/' . $pdfName, $pdfData);
-    //                 $pdfCandidates[] = $pdfName;
-    //             }
-    //         }
-    //     }
-    //     $zip->close();
-
-    //     // Assign each unassigned row in order
-    //     $pdfIndex = 0;
-    //     for ($r = 2; $r <= $highestRow; $r++) {
-    //         if (!isset($assignedFiles[$r]) && isset($pdfCandidates[$pdfIndex])) {
-    //             $pdfMap[$r] = $pdfCandidates[$pdfIndex];
-    //             $assignedFiles[$r] = true;
-    //             $pdfIndex++;
-    //         }
-    //     }
-    // }
-
-    // STEP 3: Loop and insert row-wise
     $inserted = [];
+    $errorRows = [];
 
-
-    
     
 
     foreach ($sheet->getRowIterator(2) as $rowObj) {
@@ -1040,30 +1412,31 @@ public function quality_check_list(Request $request)
             $cellValues[$heading] = $sheet->getCell($col . $rowIndex)->getValue() ?? null;
         }
         
-       
-        
 
         // Access fields individually
         $vehicleType        = $cellValues['vehicle_type']        ?? null;
         $vehicleModel       = $cellValues['vehicle_model']       ?? null;
-        $location           = $cellValues['location']            ?? null;
+        $city               = $cellValues['city']            ?? null;
+        $zone               = $cellValues['zone']            ?? null;
+        $accountability_type = $cellValues['accountability_type'] ?? null;
+        $customer_trade_name = $cellValues['customer_trade_name'] ?? null;
+        $is_recoverable      = $cellValues['is_recoverable'] ?? null;
         $chassisNumber      = $cellValues['chassis_number']      ?? null;
         $telematicsNumber   = $cellValues['telematics_number']   ?? null;
         $motor_number   = $cellValues['motor_number']   ?? null;
         $battery_number   = $cellValues['battery_number']   ?? null;
         $image = $cellValues['image']   ?? null;
         
-        // if(empty($chassisNumber) || empty($telematicsNumber)){
-        //     continue;
-        // }
-        
-        
-               $missingFields = [];
+
+        $missingFields = [];
         if (empty($chassisNumber)) $missingFields[] = 'Chassis Number';
         if (empty($telematicsNumber)) $missingFields[] = 'Telematics Number';
         if (empty($vehicleType)) $missingFields[] = 'Vehicle Type';
         if (empty($vehicleModel)) $missingFields[] = 'Vehicle Model';
-        if (empty($location)) $missingFields[] = 'Location';
+        if (empty($city)) $missingFields[] = 'Location';
+        if (empty($zone)) $missingFields[] = 'Zone';
+        if (empty($accountability_type)) $missingFields[] = 'Accountability Type';
+        if (empty($customer_trade_name)) $missingFields[] = 'Customer Trade Name';
         if (empty($battery_number)) $missingFields[] = 'Battery Number';
         if (empty($motor_number)) $missingFields[] = 'Motor Number';
 
@@ -1095,21 +1468,51 @@ public function quality_check_list(Request $request)
             $vehicleModel_id = $vehicleModelRecord?->id ?? null;
         }
         
-        // Location
-        if (!empty($location)) {
-            $locationRecord = LocationMaster::whereRaw('LOWER(name) = ?', [trim(strtolower($location))])->first();
-            $location_id = $locationRecord?->id ?? null;
+        // City
+        if (!empty($city)) {
+            $cityRecord = City::whereRaw('LOWER(city_name) = ?', [trim(strtolower($city))])->first();
+            $city_id = $cityRecord?->id ?? null;
+        }
+        
+        //zone
+        if (!empty($zone)) {
+            $zoneRecord = Zones::whereRaw('LOWER(name) = ?', [trim(strtolower($zone))])->first();
+            $zone_id = $zoneRecord?->id ?? null;
         }
 
 
+        //recoverable
+      if (isset($is_recoverable) && ($is_recoverable == 0 || $is_recoverable == 1)) {
+            $recovery_id = $is_recoverable;
+        } else {
+            $recovery_id = null;
+        }
+        
+        //accounttype
 
+        if (!empty($accountability_type)) {
+            $accountabilityRecord = EvTblAccountabilityType::whereRaw('LOWER(name) = ?', [trim(strtolower($accountability_type))])->first();
+            $accounttype_id = $accountabilityRecord?->id ?? null;
+        }
 
+        //customer trade name
+        if (!empty($customer_trade_name)) {
+            $customerRecord = CustomerMaster::whereRaw('LOWER(trade_name) = ?', [trim(strtolower($customer_trade_name))])->first();
+            $customer_id = $customerRecord?->id ?? null;
+        }
 
-        if(empty($vehicle_type_id) || empty($vehicleModel_id) || empty($location_id)){
-                        $invalids = [];
+        if(empty($vehicle_type_id) || empty($vehicleModel_id) || empty($city_id) || empty($zone_id) || empty($accounttype_id) || empty($recovery_id) || ($accounttype_id == 2 && empty($customer_id)) ){
+            $invalids = [];
             if (empty($vehicle_type_id)) $invalids[] = 'Vehicle Type (invalid)';
             if (empty($vehicleModel_id)) $invalids[] = 'Vehicle Model (invalid)';
-            if (empty($location_id)) $invalids[] = 'Location (invalid)';
+            if (empty($city)) $invalids[] = 'City (invalid)';
+            if (empty($zone)) $invalids[] = 'Zone (invalid)';
+            if (empty($accountability_type)) $invalids[] = 'Accountability Type (invalid)';
+            if (empty($recovery_id)) $invalids[] = 'Is Recoverable (invalid)';
+            
+           if ($accounttype_id == 2 && empty($customer_id)) {
+                $invalids[] = 'Customer (required for accountability type fixed)';
+            }
 
             $errorRows[] = [
                 'row' => $rowIndex,
@@ -1122,12 +1525,6 @@ public function quality_check_list(Request $request)
         
         
 
-        // Skip if no file (image or pdf)
-        // $fileName = $imageMap[$rowIndex] ?? $pdfMap[$rowIndex] ?? null;
-        // if (!$fileName) continue;
-        
-        // $fileName = $imageMap[$rowIndex] ?? null;
-
         // Generate custom ID
            $lastCode = QualityCheck::orderBy('id', 'desc')->value('id');
         
@@ -1138,35 +1535,44 @@ public function quality_check_list(Request $request)
                 $newNumber = 1001; // Start from QC1001
             }
         
-            // ✅ Generate new QC code
             $qcId = 'QC' . $newNumber;
             
             
-        
-                
+        if ($accounttype_id == 1) {
+            $customer_id = null;
+        }     
         
         $data = [
             'id'                => $qcId,
             'vehicle_type'      => $vehicle_type_id,
             'vehicle_model'     => $vehicleModel_id,
-            'location'          => $location_id ,
+            'location'          => $city_id , //city
+            'zone_id'          => $zone_id , //zone
+            'accountability_type' => $accounttype_id ,
+            'is_recoverable'   =>$recovery_id ?? '',
+            'customer_id'      => $customer_id ?? '' ,
             'chassis_number'    => $chassisNumber,
             'telematics_number' => $telematicsNumber,
             'battery_number' => $battery_number,
             'motor_number' => $motor_number,
-            'image'             => null, // PDF or image
+            'image'             => null, 
             'technician'        => Auth::id(),
-             'datetime' => now(),
+            'datetime' => now(),
             'status'            => 'qc_pending',
             'created_at'        => now(),
             'updated_at'        => now(),
         ];
         
+        
             $values = [
             'id'                => $qcId,
             'vehicle_type'      => $vehicle_type_id,
             'vehicle_model'     => $vehicleModel_id,
-            'location'          => $location_id ,
+            'city'              => $city_id , // city
+            'zone'              => $zone_id , // zone
+            'accountability_type' => $accounttype_id ,
+            'is_recoverable'    => $recovery_id ,
+            'customer'            =>$customer_id ?? '' ,
             'chassis_number'    => trim($chassisNumber),
             'telematics_number' => trim($telematicsNumber),
             'battery_number' => $battery_number,
@@ -1185,7 +1591,11 @@ public function quality_check_list(Request $request)
             'telematics_number' => 'required|unique:vehicle_qc_check_lists,telematics_number',
             'vehicle_type' =>'required' ,
             'vehicle_model' =>'required' ,
-            'location' =>'required' ,
+            'city' =>'required' ,
+            'zone' =>'required' ,
+            'is_recoverable' => 'required' ,
+            'accountability_type' =>'required' ,
+            'customer'          => 'required_if:accountability_type,2',
             'battery_number' =>'required' ,
             'motor_number' =>'required' ,
             
@@ -1194,7 +1604,7 @@ public function quality_check_list(Request $request)
         
 
         // if ($validator->fails()) continue;
-                if ($validator->fails()) {
+        if ($validator->fails()) {
             $errorRows[] = [
                 'row' => $rowIndex,
                 'chassis_number' => $chassisNumber,
@@ -1234,8 +1644,6 @@ public function quality_check_list(Request $request)
         $data['image'] = $fileName;
         
         
-
-        // ✅ Insert into DB
          QualityCheck::insert($data);
          
         $user = Auth::user();
@@ -1266,13 +1674,7 @@ public function quality_check_list(Request $request)
     ]);
 
 
-
-//   return redirect()->route('admin.asset_management.quality_check.list')
-//                  ->with('success', 'Bulk upload successful!');
-
-        
     }
-    
     
     public function uploadFile($file, $directory)
     {

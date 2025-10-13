@@ -2293,8 +2293,8 @@ class B2BVehicleController extends Controller
                     $statusBadge = '
                         <span class="badge-status d-inline-flex align-items-center px-2 py-1" 
                               style="background-color:#EEE9CA; border-radius:6px; font-size:14px; font-weight:500; gap:6px; line-height:1;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none">
-                                <rect width="19" height="19" rx="8" fill="#EEE9CA"/>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 23 23" fill="none">
+                                <rect width="24" height="24" rx="8" fill="#EEE9CA"/>
                                 <path d="M4.3335 9.8335V20.8335C4.3335 21.846 5.15431 22.6668 6.16683 22.6668H20.8335C21.846 22.6668 22.6668 21.846 22.6668 20.8335V9.8335" stroke="#58490F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
                                 <path d="M6.57677 5.34694L4.3335 9.8335H22.6668L20.4236 5.34694C20.113 4.72584 19.4782 4.3335 18.7837 4.3335H8.21656C7.52214 4.3335 6.88733 4.72583 6.57677 5.34694Z" stroke="#58490F" stroke-width="1.375" stroke-linejoin="round"/>
                                 <path d="M13.5 9.8335V4.3335" stroke="#58490F" stroke-width="1.375"/>
