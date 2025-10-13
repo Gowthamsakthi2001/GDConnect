@@ -1,0 +1,11 @@
+{
+    "name": "MasterManagement",
+    "alias": "mastermanagement",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\MasterManagement\\Providers\\MasterManagementServiceProvider"
+    ],
+    "files": []
+}

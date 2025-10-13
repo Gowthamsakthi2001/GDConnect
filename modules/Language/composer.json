@@ -1,0 +1,21 @@
+{
+    "name": "iqbalhasandev/language",
+    "description": "",
+    "authors": [
+        {
+            "name": "IQBAL HASAN",
+            "email": "info@iqbalhasan.dev"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Language\\": ""
+        }
+    }
+}

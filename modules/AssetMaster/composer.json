@@ -1,0 +1,31 @@
+{
+    "name": "bdtask/assetmaster",
+    "description": "",
+    "authors": [
+        {
+            "name": "Bdtask Limited",
+            "email": "business@bdtask.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\AssetMaster\\": "",
+            "Modules\\AssetMaster\\App\\": "app/",
+            "Modules\\AssetMaster\\Database\\Factories\\": "database/factories/",
+            "Modules\\AssetMaster\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\AssetMaster\\Tests\\": "tests/"
+        }
+    }
+}

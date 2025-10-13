@@ -1,0 +1,11 @@
+{
+    "name": "VehicleServiceTicket",
+    "alias": "vehicleserviceticket",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\VehicleServiceTicket\\Providers\\VehicleServiceTicketServiceProvider"
+    ],
+    "files": []
+}
