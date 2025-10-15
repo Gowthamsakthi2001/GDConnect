@@ -135,7 +135,7 @@
                                     <label for="role" class="font-black">Login Type <span class="text-danger fw-bold">*</span></label>
                                     <select class="form-control show-tick" name="login_type" id="login_type" required onchange="GetLogin_Type(this.value)">
                                         <option value="">--{{ localize('Select') }}--</option>
-                                        <option value="1" {{$login_type == 1 ? 'selected' : ''}} class="d-none">Master</option>
+                                        <option value="1" {{$login_type == 1 ? 'selected' : ''}}>Master</option>
                                         <option value="2" {{$login_type == 2 ? 'selected' : ''}}>Zone</option>
                                     </select>
                                     @error('login_type')

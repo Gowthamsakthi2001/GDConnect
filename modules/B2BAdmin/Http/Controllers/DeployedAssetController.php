@@ -355,7 +355,7 @@ class DeployedAssetController extends Controller
     {
         $request_id = decrypt($id);
        
-        $data = B2BVehicleRequests::where('id', $request_id)
+        $data = B2BVehicleRequests::with('assignment','rider','agent')->where('id', $request_id)
                 ->first();
                 
         $vehicle_types = VehicleType::where('is_active', 1)->get();

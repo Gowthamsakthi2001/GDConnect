@@ -338,7 +338,11 @@
                 <!-- Tabs -->
                 <ul class="nav nav-tabs custom-tabs mb-3 border-0">
                     <li class="nav-item">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#rider-info">Rider Info</a>
+                            <a class="nav-link active" data-bs-toggle="tab" href="#deployment-info">Deployment Info</a>
+                        </li>
+                        
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#rider-info">Rider Info</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" data-bs-toggle="tab" href="#kyc-info">KYC Info</a>
@@ -357,7 +361,349 @@
     </div>
      
             <div class="tab-content">
-                <div class="tab-pane fade show active" id="rider-info">
+                 <div class="tab-pane fade show active" id="deployment-info">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                             <div class="col-md-6 mb-3"> <!-- Updated by Gowtham.S-->
+                                <label class="form-label">Vehicle Type</label>
+                                <input type="text" class="form-control bg-white" value="{{ $data->vehicle_type_relation->name ?? 'N/A' }}" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Battery Type</label>
+                                <input type="text" class="form-control bg-white" value="{{ ($data->battery_type == '1' ) ?'Self-Charging':'Portable' ?? 'N/A' }}" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" class="form-control bg-white" value="{{ $data->start_date ?? 'N/A' }}" readonly>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">End Date</label>
+                                <input type="date" class="form-control bg-white" value="{{ $data->end_date ?? 'N/A' }}" readonly>
+                            </div>
+                           
+                            @if(isset($data))
+                            @if($data->status == 'completed')
+                            
+                            @if($data->closed_by)
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Closed By</label>
+                                <input type="text" class="form-control bg-white" value="{{ $data->agent->name ?? 'N/A' }}" readonly>
+                            </div>
+                            @endif
+                            <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label class="input-label mb-2 ms-1" for="odometer_value">Odometer Value <span style="color:red;">*</span></label>
+                                <input type="number" class="form-control bg-white" name="odometer_value" id="odometer_value" value="{{$data->assignment->odometer_value ?? 'N/A'}}" readonly>
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="col-md-6 mb-3">
+                                <label class="form-label">Odometer Image</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->odometer_image))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->odometer_image, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/odometer_images/'.$data->assignment->odometer_image);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Front</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_front))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_front, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_front/'.$data->assignment->vehicle_front);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Vehicle Front"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Vehicle Front"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Back</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_back))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_back, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_back/'.$data->assignment->vehicle_back);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Top</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_top))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_top, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_top/'.$data->assignment->vehicle_top);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Bottom</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_bottom))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_bottom, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_bottom/'.$data->assignment->vehicle_bottom);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Right</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_right))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_right, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_right/'.$data->assignment->vehicle_right);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Left</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_left))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_left, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_left/'.$data->assignment->vehicle_left);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Battery</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_battery))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_battery, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_battery/'.$data->assignment->vehicle_battery);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Vehicle Charger</label>
+                                <div class="file-preview-container">
+                                    @if(!empty($data->assignment->vehicle_charger))
+                                        @php
+                                            $frontExtension = pathinfo($data->assignment->vehicle_charger, PATHINFO_EXTENSION);
+                                            $frontPath = asset('b2b/vehicle_charger/'.$data->assignment->vehicle_charger);
+                                        @endphp
+                                       
+                        
+                                        @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
+                                            <img src="{{ $frontPath }}"
+                                                 class="img-fluid rounded"
+                                                 alt="Odometer Image"
+                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                        @elseif(strtolower($frontExtension) === 'pdf')
+                                        <iframe src="{{ $frontPath }}"
+                                                class="file-preview border rounded"
+                                                style="width:100%; height:200px;"
+                                                frameborder="0"></iframe>
+                                                   
+                                                   
+                                        @endif
+                                    @else
+                                        <img src="{{ asset('b2b/img/default_image.png') }}"
+                                             class="img-fluid rounded"
+                                             alt="Odometer Image"
+                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                    @endif
+                                         
+                                </div>
+                            </div>
+                        @endif
+                        @endif    
+                        </div>
+          
+                    </div>
+                </div>
+            </div>
+            
+                <div class="tab-pane fade " id="rider-info">
                 <div class="card">
                     <div class="card-body">
                       <div class="row">
@@ -393,51 +739,6 @@
                         
 
                         
-                        </div>
-                        
-                        <div class="row mb-2">
-                            <h6 class="custom-dark">Request Form</h5>
-                        </div>
-                        <div class="row">
-                            
-                        <div class="col-md-6 mb-3">
-                            <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="from_date">Vehicle Duration From Date</label>
-                                <input type="date" class="form-control bg-white" name="from_date" id="from_date"  value="{{$data->start_date ?? ''}}" placeholder="From date" readonly>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="to_date">Vehicle Duration To Date</label>
-                                <input type="date" class="form-control bg-white" name="to_date" id="to_date"  value="{{$data->end_date ?? ''}}" placeholder="End Date" readonly>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="vehicle_type">Vehicle Type</label>
-                             <select class="form-control" name="vehicle_type" disabled>
-                                <option value="">Select Vehicle Type</option>
-                                @if(isset($vehicle_types))
-                                @foreach($vehicle_types as $type)
-                                <option value="{{$type->id}}" {{ $data->vehicle_type ==  $type->id ? 'selected' : '' }}>{{$type->name}}</option>
-                                @endforeach
-                                @endif
-                              </select>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="battery_type">Battery Type</label>
-                                <select class="form-control" name="battery_type" disabled>
-                              <option value="">Select Battery Type</option>
-                              <option value="1" {{ ($data->battery_type == '1') ? 'selected' : '' }}>Self Charging</option>
-                              <option value="2" {{ ($data->battery_type == '2') ? 'selected' : '' }}>Portable</option>
-                            </select>
-                            </div>
-                        </div>
                         </div>
   
                     </div>

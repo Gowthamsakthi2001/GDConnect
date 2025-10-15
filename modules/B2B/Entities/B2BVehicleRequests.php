@@ -5,6 +5,7 @@ namespace Modules\B2B\Entities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\B2B\Entities\B2BRider;
+use Modules\B2B\Entities\B2BAgent;
 use Modules\B2B\Entities\B2BVehicleAssignment;
 use Modules\MasterManagement\Entities\CustomerLogin;
 use Modules\VehicleManagement\Entities\VehicleType;
@@ -37,6 +38,11 @@ public $timestamps = true;
     public function rider()
     {
         return $this->belongsTo(B2BRider::class, 'rider_id', 'id');
+    }
+    
+    public function agent()
+    {
+        return $this->belongsTo(B2BAgent::class, 'closed_by', 'id');
     }
     
     public function customerLogin()

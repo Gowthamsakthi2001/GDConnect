@@ -245,7 +245,7 @@ class RoleTableSeeder extends Seeder
         // when you add new permissions in table ,you should change firstOrCreate instead of create
         
         // Ensure the 'Administrator' role exists
-        $administrator = Role::firstOrCreate(['name' => 'Administrator']);
+        $administrator = Role::firstOrCreate(['name' => 'Super Admin']);
 
         // Create permissions and assign to Administrator role
         foreach ($permissions as $group => $groupPermissions) {
@@ -261,34 +261,34 @@ class RoleTableSeeder extends Seeder
 
 
         // Seed users
-        $users = [
-            [
-                'name' => 'Admin',
-                'email' => 'admin@gmail.com',
-                'password' => 'admin', 
-                'role' => 'Administrator',
-            ],
-            [
-                'name' => 'User',
-                'email' => 'user@gmail.com',
-                'password' => 'user', 
-                'role' => 'User',
-            ],
-        ];
+        // $users = [
+        //     [
+        //         'name' => 'Admin',
+        //         'email' => 'admin@gmail.com',
+        //         'password' => 'admin', 
+        //         'role' => 'Administrator',
+        //     ],
+        //     [
+        //         'name' => 'User',
+        //         'email' => 'user@gmail.com',
+        //         'password' => 'user', 
+        //         'role' => 'User',
+        //     ],
+        // ];
 
-        foreach ($users as $userData) {
-            $user = User::firstOrCreate(
-                ['email' => $userData['email']], 
-                [
-                    'name' => $userData['name'],
-                    'password' => Hash::make($userData['password']),
-                    'email_verified_at' => now(),
-                    'status' => 'Active',
-                ]
-            );
+        // foreach ($users as $userData) {
+        //     $user = User::firstOrCreate(
+        //         ['email' => $userData['email']], 
+        //         [
+        //             'name' => $userData['name'],
+        //             'password' => Hash::make($userData['password']),
+        //             'email_verified_at' => now(),
+        //             'status' => 'Active',
+        //         ]
+        //     );
 
-            // Assign role to the user
-            $user->assignRole($userData['role']);
-        }
+        //     // Assign role to the user
+        //     $user->assignRole($userData['role']);
+        // }
     }
 }
