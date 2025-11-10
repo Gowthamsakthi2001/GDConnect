@@ -139,6 +139,7 @@ class QualityCheckController extends Controller
 public function quality_check_list(Request $request)
 {
 
+    
     // $chassis_numbers = [
     //  'MD9HAPXF4FR710102',
     //  'MD9HAPXF4FR710108',
@@ -169,17 +170,12 @@ public function quality_check_list(Request $request)
             $query = QualityCheck::with([
                 'vehicle_type_relation:id,name',
                 'vehicle_model_relation:id,vehicle_model',
-                'location_relation:id,city_name' ,
-                'zone:id,name',
-                'accountability_type_relation:id,name'
+                'location_relation:id,name'
             ])->where('delete_status', 0);
 
             // Apply filters
             $status = $request->input('status');
             $location = $request->input('location');
-            $zone_id = $request->input('zone');
-            $customer_id = $request->input('customer');
-            $accountability_type_id = $request->input('accountability_type');
             $timeline = $request->input('timeline');
             $from_date = $request->input('from_date');
             $to_date = $request->input('to_date');
@@ -195,20 +191,6 @@ public function quality_check_list(Request $request)
             // Location filter
             if (!empty($location)) {
                 $query->where('location', (int)$location);
-            }
-            
-            if (!empty($zone_id)) {
-                $query->where('zone_id', (int)$zone_id);
-            }
-            
-            // accountability type filter
-            if (!empty($accountability_type_id)) {
-                $query->where('accountability_type', (int)$accountability_type_id);
-            }
-            
-            // customer  filter
-            if (!empty($customer_id)) {
-                $query->where('customer_id', $customer_id);
             }
 
             // Timeline filters
@@ -263,17 +245,8 @@ public function quality_check_list(Request $request)
                           $q->where('vehicle_model', 'like', "%$search%");
                       })
                       ->orWhereHas('location_relation', function($q) use ($search) {
-                          $q->where('city_name', 'like', "%$search%");
-                      }) 
-                      ->orWhereHas('zone', function($q) use ($search) {
                           $q->where('name', 'like', "%$search%");
-                      })
-                 ->orWhereHas('accountability_type_relation', function($q) use ($search) {
-                          $q->where('name', 'like', "%$search%");
-                          $q->where('name', 'like', "%$search%");
-
-                      
-                    });
+                      });
                 });
             }
 
@@ -318,9 +291,7 @@ public function quality_check_list(Request $request)
                     'id' => $item->id,
                     'vehicle_type' => $item->vehicle_type_relation->name ?? '-',
                     'vehicle_model' => $item->vehicle_model_relation->vehicle_model ?? '-',
-                    'location' => $item->location_relation->city_name ?? '-',
-                    'zone' => $item->zone->name ?? '-',
-                    'accountability_type' => $item->accountability_type_relation->name ?? '-',
+                    'location' => $item->location_relation->name ?? '-',
                     'chassis_number' => $item->chassis_number,
                     'battery_number' => $item->battery_number,
                     'telematics_number' => $item->telematics_number,
@@ -367,14 +338,10 @@ public function quality_check_list(Request $request)
     }
 
     // For initial page load (non-AJAX)
-    $location_data = City::where('status', 1)->get();
+    $location_data = LocationMaster::where('status', 1)->get();
     if ($totalRecords === 0) {
         $totalRecords = QualityCheck::where('delete_status', 0)->count();
     }
-    	
-    $accountablity_types = EvTblAccountabilityType::where('status', 1)->get();
-    $customers = CustomerMaster::where('status',1)->get();
-    $zones = Zones::where('status', 1)->get();
     
     return view('assetmaster::quality_check.index', [
         'datas' => collect(),
@@ -382,14 +349,8 @@ public function quality_check_list(Request $request)
         'from_date' => $request->from_date ?? '',
         'to_date' => $request->to_date ?? '',
         'timeline' => $request->timeline ?? '',
-        'accountablity_types' => $accountablity_types ,
-        'zone_data' => $zones ,
-        'customers' => $customers ,
         'location_data' => $location_data,
         'location' => $request->location ?? '',
-        'zone_id'  => $request->zone,
-        'customer_id' => $request->customer ,
-        'accountability_type' => $request->accountability_type,
         'totalRecords'=>$totalRecords
     ]);
 }
@@ -430,7 +391,7 @@ public function quality_check_list(Request $request)
         
         $datas = QualityCheck::where('id', $qc_id)->first();
        $initiate_values = QualityCheckReinitiate::where('qc_id', $qc_id)
-       ->whereIn('status', ['pass', 'fail' , 'updated'])
+       ->whereIn('status', ['pass', 'fail'])
         ->orderBy('id', 'desc')
         ->get();
         
@@ -483,32 +444,24 @@ public function quality_check_list(Request $request)
         $to_date = $request->to_date;
          $timeline = $request->timeline;
          $location = $request->location;
-                  $zone = $request->zone;
-         $customer = $request->customer;
-         $accountability_type = $request->accountability_type;
-        
-    $user     = Auth::user();
-    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+         $fileName = 'quality_check-' . date('d-m-Y') . '.xlsx';
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
     
-        $audit = [
-        'module_id'         => 4, // use your real module id for QC
-        'short_description' => 'Quality Check export requested',
-        'long_description'  => sprintf(
-            'Export requested for Quality Checks.'
-        ),
-        'role'              => $roleName,
-        'user_id'           => Auth::id(),
-        'user_type'         => 'gdc-admin-dashboard',
-        'dashboard_type'    => 'web',
-        'page_name'         => 'admin/asset-management/quality-check/create',
-        'ip_address'        => $request->ip(),
-        'user_device'       => $request->userAgent(),
-    ];
-
-    // No transaction here → log immediately
-    audit_log($audit);
-        
-          return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location , $zone , $customer , $accountability_type), 'quality_check-' . date('d-m-Y') . '.xlsx');
+        // ✅ Log before exporting (optional)
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Quality Check Export Initiated',
+            'long_description'  => "User initiated QC export. File: {$fileName}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'quality_check.export',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+          return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location), $fileName);
        
     }
     
@@ -534,7 +487,23 @@ public function quality_check_list(Request $request)
         ->where('vehicle_type_id', $request->vehicle_type)
         ->get();
 
-        // Validation Rules
+            $user     = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+    // ✅ Log: create initiated (log this before validation so attempts are recorded)
+    audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => 'Quality Check Create Initiated',
+        'long_description'  => 'User started creating a Quality Check record.',
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'quality_check.store',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
+    // Validation Rules
         $rules = [
             'vehicle_type' => 'required',
             'vehicle_model' => 'required',
@@ -600,7 +569,7 @@ public function quality_check_list(Request $request)
             $customerId = ($request->accountability_type == 1) ? null : $request->customer_id;
             
         
-            $qulaityCheck = QualityCheck::create([
+            QualityCheck::create([
                 'id' => $qcCode,
                 'vehicle_type' => $request->vehicle_type ?? '',
                 'vehicle_model' => $request->vehicle_model,
@@ -622,26 +591,7 @@ public function quality_check_list(Request $request)
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
-            $user = Auth::user();
             
-            $roles = Role::all(); // or Role::query()->get();
-            $roleName = optional($roles->firstWhere('id', $user->role))->name ?? 'Unknown';
-            
-            $qcAuditData = [
-                'module_id'         => 4, // set your real QC module id
-                'short_description' => "QC Created for Vehicle Chassis: {$request->chassis_number}",
-                'long_description'  => "QC record ({$qcCode}) created for Vehicle Model: {$request->vehicle_model}, Chassis: {$request->chassis_number}.",
-                'role'              => $roleName,                           // human-readable role
-                'user_id'           => Auth::id() ?? null,                          // <-- method, not property
-                'user_type'         => 'gdc-admin-dashboard',                           // or keep a distinct concept if you have one
-                'dashboard_type'    => 'web',
-                'page_name'         => 'admin/asset-management/quality-check/create',
-                'ip_address'        => $request->ip(),
-                'user_device'       => $request->userAgent(),
-            ];
-                
-                // Use helper (after commit because you are inside transaction)
-                audit_log_after_commit($qcAuditData);
             
             if($request->result == 'pass'){
                 
@@ -668,7 +618,6 @@ public function quality_check_list(Request $request)
                     'vehicle_type'=> $request->vehicle_type ?? '' ,
                     'motor_number' => $request->motor_number ?? '' ,
                     'location' => $request->location ?? '',
-                    'city_code' => $request->location ?? '',
                     'battery_serial_no'=> $request->battery_number ?? '',
                     'telematics_serial_no' => $request->telematics_number ?? '' ,
                     'model' => $request->vehicle_model ?? '' ,
@@ -677,38 +626,6 @@ public function quality_check_list(Request $request)
                
             ]);
             
-            $qcPassAuditData = [
-                'module_id'         => 4, // set your real QC module id
-                'short_description' => "QC Passed for Vehicle Chassis: {$request->chassis_number}",
-                'long_description'  => "QC record ({$qcCode}) passed for Vehicle Model: {$request->vehicle_model}, Chassis: {$request->chassis_number}.",
-                'role'              => $roleName,                           // human-readable role
-                'user_id'           => Auth::id() ?? null,                          // <-- method, not property
-                'user_type'         => 'gdc-admin-dashboard',                           // or keep a distinct concept if you have one
-                'dashboard_type'    => 'web',
-                'page_name'         => 'admin/asset-management/quality-check/create',
-                'ip_address'        => $request->ip(),
-                'user_device'       => $request->userAgent(),
-            ];
-                
-                // Use helper (after commit because you are inside transaction)
-                audit_log_after_commit($qcPassAuditData);
-            }else{
-                
-                $qcfailAuditData = [
-                'module_id'         => 4, // set your real QC module id
-                'short_description' => "QC Failed for Vehicle Chassis: {$request->chassis_number}",
-                'long_description'  => "QC record ({$qcCode}) failed for Vehicle Model: {$request->vehicle_model}, Chassis: {$request->chassis_number}.",
-                'role'              => $roleName,                           // human-readable role
-                'user_id'           => Auth::id() ?? null,                          // <-- method, not property
-                'user_type'         => 'gdc-admin-dashboard',                           // or keep a distinct concept if you have one
-                'dashboard_type'    => 'web',
-                'page_name'         => 'admin/asset-management/quality-check/create',
-                'ip_address'        => $request->ip(),
-                'user_device'       => $request->userAgent(),
-            ];
-                
-                // Use helper (after commit because you are inside transaction)
-                audit_log_after_commit($qcfailAuditData);
             }
 
 
@@ -720,22 +637,7 @@ public function quality_check_list(Request $request)
                 'created_at'=>now() ,
                 'updated_at' => now()
             ]);
-            
-            $qcReinititateAuditData = [
-                'module_id'         => 4, // set your real QC module id
-                'short_description' => "QC Reinitiated for Vehicle Chassis: {$request->chassis_number}",
-                'long_description'  => "QC record ({$qcCode}) Reinitiated for Vehicle Model: {$request->vehicle_model}, Chassis: {$request->chassis_number}.",
-                'role'              => $roleName,                           // human-readable role
-                'user_id'           => Auth::id() ?? null,                          // <-- method, not property
-                'user_type'         => 'gdc-admin-dashboard',                           // or keep a distinct concept if you have one
-                'dashboard_type'    => 'web',
-                'page_name'         => 'admin/asset-management/quality-check/create',
-                'ip_address'        => $request->ip(),
-                'user_device'       => $request->userAgent(),
-            ];
-                
-                // Use helper (after commit because you are inside transaction)
-                audit_log_after_commit($qcReinititateAuditData);
+
 
             $qcData = [
                 'id' => $qcCode,
@@ -748,17 +650,41 @@ public function quality_check_list(Request $request)
 
          // Send email
         // Mail::to('')->send(new QualityCheckMail($qcData));
-            
+    
 
 
             
             // return redirect()->route('admin.asset_management.quality_check.list')->with('success', 'Quality check created successfully.');
             
           DB::commit(); // ✅ Commit transaction
+             audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Quality Check Create Completed',
+                'long_description'  => "Quality Check {$qcCode} created successfully.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'quality_check.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
         
         return response()->json(['success' => true, 'redirect' => route('admin.asset_management.quality_check.list')]);
 
     } catch (\Exception $e) {
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Quality Check Create Failed',
+            'long_description'  => "Failed to create QC " . ($qcCode ?? '(not generated)') . '. Error: ' . substr($e->getMessage(), 0, 1000),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'quality_check.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         DB::rollback(); // ❌ Rollback transaction
         return response()->json(['error' => 'Something went wrong. Please try again.'], 500);
     }
@@ -981,7 +907,21 @@ public function quality_check_list(Request $request)
                 'check_lists' => json_encode($request->qc),
                 'updated_at'         => now()
             ];
-
+                
+                    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                    $qcAuditData = [
+                        'module_id'         => 4,
+                        'short_description' => 'QC Reinitiated/Updated',
+                        'long_description'  => "QC ({$id}) reinitiated/updated. New status: {$request->result}. {$changeRemark}",
+                        'role'              => $roleName,
+                        'user_id'           => Auth::id(),
+                        'user_type'         => 'gdc_admin_dashboard',
+                        'dashboard_type'    => 'web',
+                        'page_name'         => 'quality_check.reinitiate',
+                        'ip_address'        => $request->ip(),
+                        'user_device'       => $request->userAgent()
+                    ];
+                    audit_log_after_commit($qcAuditData);
             // Only add image field if a file is uploaded
             if ($imageName) {
                 $updateData['image'] = $imageName;
@@ -992,20 +932,7 @@ public function quality_check_list(Request $request)
             
              QualityCheck::where('id', $request->qc_id)->update($updateData);
              
-            $roleName = optional(Role::find($user->role))->name ?? 'Unknown';
-            $qcAuditData = [
-                'module_id'         => 4,
-                'short_description' => 'QC Reinitiated/Updated',
-                'long_description'  => "QC ({$id}) reinitiated/updated. New status: {$request->result}. {$changeRemark}",
-                'role'              => $roleName,
-                'user_id'           => Auth::id(),
-                'user_type'         => 'gdc-admin-dashboard',
-                'dashboard_type'    => 'web',
-                'page_name'         => 'admin/asset-management/quality-check/view/{id}',
-                'ip_address'        => $request->ip(),
-                'user_device'       => $request->userAgent(),
-            ];
-            audit_log_after_commit($qcAuditData);
+
 
 
             if($request->result == 'pass'){
@@ -1028,7 +955,7 @@ public function quality_check_list(Request $request)
             
                 
                 
-                 AssetMasterVehicle::create([
+            AssetMasterVehicle::create([
                 'id'=>$Acode ,
                 'qc_id' => $id,
                 'client' => $customerId ,
@@ -1036,7 +963,6 @@ public function quality_check_list(Request $request)
                 'vehicle_type'=> $request->vehicle_type ?? '' ,
                 'motor_number' => $request->motor_number ?? '' ,
                 'location' => $request->location ?? '',
-                'city_code' => $request->location ?? '',
                 'battery_serial_no'=> $request->battery_number ?? '',
                 'telematics_serial_no' => $request->telematics_number ?? '' ,
                 'model' => $request->vehicle_model ?? '' ,
@@ -1044,6 +970,22 @@ public function quality_check_list(Request $request)
                 'is_status' => 'pending',
                
             ]);
+            
+            
+            // ===== AUDIT: Asset created due to QC pass =====
+            $assetAudit = [
+                'module_id'         => 4,
+                'short_description' => 'Vehicle Asset Created (QC Pass)',
+                'long_description'  => "Asset ({$Acode}) created from QC ({$id}) after pass.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'quality_check.reinitiate.pass',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ];
+            audit_log_after_commit($assetAudit);
             }
             
             
@@ -1445,7 +1387,9 @@ public function quality_check_list(Request $request)
     public function bulk_upload_data(Request $request){
         
         
-        
+    $user     = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
      $request->validate([
                 'excel_file' => 'required|file|mimes:xls,xlsx'
             ]);
@@ -1464,6 +1408,20 @@ public function quality_check_list(Request $request)
     $highestRow = $sheet->getHighestRow();
     
     if (($highestRow - 1) < 1) {
+         
+         audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'QC Bulk Upload Completed',
+            'long_description'  => 'Bulk upload ended with validation: no data rows found.',
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'quality_check.bulk_upload',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+        
         return response()->json([
             'success' => false,
             'message' => 'Excel must contain at least 1 row of data (excluding the header).'
@@ -1503,6 +1461,18 @@ public function quality_check_list(Request $request)
     
     $missingHeaders = array_diff($requiredHeaders, $headerMap);
     
+    audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'QC Bulk Upload Completed',
+            'long_description'  => 'Bulk upload ended with validation: missing headers: ' . implode(', ', $missingHeaders),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'quality_check.bulk_upload',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
     
     if (!empty($missingHeaders)) {
     return response()->json([
@@ -1808,28 +1778,22 @@ public function quality_check_list(Request $request)
 
     $chassisNumbers = array_column($inserted, 'chassis_number');
     
-    $user     = Auth::user();
-    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
-    
-    $summaryAudit = [
+    audit_log_after_commit([
         'module_id'         => 4,
-        'short_description' => 'Bulk QC import completed',
+        'short_description' => 'QC Bulk Upload Completed',
         'long_description'  => sprintf(
-            'Bulk QC import: %d records inserted, %d rows skipped. First 10 chassis: %s',
-            count($inserted),
-            count($errorRows),
-            implode(', ', array_slice(array_column($inserted, 'chassis_number'), 0, 10))
+            'Bulk upload finished. Inserted: %d, Errors: %d.',
+            count($chassisNumbers),
+            count($errorRows)
         ),
         'role'              => $roleName,
-        'user_id'           => $user->id,
-        'user_type'         => 'gdc-admin-dashboard',
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
         'dashboard_type'    => 'web',
-        'page_name'         => 'admin/asset-management/quality-check/create',
+        'page_name'         => 'quality_check.bulk_upload',
         'ip_address'        => $request->ip(),
-        'user_device'       => $request->userAgent(),
-    ];
-    
-    audit_log($summaryAudit);
+        'user_device'       => $request->userAgent()
+    ]);
     
     return response()->json([
         'success' => true,
