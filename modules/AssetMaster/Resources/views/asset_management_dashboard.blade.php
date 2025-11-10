@@ -824,6 +824,7 @@
      $customers = \Modules\MasterManagement\Entities\CustomerMaster::where('status', 1)->select('id', 'trade_name')->get();  
   ?>
 
+
    <div class="offcanvas offcanvas-end" tabindex="-1" id="DashoffcanvasRightAMV" aria-labelledby="DashoffcanvasRightAMVLabel">
           <div class="offcanvas-header">
             <h5 class="custom-dark" id="DashoffcanvasRightAMVLabel">Asset Management Filter</h5>
