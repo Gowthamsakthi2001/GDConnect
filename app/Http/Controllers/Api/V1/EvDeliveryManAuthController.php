@@ -220,8 +220,8 @@ class EvDeliveryManAuthController extends Controller
             $otp = 1234;
         }else{
             
-            // $otp = rand(1000, 9999); // Generate a random OTP
-            $otp = 1234;
+            $otp = rand(1000, 9999); // Generate a random OTP
+            // $otp = 1234;
         }
      
         $otpVerification = OtpVerification::where('mobile_number', $request->mobile_number)
@@ -259,7 +259,7 @@ class EvDeliveryManAuthController extends Controller
         // }
         
         if (!in_array($mobile, $test_numbers)) {
-            //  $this->sendsms($request->mobile_number,$otp);
+             $this->sendsms($request->mobile_number,$otp);
         }
        
      
