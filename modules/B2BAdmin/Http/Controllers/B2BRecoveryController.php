@@ -10,6 +10,11 @@ use Modules\City\Entities\City;
 use Modules\B2B\Entities\B2BRecoveryRequest;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\B2BAdminRecoveryRequestExport;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
+use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
+use Modules\B2B\Entities\B2BVehicleAssignmentLog; //updated by logesh
+use Modules\Role\Entities\Role; //updated by logesh
+use Modules\MasterManagement\Entities\RecoveryUpdatesMaster;
 
 class B2BRecoveryController extends Controller
 {
@@ -58,6 +63,19 @@ class B2BRecoveryController extends Controller
                         });
                     }
                     
+                    //updated by logesh
+                    if ($request->filled('accountability_type')) {
+                                $query->whereHas('assignment.VehicleRequest', function($zn) use ($request) {
+                                    $zn->where('account_ability_type', $request->accountability_type);
+                                });
+                            }
+                    //updated by logesh
+                    if ($request->filled('customer_id')) {
+                                $query->whereHas('assignment.rider.customerlogin.customer_relation', function($zn) use ($request) {
+                                    $zn->where('id', $request->customer_id);
+                                });
+                            }
+                            
 
                     // Search filters
                     if (!empty($search)) {
@@ -92,7 +110,11 @@ class B2BRecoveryController extends Controller
                             $q->orWhereHas('assignment.VehicleRequest.city', function($ct) use ($search) {
                                 $ct->where('city_name', 'like', "%{$search}%");
                             });
-                    
+                            
+                             $q->orWhereHas('assignment.VehicleRequest.accountAbilityRelation', function($qr) use ($search) {
+                                $qr->where('name', 'like', "%{$search}%");
+                            });
+                            
                             // Zone
                             $q->orWhereHas('assignment.VehicleRequest.zone', function($zn) use ($search) {
                                 $zn->where('name', 'like', "%{$search}%");
@@ -116,13 +138,76 @@ class B2BRecoveryController extends Controller
                         $statusColumn = '';
                         if ($item->status === 'opened') {
                             $statusColumn = '
-                                <span style="background-color:#CAEDCE; color:#155724;" class="px-2 py-1 rounded-pill">
+                                <span style="background-color:#CAEDCE; color:#155724;border:1px solid #155724;" class="px-2 py-1 rounded-pill">
                                     <i class="bi bi-x-circle me-1"></i> Opened
                                 </span>';
                         } elseif ($item->status === 'closed') {
                             $statusColumn = '
-                                <span style="background-color:#EECACB; color:#721c24;" class="px-2 py-1 rounded-pill">
+                                <span style="background-color:#EECACB; color:#721c24;border:1px solid #721c24;" class="px-2 py-1 rounded-pill">
                                     <i class="bi bi-check-circle me-1"></i> Closed
+                                </span>';
+                        } elseif ($item->status === 'agent_assigned') {
+                            $statusColumn = '
+                                <span style="background-color:#FFF3CD; color:#856404;border:1px solid #856404;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-person-check me-1"></i> Agent Assigned
+                                </span>';
+                        } elseif ($item->status === 'not_recovered') {
+                            $statusColumn = '
+                                <span style="background-color:#E2E3E5; color:#383D41;border:1px solid #383D41;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Not Recovered
+                                </span>';
+                        }
+                        
+                        $agentStatusColumn = '';
+                        if ($item->agent_status === 'opened') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#CAEDCE; color:#155724;border:1px solid #155724;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-x-circle me-1"></i> Opened
+                                </span>';
+                        } elseif ($item->agent_status === 'in_progress') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#FFF3CD; color:#856404;border:1px solid #856404;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-arrow-repeat me-1"></i> In Progress
+                                </span>';
+                        } elseif ($item->agent_status === 'reached_location') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#CCE5FF; color:#004085;border:1px solid #004085;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-geo-alt me-1"></i> Reached Location
+                                </span>';
+                        } elseif ($item->agent_status === 'revisit_location') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#D6D8D9; color:#383D41;border:1px solid #383D41;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> Revisited Location
+                                </span>';
+                        } elseif ($item->agent_status === 'recovered') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#D4EDDA; color:#155724;border:1px solid #155724;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-check-circle me-1"></i> Vehicle Found
+                                </span>';
+                        } elseif ($item->agent_status === 'closed') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#EECACB; color:#721c24;border:1px solid #721c24;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-check-circle me-1"></i> Closed
+                                </span>';
+                        } elseif ($item->agent_status === 'not_recovered') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#F8D7DA; color:#721c24;border:1px solid #721c24;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Vehicle Not Found
+                                </span>';
+                        } elseif ($item->agent_status === 'hold') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#D1ECF1; color:#0C5460;border:1px solid #0C5460;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-pause-circle me-1"></i> Hold
+                                </span>';
+                        }elseif ($item->agent_status === 'rider_contacted') {
+                                $agentStatusColumn = '
+                                    <span style="background-color:#E2EAFD; color:#1A237E; border:1px solid #1A237E;" class="px-2 py-1 rounded-pill">
+                                        <i class="bi bi-telephone-forward me-1"></i> Follow-up Call
+                                    </span>';
+                            }
+                        else{
+                            $agentStatusColumn = '<span style="background-color:#E2E3E5; color:#383D41; border:1px solid #383D41;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-info-circle me-1"></i> Not Assigned
                                 </span>';
                         }
         
@@ -145,17 +230,23 @@ class B2BRecoveryController extends Controller
                         $cityName = data_get($item, 'assignment.VehicleRequest.city.city_name', 'N/A');
                         $zoneName = data_get($item, 'assignment.VehicleRequest.zone.name', 'N/A');
         
-                        $createdAt  = $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d M Y, h:i A') : '';
-                        $updatedAt  = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('d M Y, h:i A') : '';
+                        $createdAt  = $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d M Y, h:i A') : '-';
+                        $updatedAt  = $item->closed_at ? \Carbon\Carbon::parse($item->closed_at)->format('d M Y, h:i A') : '-';
         
                         $idEncode = encrypt($item->id);
-        
+                        $created_by = 'Unknown';
+                        if($item->created_by_type == 'b2b-web-dashboard'){
+                            $created_by = 'Customer';
+                        }elseif($item->created_by_type == 'b2b-admin-dashboard'){
+                            $created_by = 'Admin';
+                        }
                         return [
                             '<div class="form-check">
                                 <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" 
                                     name="is_select[]" type="checkbox" value="'.$item->id.'">
                             </div>',
                             e($requestId),
+                            e($item->assignment->VehicleRequest->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                             e($regNumber),
                             e($chassis),
                             e($riderName),
@@ -163,15 +254,31 @@ class B2BRecoveryController extends Controller
                             e($clientName),
                             e($cityName),
                             e($zoneName),
+                            $created_by,
                             $createdAt,
                             $updatedAt,
                             $aging,
+                            $agentStatusColumn,
                             $statusColumn,
-                            '<a href="'.route('b2b.admin.recovery_request.view', $idEncode).'"
+                            '<div class="d-flex justify-content-between align-content-center" style="gap:8px;">
+                            <a href="'.route('b2b.admin.recovery_request.view', $idEncode).'"
                                 class="d-flex align-items-center justify-content-center border-0" title="View"
                                 style="background-color:#CAEDCE;color:#155724;border-radius:8px;width:35px;height:31px;">
                                 <i class="bi bi-eye fs-5"></i>
-                            </a>'
+                            </a>
+                             <a href="javascript:void(0);"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#showLogModal"
+                                   data-agent_id="'.$item->recovery_agent_id.'"
+                                   data-id="'.$item->id.'"
+                                   data-get_zone_id="'.$item->assignment->vehicleRequest->zone_id.'"
+                                   data-get_city_id="'.$item->assignment->vehicleRequest->city_id.'"
+                                   title="Logs"
+                                   class="view-comments d-flex align-items-center justify-content-center border-0"
+                                   style="background-color:#E2E3E5; color:#383D41; border-radius:8px; width:35px; height:31px;">
+                                   <i class="bi bi-clock-history fs-5"></i>
+                                </a>
+                                </div>'
                         ];
                     });
                     
@@ -197,10 +304,29 @@ class B2BRecoveryController extends Controller
             }
             
              $cities = City::where('status',1)->get();
-        
-            return view('b2badmin::recovery.list' , compact('cities'));
+            $accountability_types = EvTblAccountabilityType::where('status', 1) //updated by logesh
+                ->orderBy('id', 'desc')
+                ->get();
+                
+            $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+                ->orderBy('id', 'desc')
+                ->get();
+            return view('b2badmin::recovery.list' , compact('cities','accountability_types','customers'));
         }
 
+    public function recovery_logs(Request $request,$req_id){
+        
+        $logs = B2BVehicleAssignmentLog::with('recovery_request')->where('request_type', 'recovery_request')
+        ->where('request_type_id', $req_id)
+                ->orderBy('created_at', 'asc')
+                ->get();
+        $roles = Role::All();
+        $customers = CustomerMaster::All();
+        $updates = RecoveryUpdatesMaster::where('status',1)->get();
+        $html = view('b2badmin::recovery.logs', compact('logs','roles','customers','updates'))->render();
+    
+        return response()->json(['success' => true, 'html' => $html]);
+    }
     
     
     public function view(Request $request , $id)
@@ -222,6 +348,9 @@ class B2BRecoveryController extends Controller
             $to_date   = $request->input('to_date');
             $zone = $request->input('zone_id')?? null;
             $city = $request->input('city_id')?? null;
+            $status = $request->input('status')?? null;
+            $accountability_type = $request->input('accountability_type')?? null;
+            $customer_id = $request->input('customer_id')?? null;
              $selectedIds = $request->input('selected_ids', []);
     
         
@@ -230,7 +359,7 @@ class B2BRecoveryController extends Controller
             }
         
             return Excel::download(
-                new B2BAdminRecoveryRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
+                new B2BAdminRecoveryRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),
                 'recovery-request-list-' . date('d-m-Y') . '.xlsx'
             );
         }

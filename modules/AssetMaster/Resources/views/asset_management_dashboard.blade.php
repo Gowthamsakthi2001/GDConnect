@@ -249,6 +249,22 @@
       white-space: normal;
       z-index: 9999;
     }
+    .asset-ownership-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: #70a7d5 #f1f1f1;
+    }
+    .asset-ownership-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .asset-ownership-scrollbar::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    .asset-ownership-scrollbar::-webkit-scrollbar-thumb {
+      background: #70a7d5;
+      border-radius: 10px;
+    }
+
     </style>
 
 
@@ -532,6 +548,7 @@
             </div>
         </div>
     </div>
+    
     <?php
     $db = \Illuminate\Support\Facades\DB::table('model_has_roles')
         ->where('model_id', auth()->user()->id)
@@ -543,13 +560,11 @@
         
     $vehicle_models = DB::table('ev_tbl_vehicle_models')->where('status',1)->select('id','vehicle_model','make')->get();
     $vehicle_types = \Modules\VehicleManagement\Entities\VehicleType::where('is_active', 1)->select('id','name')->get();
-    // $customers = CustomerMaster::where('status', 1)->select('id', 'trade_name')->limit(50)->get();                                      
+                                    
 
     
     $map_api_key = \App\Models\BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
 
-//   dd("Testing By Gowtham");
-    // dd($inventory_locations);
     ?>
     <div class="row mb-3">
         <div class="col-12 mb-3">
@@ -673,15 +688,27 @@
               <h6 class="mb-0 fw-bold text-primary">
                 <i class="bi bi-people me-2"></i> Client Wise Deployment
               </h6>
-
             </div>
-            <div class="card-body">
-              <div class="asset-ownership-scrollbar" style="max-width:100%; margin:auto; overflow-y:auto; position:relative;">
+            <div class="card-body position-relative">
+              <!-- Preloader -->
+              <div id="client-dep-chart-preloader" 
+                   class="d-flex align-items-center justify-content-center"
+                   style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:10;">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+        
+              <!-- Scrollable Wrapper -->
+              <div class="asset-ownership-scrollbar" style="overflow-y:auto; max-height:300px;">
                 <canvas id="AssetOwnershipChart"></canvas>
               </div>
             </div>
           </div>
         </div>
+
+
+
     </div>
 
 
@@ -695,10 +722,22 @@
                     </h6>
 
                 </div>
-                <div class="card-body">
-                    <div style="max-width: 100%; margin: auto;">
-                       <canvas id="ClientWisedeploymentChart" height="120"></canvas>
-                    </div>
+               <div class="card-body position-relative">
+                      <!-- Preloader -->
+                      <div id="clientDeployedReturnedChart-preloader" 
+                           class="d-flex align-items-center justify-content-center"
+                           style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:10;">
+                        <div class="spinner-border text-primary" role="status">
+                          <span class="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                
+                      <!-- Scrollable Wrapper -->
+        
+                       <div style="max-width: 100%; margin: auto;">
+                             <canvas id="clientDeployedReturnedChart" height="120"></canvas>
+                       </div>
+    
                 </div>
             </div>
         </div>
@@ -768,6 +807,11 @@
         
                             </table>
                         </div>
+                        <!--<div class="d-flex justify-content-between align-items-center mt-2">-->
+                        <!--    <button id="prevPageBtn" class="btn btn-sm btn-outline-primary" disabled>Previous</button>-->
+                        <!--    <span id="pageInfo" class="fw-bold"></span>-->
+                        <!--    <button id="nextPageBtn" class="btn btn-sm btn-outline-primary" disabled>Next</button>-->
+                        <!--</div>-->
                     </div>
             </div>
         </div>
@@ -775,7 +819,9 @@
     
   <?php
      $inventory_locations = \Modules\MasterManagement\Entities\InventoryLocationMaster::where('status',1)->select('id','name')->get();
-    $location_data = \Modules\AssetMaster\Entities\LocationMaster::where('status', 1)->select('id','name')->get();
+     $location_data = \Illuminate\Support\Facades\DB::table('ev_tbl_city')->where('status', 1)->select('id','city_name')->get();
+     $accountablity_types = \Modules\MasterManagement\Entities\EvTblAccountabilityType::where('status', 1)->get();
+     $customers = \Modules\MasterManagement\Entities\CustomerMaster::where('status', 1)->select('id', 'trade_name')->get();  
   ?>
 
    <div class="offcanvas offcanvas-end" tabindex="-1" id="DashoffcanvasRightAMV" aria-labelledby="DashoffcanvasRightAMVLabel">
@@ -832,14 +878,14 @@
                    <div><h6 class="custom-dark">Select Option</h6></div>
                </div>
                <div class="card-body">
- 
+                 
                     <div class="mb-3">
                         <label class="form-label" for="location_id">Location</label>
                         <select name="location_id" id="location_id" class="form-control custom-select2-field">
                             <option value="">Select</option>
                             @if(isset($location_data))
                                 @foreach($location_data as $l)
-                                <option value="{{$l->id}}" {{ $location_id == $l->id ? 'selected' : '' }}>{{$l->name}}</option>
+                                <option value="{{$l->id}}" {{ $location_id == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
                                 @endforeach
                             @endif
                         </select>
@@ -868,8 +914,37 @@
                             @endif
                         </select>
                     </div> 
+                    
+                     <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Accountability Type</label>
+                        <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="all" {{ $accountability_type_id == 'all' ? 'selected' : '' }}>All</option>
+                            @if(isset($accountablity_types))
+                                @foreach($accountablity_types as $type)
+                                <option value="{{$type->id}}" {{ $accountability_type_id == $type->id ? 'selected' : '' }}>{{$type->name ?? ''}}</option>
+                                @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Customer</label>
+                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="all" {{ $customer_id == 'all' ? 'selected' : '' }}>All</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
                </div>
             </div>
+            
             
            <div class="card mb-3">
                <div class="card-header p-2">
@@ -949,8 +1024,8 @@
             </div>
           </div>
         </div>
-
         
+     
     @push('css')
     <link rel="stylesheet" href="{{ admin_asset('css/dashboard.min.css') }}">
     <style>
@@ -986,7 +1061,9 @@
             to_date: "{{ $to_date }}",
             vehicle_type: "{{ $vehicle_type }}",
             vehicle_model: "{{ $vehicle_model }}",
-            location_id: "{{$location_id}}"
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
         },
         success: function(response) {
             if (response.status) {
@@ -1189,6 +1266,8 @@ function fetchMapData() {
       vehicle_type: "{{ $vehicle_type }}",
       vehicle_model: "{{ $vehicle_model }}",
       location_id: "{{$location_id}}",
+      accountability_type_id: "{{$accountability_type_id}}",
+      customer_id: "{{$customer_id}}"
     },
     beforeSend: function () {
       $("#mapLoader").addClass("active");  
@@ -1346,7 +1425,10 @@ function fetchDocumentTables() {
             to_date: "{{ $to_date }}",
             vehicle_type: "{{ $vehicle_type }}",
             vehicle_model: "{{ $vehicle_model }}",
-            location_id: "{{$location_id}}"
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
+            
             
         },
         beforeSend: function () {
@@ -1463,40 +1545,7 @@ function fetchDocumentTables() {
     });
 }
 
-function loadInventorySummary() {
-    $.ajax({
-        url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
-        type: "GET",
-        data: { 
-            chart_type: "InventoryDataTable",
-            timeline: "{{ $timeline }}",
-            from_date: "{{ $from_date }}",
-            to_date: "{{ $to_date }}",
-            vehicle_type: "{{ $vehicle_type }}",
-            vehicle_model: "{{ $vehicle_model }}",
-            location_id: "{{$location_id}}"
-        },
-        beforeSend: function () {
-            $("#inventorySummaryTable tbody").html(`
-                <tr>
-                    <td colspan="10" class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                    </td>
-                </tr>
-            `);
-        },
-        success: function (response) {
-            $("#inventorySummaryTable tbody").html(response.html);
-        },
-        error: function () {
-            $("#inventorySummaryTable tbody").html(
-                '<tr><td colspan="10" class="text-danger">Error loading data</td></tr>'
-            );
-        }
-    });
-}
+
 
 function VSummaryChartFunction() {
     $("#vehicle-summary-chart-preloader").addClass('active');
@@ -1511,7 +1560,9 @@ function VSummaryChartFunction() {
             to_date: "{{ $to_date }}",
             vehicle_type: "{{ $vehicle_type }}",
             vehicle_model: "{{ $vehicle_model }}",
-            location_id: "{{$location_id}}"
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
         },
         success: function(response) {
     if (response.status) {
@@ -1625,8 +1676,6 @@ function hidePreloader() {
 
 function ClientwisebarChartFunction() {
     showPreloader();
-
-
     $.ajax({
         url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}", 
         type: "GET",
@@ -1637,7 +1686,9 @@ function ClientwisebarChartFunction() {
             to_date: "{{ $to_date }}",
             vehicle_type: "{{ $vehicle_type }}",
             vehicle_model: "{{ $vehicle_model }}",
-            location_id: "{{$location_id}}"
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
         },
         success: function(response) {
            if (response.data && response.data.length > 0) {
@@ -1646,7 +1697,7 @@ function ClientwisebarChartFunction() {
             
                 // 2. Unique vehicle types
                 let vehicleTypes = [...new Set(response.data.map(item => item.vehicle_type_name))];
-            
+                let vehicle_status_count = response.data.reduce((sum, item) => sum + (item.vehicle_count || 0), 0);
                 // 3. Prepare datasets for each vehicle type
                 let datasets = vehicleTypes.map((vt, idx) => {
                     return {
@@ -1658,7 +1709,7 @@ function ClientwisebarChartFunction() {
                         backgroundColor: getColor(idx)
                     };
                 });
-            
+               console.log("Vehicle Status Count:", vehicle_status_count);
                 // 4. Chart render
                 const ctx = document.getElementById('ClientwisebarChart').getContext('2d');
             
@@ -1740,12 +1791,38 @@ function OEMChartFunction() {
             to_date: "{{ $to_date }}",
             vehicle_type: "{{ $vehicle_type }}",
             vehicle_model: "{{ $vehicle_model }}",
-            location_id: "{{$location_id}}"
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
         },
         success: function(response) {
             if (response.status) {
 
                 const chartDataFromLaravel = response.brandWiseData;
+                
+                if (chartDataFromLaravel.length === 0 || response.total_vh_count === 0) {
+                    console.warn("No brand data available for OEMChartType");
+            
+                    const canvas = document.getElementById('OEMChartType');
+                    const ctx = canvas.getContext('2d');
+            
+                    if (window.oemChartInstance) {
+                        window.oemChartInstance.destroy();
+                        window.oemChartInstance = null;
+                    }
+            
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillStyle = '#999';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('No Data Available', canvas.width / 2, canvas.height / 2);
+            
+                    // Also clear legend
+                    const legendContainer = document.getElementById("OEMLegend");
+                    legendContainer.innerHTML = `<div class="text-muted text-center">No Data Available</div>`;
+                    return;
+                }
 
                 // Extract brand names and counts
                 const chartLabels = chartDataFromLaravel.map(item => item.brand);
@@ -1821,7 +1898,7 @@ function OEMChartFunction() {
                     `;
                     legendContainer.appendChild(legendItem);
                 });
-            } // <-- this closes `if(response.status)`
+            } 
         },
         complete: function() {
             // Hide loader after chart render
@@ -1829,6 +1906,414 @@ function OEMChartFunction() {
         }
     });
 }
+
+
+
+function showCDPreloader() {
+    if ($("#client-dep-chart-preloader").length === 0) {
+        let preloader = `
+            <div id="clientWise-chart-preloader" 
+                 class="d-flex align-items-center justify-content-center"
+                 style="position:absolute; top:0; left:0; right:0; bottom:0; 
+                        background:rgba(255,255,255,0.7); z-index:10;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>`;
+        $(".card-body.position-relative").append(preloader); 
+    }
+}
+
+
+function hideCDPreloader() {
+    $("#client-dep-chart-preloader").remove();
+}
+
+// function ClientwiseDeploymentFunction() {
+//     showCDPreloader();
+
+//     $.ajax({
+//         url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
+//         type: "GET",
+//         data: { 
+//             chart_type: "ClientwiseDeployment",
+//             timeline: "{{ $timeline }}",
+//             from_date: "{{ $from_date }}",
+//             to_date: "{{ $to_date }}",
+//             vehicle_type: "{{ $vehicle_type }}",
+//             vehicle_model: "{{ $vehicle_model }}",
+//             location_id: "{{$location_id}}",
+//             accountability_type_id: "{{$accountability_type_id}}",
+//             customer_id: "{{$customer_id}}"
+//         },
+//         success: function(response) {
+//             hideCDPreloader();
+
+//             if (response.data && response.data.length > 0) {
+//                 const labels = response.data.map(item => item.client_name);
+//                 const actualData = response.data.map(item => item.depployed_count);
+
+//                 // Dynamic height & scroll setup
+//                 const ROW_HEIGHT = 45;
+//                 const visibleRows = 6;
+//                 const wrapper = document.querySelector('.asset-ownership-scrollbar');
+//                 const canvas = document.getElementById('AssetOwnershipChart');
+
+//                 wrapper.style.maxHeight = (visibleRows * ROW_HEIGHT) + 'px';
+//                 canvas.height = labels.length * ROW_HEIGHT;
+//                 canvas.width = wrapper.clientWidth;
+
+//                 if (window.clientDeployChart) window.clientDeployChart.destroy();
+
+//                 const ctx = canvas.getContext('2d');
+
+//                 window.clientDeployChart = new Chart(ctx, {
+//                     type: 'bar',
+//                     data: {
+//                         labels,
+//                         datasets: [{
+//                             label: 'Deployment Count',
+//                             data: actualData,
+//                             backgroundColor: '#70a7d5',
+//                             borderRadius: 8,
+//                             barThickness: 24
+//                         }]
+//                     },
+//                     options: {
+//                         indexAxis: 'y',
+//                         responsive: true,
+//                         maintainAspectRatio: false,
+//                         layout: { padding: { right: 40 } },
+//                         plugins: {
+//                             legend: { display: false },
+//                             tooltip: {
+//                                 enabled: true,
+//                                 callbacks: {
+//                                     label: context => `Count: ${context.parsed.x}`
+//                                 }
+//                             }
+//                         },
+//                         scales: {
+//                             x: {
+//                                 grid: { display: false },
+//                                 ticks: {
+//                                     stepSize: 1,
+//                                     color: '#555',
+//                                     font: { size: 10 }
+//                                 }
+//                             },
+//                             y: {
+//                                 grid: { display: false },
+//                                 ticks: {
+//                                     color: '#333',
+//                                     font: { size: 12 }
+//                                 }
+//                             }
+//                         }
+//                     },
+//                     plugins: [{
+//                         id: 'alwaysShowCount',
+//                         afterDatasetsDraw(chart) {
+//                             const { ctx } = chart;
+//                             ctx.save();
+//                             ctx.font = 'bold 12px Arial';
+//                             ctx.fillStyle = '#222';
+//                             ctx.textAlign = 'left';
+
+//                             chart.data.datasets[0].data.forEach((value, index) => {
+//                                 const meta = chart.getDatasetMeta(0);
+//                                 const rect = meta.data[index];
+//                                 if (!rect) return;
+//                                 // Draw value inside bar (with padding)
+//                                 ctx.fillText(value, rect.x + 5, rect.y + 4);
+//                             });
+
+//                             ctx.restore();
+//                         }
+//                     }]
+//                 });
+
+//                 // Make scroll work smooth
+//                 wrapper.style.scrollBehavior = 'smooth';
+
+//                 // Resize responsiveness
+//                 window.addEventListener('resize', () => {
+//                     canvas.width = wrapper.clientWidth;
+//                     window.clientDeployChart.resize();
+//                 });
+//             } else {
+//                 console.warn("No data available for ClientwiseDeployment");
+//             }
+//         },
+//         complete: function() {
+//             hideCDPreloader();
+//         },
+//         error: function(xhr) {
+//             console.error("AJAX error:", xhr.responseText);
+//             hideCDPreloader();
+//         }
+//     });
+// }
+// function ClientwiseDeploymentFunction() {
+//     showCDPreloader();
+
+//     $.ajax({
+//         url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
+//         type: "GET",
+//         data: { 
+//             chart_type: "ClientwiseDeployment",
+//             timeline: "{{ $timeline }}",
+//             from_date: "{{ $from_date }}",
+//             to_date: "{{ $to_date }}",
+//             vehicle_type: "{{ $vehicle_type }}",
+//             vehicle_model: "{{ $vehicle_model }}",
+//             location_id: "{{$location_id}}",
+//             accountability_type_id: "{{$accountability_type_id}}",
+//             customer_id: "{{$customer_id}}"
+//         },
+//         success: function(response) {
+//             if (response.data && response.data.length > 0) {
+//                 const labels = response.data.map(item => item.client_name);
+//                 const actualData = response.data.map(item => item.depployed_count);
+//                 const remainingData = actualData.map(v => Math.max(0, 100 - v));
+
+//                 const ROW_HEIGHT = 56;
+//                 const wrapper = document.querySelector('.asset-ownership-scrollbar');
+//                 wrapper.style.height = (Math.min(4, labels.length) * ROW_HEIGHT) + 'px';
+
+//                 const canvas = document.getElementById('AssetOwnershipChart');
+//                 canvas.height = labels.length * ROW_HEIGHT;
+//                 canvas.width  = wrapper.clientWidth;
+
+//                 if (window.clientDeployChart) window.clientDeployChart.destroy();
+
+//                 const ctx = canvas.getContext('2d');
+//                 window.clientDeployChart = new Chart(ctx, {
+//                     type: 'bar',
+//                     data: {
+//                         labels,
+//                         datasets: [
+//                             {
+//                                 label: 'Filled',
+//                                 data: actualData,
+//                                 backgroundColor: '#70a7d5',
+//                                 borderSkipped: false,
+//                                 borderRadius: { topLeft: 10, bottomLeft: 10 },
+//                                 barThickness: 24
+//                             },
+//                             {
+//                                 label: 'Remaining',
+//                                 data: remainingData,
+//                                 backgroundColor: '#eaeaea',
+//                                 borderSkipped: false,
+//                                 borderRadius: { topRight: 10, bottomRight: 10 },
+//                                 barThickness: 24
+//                             }
+//                         ]
+//                     },
+//                     options: {
+//                         indexAxis: 'y',
+//                         responsive: false,
+//                         maintainAspectRatio: false,
+//                         plugins: {
+//                             legend: { display: false },
+//                             tooltip: {
+//                                 callbacks: {
+//                                     label: ctx => ctx.dataset.label === 'Filled' ? ctx.parsed.x : ''
+//                                 }
+//                             }
+//                         },
+//                         scales: {
+//                             x: { min: 0, max: 100, stacked: true, grid: { display: false }, ticks: { display: false } },
+//                             y: { stacked: true, grid: { display: false }, ticks: { align: 'start', padding: 5, font: { size: 12 } } }
+//                         }
+//                     },
+//                     plugins: [{
+//                         id: 'barLabels',
+//                         afterDatasetsDraw(chart) {
+//                             const { ctx } = chart;
+//                             ctx.save();
+//                             ctx.font = 'bold 12px Arial';
+//                             ctx.fillStyle = '#555';
+//                             chart.data.datasets[0].data.forEach((value, index) => {
+//                                 const meta = chart.getDatasetMeta(0);
+//                                 const rect = meta.data[index];
+//                                 if (!rect) return;
+//                                 ctx.fillText(value, rect.x + 5, rect.y + 4);
+//                             });
+//                             ctx.restore();
+//                         }
+//                     }]
+//                 });
+//             } else {
+//                 console.warn("No data available for ClientwiseDeployment");
+//             }
+//         },
+//         complete: function() {
+//             hideCDPreloader();
+//         },
+//         error: function(xhr) {
+//             console.error("AJAX error:", xhr.responseText);
+//             hideCDPreloader();
+//         }
+//     });
+// }
+
+function ClientwiseDeploymentFunction() {
+    showCDPreloader();
+
+    $.ajax({
+        url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
+        type: "GET",
+        data: { 
+            chart_type: "ClientwiseDeployment",
+            timeline: "{{ $timeline }}",
+            from_date: "{{ $from_date }}",
+            to_date: "{{ $to_date }}",
+            vehicle_type: "{{ $vehicle_type }}",
+            vehicle_model: "{{ $vehicle_model }}",
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
+        },
+        success: function(response) {
+            if (response.data && response.data.length > 0) {
+                const labels = response.data.map(item => item.client_name);
+                const actualData = response.data.map(item => item.depployed_count);
+                // Clear previous chart if exists
+                if (window.clientDeployChart) {
+                    window.clientDeployChart.destroy();
+                    window.clientDeployChart = null;
+                }
+    
+                // Check if data available
+                if (!response.data || response.data.length === 0) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = 'bold 16px Arial';
+                    ctx.fillStyle = '#999';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('No Data Available', canvas.width / 2, canvas.height / 2);
+                    return;
+                }
+                // --- Fixed default 70% fill for all ---
+                const defaultFill = actualData.map(v => 80);
+                const remainingData = actualData.map(v => 20);
+
+                const ROW_HEIGHT = 56;
+                const wrapper = document.querySelector('.asset-ownership-scrollbar');
+                wrapper.style.height = (Math.min(4, labels.length) * ROW_HEIGHT) + 'px';
+
+                const canvas = document.getElementById('AssetOwnershipChart');
+                canvas.height = labels.length * ROW_HEIGHT;
+                canvas.width  = wrapper.clientWidth;
+
+                if (window.clientDeployChart) window.clientDeployChart.destroy();
+
+                const ctx = canvas.getContext('2d');
+                window.clientDeployChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Filled',
+                                data: defaultFill, // Fixed 70%
+                                backgroundColor: '#70a7d5',
+                                borderSkipped: false,
+                                borderRadius: { topLeft: 10, bottomLeft: 10 },
+                                barThickness: 24
+                            },
+                            {
+                                label: 'Remaining',
+                                data: remainingData, // Fixed 30%
+                                backgroundColor: '#eaeaea',
+                                borderSkipped: false,
+                                borderRadius: { topRight: 10, bottomRight: 10 },
+                                barThickness: 24
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: ctx => {
+                                        const count = actualData[ctx.dataIndex];
+                                        return `Count: ${count}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                min: 0, 
+                                max: 100, 
+                                stacked: true, 
+                                grid: { display: false }, 
+                                ticks: { display: false } 
+                            },
+                            y: { 
+                                stacked: true, 
+                                grid: { display: false }, 
+                                ticks: { align: 'start', padding: 5, font: { size: 12 } } 
+                            }
+                        }
+                    },
+                    plugins: [{
+                        id: 'barLabels',
+                        afterDatasetsDraw(chart) {
+                            const { ctx } = chart;
+                            ctx.save();
+                            ctx.font = 'bold 12px Arial';
+                            ctx.fillStyle = '#555';
+                            chart.data.datasets[0].data.forEach((value, index) => {
+                                const meta = chart.getDatasetMeta(0);
+                                const rect = meta.data[index];
+                                if (!rect) return;
+                                // show actual count (not %)
+                                ctx.fillText(actualData[index], rect.x + 5, rect.y + 4);
+                            });
+                            ctx.restore();
+                        }
+                    }]
+                });
+            } else {
+                const canvas = document.getElementById('AssetOwnershipChart');
+                const ctx_wise = canvas.getContext('2d');
+            
+                // Destroy existing chart if exists
+                if (window.clientDeployChart) {
+                    window.clientDeployChart.destroy();
+                    window.clientDeployChart = null;
+                }
+            
+                // Clear canvas and show message
+                ctx_wise.clearRect(0, 0, canvas.width, canvas.height);
+                ctx_wise.font = 'bold 16px Arial';
+                ctx_wise.fillStyle = '#999';
+                ctx_wise.textAlign = 'center';
+                ctx_wise.textBaseline = 'middle';
+                ctx_wise.fillText('No Data Available', canvas.width / 2, canvas.height / 2);
+            }
+        },
+        complete: function() {
+            hideCDPreloader();
+        },
+        error: function(xhr) {
+            console.error("AJAX error:", xhr.responseText);
+            hideCDPreloader();
+        }
+    });
+}
+
+
+
+
 
    
 
@@ -1844,6 +2329,8 @@ $(document).ready(function () {
   VSummaryChartFunction();
   fetchDocumentTables();
   ClientwisebarChartFunction();
+  ClientwiseDeploymentFunction();
+  ClientwiseDeployedandReturnedFunction();
   loadInventorySummary();
 });
 
@@ -1856,124 +2343,7 @@ $(document).ready(function () {
     
 <script>
 
-document.addEventListener("DOMContentLoaded", function () {
-  const labels = [
-    'DHL',
-    'BLR - BLINK',
-    'GATI',
-    'PURPLE',
-    'ZEPTO',
-    'FURLENCO',
-    'COMPASS',
-    'BLR - SHADOWFAX'
-  ];
 
-  const actualData = [70, 30, 50, 80, 60, 40, 50, 55];
-  const remainingData = actualData.map(v => 100 - v);
-
-  const ROW_HEIGHT = 56;     // pixel height per category row (tweak)
-  const VISIBLE_ROWS = 4;    // show 4 rows at a time
-
-  const wrapper = document.querySelector('.asset-ownership-scrollbar');
-  wrapper.style.height = (VISIBLE_ROWS * ROW_HEIGHT) + 'px'; // ensure only 4 visible
-
-  const canvas = document.getElementById('AssetOwnershipChart');
-
-  // Make canvas taller than wrapper so scroll works
-  canvas.height = labels.length * ROW_HEIGHT;   // total drawable height
-  canvas.width  = wrapper.clientWidth;          // fill width
-
-  const ctx = canvas.getContext('2d');
-
-  const chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Filled',
-          data: actualData,
-          backgroundColor: '#70a7d5',
-          borderSkipped: false,
-          borderRadius: { topLeft: 10, bottomLeft: 10 },
-          barThickness: 24 // adjust with ROW_HEIGHT
-        },
-        {
-          label: 'Remaining',
-          data: remainingData,
-          backgroundColor: '#eaeaea',
-          borderSkipped: false,
-          borderRadius: { topRight: 10, bottomRight: 10 },
-          barThickness: 24
-        }
-      ]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: false,              // IMPORTANT: allow canvas to exceed wrapper height
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: function (context) {
-              return context.dataset.label === 'Filled' ? context.parsed.x + '' : '';
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          min: 0,
-          max: 100,
-          stacked: true,
-          grid: { display: false },
-          border: { display: false },
-          ticks: { display: false }
-        },
-        y: {
-            stacked: true,
-            grid: { display: false },
-            border: { display: false },
-            ticks: {
-                align: 'start',      // left-align the text
-                crossAlign: 'near',  // push closer to axis
-                padding: 5,
-                font: {
-                    size: 12
-                }
-            }
-        }
-
-      }
-    },
-    plugins: [{
-      id: 'barLabels',
-      afterDatasetsDraw(chart) {
-        const { ctx } = chart;
-        ctx.save();
-        ctx.font = 'bold 12px Arial';
-        ctx.fillStyle = '#555';
-        ctx.textAlign = 'left';
-
-        chart.data.datasets[0].data.forEach((value, index) => {
-          const meta = chart.getDatasetMeta(0);
-          const rect = meta.data[index];
-          if (!rect) return;
-          ctx.fillText(value + '', rect.x + 5, rect.y + 4);
-        });
-
-        ctx.restore();
-      }
-    }]
-  });
-
-  // Keep width responsive on window resize (optional)
-  window.addEventListener('resize', () => {
-    canvas.width = wrapper.clientWidth;
-    chart.resize();
-  });
-});
 
 
 </script>
@@ -1990,6 +2360,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const location_id = document.getElementById('location_id').value;
         const v_type = document.getElementById('v_type').value;
         const v_model = document.getElementById('v_model').value;
+        const accountability_type = document.getElementById('accountability_type_id').value;
+        const customer_id = document.getElementById('customer_id').value;
+     
         if (from_date != "" || to_date != "") {
             if (to_date == "" || from_date == "") {
                 toastr.error("From Date and To Date is must be required");
@@ -1999,24 +2372,32 @@ document.addEventListener("DOMContentLoaded", function () {
     
         const url = new URL(window.location.href);
     
-        if (from_date && to_date) {
-            // Use from_date and to_date, remove timeline
-            url.searchParams.set('from_date', from_date);
-            url.searchParams.set('to_date', to_date);
-            url.searchParams.delete('timeline');
-        } else if (timeline) {
+        if (timeline) {
             // Use timeline, remove from_date and to_date
             url.searchParams.set('timeline', timeline);
             url.searchParams.delete('from_date');
             url.searchParams.delete('to_date');
         }
+        else if (from_date && to_date) {
+            // Use from_date and to_date, remove timeline
+            url.searchParams.set('from_date', from_date);
+            url.searchParams.set('to_date', to_date);
+            url.searchParams.delete('timeline');
+        } 
+        // else if (timeline) {
+        //     // Use timeline, remove from_date and to_date
+        //     url.searchParams.set('timeline', timeline);
+        //     url.searchParams.delete('from_date');
+        //     url.searchParams.delete('to_date');
+        // }
 
         url.searchParams.set('location_id', location_id);
         url.searchParams.set('vehicle_type', v_type);
         url.searchParams.set('vehicle_model', v_model);
+        url.searchParams.set('accountability_type_id', accountability_type);
+        url.searchParams.set('customer_id', customer_id);
         window.location.href = url.toString();
     }
-
 
     function clearDashboardFilter() {
         const url = new URL(window.location.href);
@@ -2026,6 +2407,8 @@ document.addEventListener("DOMContentLoaded", function () {
         url.searchParams.delete('location_id');
         url.searchParams.delete('vehicle_type');
         url.searchParams.delete('vehicle_model');
+        url.searchParams.delete('accountability_type_id');
+        url.searchParams.delete('customer_id');
         window.location.href = url.toString();
     }
 
@@ -2139,33 +2522,44 @@ document.addEventListener("DOMContentLoaded", function () {
     
 </script>
  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
 <script>
-    // New statuses and their counts
-    const VS_chartData = {
-        rider: {
-            labels: [
-                "RFD - Ready for deployment",
-                "Under Maintenance",
-                "On Rent",
-                "Unregistered",
-                "DOC Issues",
-                "Accident",
-                "Warranty",
-                "Police Station",
-                "Spare Pending"
-            ],
-            counts: [19, 5, 10, 66, 8, 2, 4, 3, 7] // adjust counts as needed
+function loadInventorySummary() {
+    $.ajax({
+        url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
+        type: "GET",
+        data: { 
+            chart_type: "InventoryDataTable",
+            timeline: "{{ $timeline }}",
+            from_date: "{{ $from_date }}",
+            to_date: "{{ $to_date }}",
+            vehicle_type: "{{ $vehicle_type }}",
+            vehicle_model: "{{ $vehicle_model }}",
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
+        },
+        beforeSend: function () {
+            $("#inventorySummaryTable tbody").html(`
+                <tr>
+                    <td colspan="10" class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </td>
+                </tr>
+            `);
+        },
+        success: function (response) {
+            $("#inventorySummaryTable tbody").html(response.html);
+        },
+        error: function () {
+            $("#inventorySummaryTable tbody").html(
+                '<tr><td colspan="10" class="text-danger">Error loading data</td></tr>'
+            );
         }
-    };
-
-
-</script>
-
-<script>
-
-</script>
-
-<script>
+    });
+}
 function tablePreloaderOn(){
     $('#inventorySummaryTable tbody').html(`
         <tr>
@@ -2231,18 +2625,6 @@ $('#inventory_sum_search').on('keyup', function () {
         }
     });
 });
-
-function clearDataTbleFilter(){
-    $("#inventory_sum_search").val('');
-    $("#asset_fil_status").val('all');
-    $("#vehicle_make").val('all');
-    $("#customer_name").val('');
-    $("#customer_results").html('');
-    InventorySummaryHide();
-    InSumFilter_Function();
-    
-}
-
 function InSumFilter_Function(){
     $("#inventory_sum_search").val('');
     var status = $("#asset_fil_status").val();
@@ -2291,77 +2673,364 @@ function InSumFilter_Function(){
     });
 }
 
+
+
+function clearDataTbleFilter(){
+    $("#inventory_sum_search").val('');
+    $("#asset_fil_status").val('all');
+    $("#vehicle_make").val('all');
+    $("#customer_name").val('');
+    $("#customer_results").html('');
+    InventorySummaryHide();
+    InSumFilter_Function();
+    
+}
+
+
+
 </script>
 <script>
-    // Get current month days dynamically
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const labels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
+    // // Get current month days dynamically
+    // const now = new Date();
+    // const year = now.getFullYear();
+    // const month = now.getMonth();
+    // const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // const labels = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
 
-    const ClientWisedeploymentChart_ctx = document.getElementById('ClientWisedeploymentChart').getContext('2d');
+    // const clientDeployedReturnedChart_ctx = document.getElementById('clientDeployedReturnedChart').getContext('2d');
 
-    new Chart(ClientWisedeploymentChart_ctx, {
-        type: 'line',
+    // new clientDeployedReturnedChart_ctx, {
+    //     type: 'line',
+    //     data: {
+    //         labels: labels,
+    //         datasets: [
+    //             {
+    //                 label: 'Deployed Vehicle',
+    //                 data: [10, 20, 30, 50, 80, 150, 300, 500, 400, 350, 300, 250, 200, 180, 400, 600, 800, 900, 850, 800, 750, 700, 950, 900, 850, 800, 750, 900, 950, 1000, 2050].slice(0, daysInMonth),
+    //                 borderColor: 'rgba(0, 123, 255, 1)',
+    //                 backgroundColor: 'rgba(0, 123, 255, 0.2)',
+    //                 fill: false,
+    //                 tension: 0.3,
+    //                 borderWidth: 2
+    //             },
+    //             {
+    //                 label: 'Returned Vehicle',
+    //                 data: [5, 10, 15, 25, 50, 100, 250, 450, 380, 330, 280, 230, 180, 160, 380, 580, 750, 850, 800, 770, 720, 680, 900, 850, 800, 760, 720, 850, 900, 950, 990].slice(0, daysInMonth),
+    //                 borderColor: 'rgba(153, 102, 255, 1)',
+    //                 backgroundColor: 'rgba(153, 102, 255, 0.2)',
+    //                 fill: false,
+    //                 tension: 0.3,
+    //                 borderWidth: 2
+    //             }
+    //         ]
+    //     },
+    //     options: {
+    //         responsive: true,
+    //         scales: {
+    //             y: {
+    //                 min: 0,
+    //                 max: 1000,
+    //                 ticks: {
+    //                     stepSize: 100 // 1000, 900, 800, etc.
+    //                 },
+    //                 title: {
+    //                     display: true,
+    //                     text: 'Vehicle Count'
+    //                 }
+    //             },
+    //             x: {
+    //                 title: {
+    //                     display: true,
+    //                     text: 'Day of the Month'
+    //                 }
+    //             }
+    //         },
+    //         plugins: {
+    //             legend: {
+    //                 position: 'top',
+    //                 labels: {
+    //                     usePointStyle: true
+    //                 }
+    //             },
+    //             tooltip: {
+    //                 mode: 'index',
+    //                 intersect: false
+    //             }
+    //         }
+    //     }
+    // });
+    
+    function showCWDRPreloader() {
+    if ($("#clientDeployedReturnedChart-preloader").length === 0) {
+        let preloader = `
+        <div id="clientDeployedReturnedChart-preloader"
+             class="d-flex align-items-center justify-content-center"
+             style="position:absolute; top:0; left:0; right:0; bottom:0; 
+                    background:rgba(255,255,255,0.7); z-index:10;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>`;
+        $(".card-body.position-relative").append(preloader);
+    }
+}
+
+function hideCWDRPreloader() {
+    $("#clientDeployedReturnedChart-preloader").remove();
+}
+
+
+// function ClientwiseDeployedandReturnedFunction() {
+//     showCWDRPreloader();
+
+//     $.ajax({
+//         url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
+//         type: "GET",
+//         data: {
+//             chart_type: "clientDeployedReturnedChart",
+//             timeline: "{{ $timeline }}",
+//             from_date: "{{ $from_date }}",
+//             to_date: "{{ $to_date }}",
+//             vehicle_type: "{{ $vehicle_type }}",
+//             vehicle_model: "{{ $vehicle_model }}",
+//             location_id: "{{$location_id}}",
+//             accountability_type_id: "{{$accountability_type_id}}",
+//             customer_id: "{{$customer_id}}"
+//         },
+//         success: function(response) {
+//             hideCWDRPreloader();
+
+//             if (response.data && response.data.length > 0) {
+
+//                 // Get current month dynamically
+//                 const now = new Date();
+//                 const year = now.getFullYear();
+//                 const month = now.getMonth();
+//                 const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+//                 const labels = Array.from({ length: daysInMonth }, (_, i) =>
+//                     String(i + 1).padStart(2, '0')
+//                 );
+
+//                 const ctx = document.getElementById('clientDeployedReturnedChart').getContext('2d');
+
+//                 // Destroy old chart if exists
+//                 if (window.clientDRChart) window.clientDRChart.destroy();
+
+//                 window.clientDRChart = new Chart(ctx, {
+//                     type: 'line',
+//                     data: {
+//                         labels: labels,
+//                         datasets: [
+//                             {
+//                                 label: 'Deployed Vehicle',
+//                                 data: [10, 20, 30, 50, 80, 150, 300, 500, 400, 350, 300, 250, 200, 180, 400, 600, 800, 900, 850, 800, 750, 700, 950, 900, 850, 800, 750, 900, 950, 1000, 2050].slice(0, daysInMonth),
+//                                 borderColor: 'rgba(0, 123, 255, 1)',
+//                                 backgroundColor: 'rgba(0, 123, 255, 0.2)',
+//                                 fill: false,
+//                                 tension: 0.3,
+//                                 borderWidth: 2
+//                             },
+//                             {
+//                                 label: 'Returned Vehicle',
+//                                 data: [5, 10, 15, 25, 50, 100, 250, 450, 380, 330, 280, 230, 180, 160, 380, 580, 750, 850, 800, 770, 720, 680, 900, 850, 800, 760, 720, 850, 900, 950, 990].slice(0, daysInMonth),
+//                                 borderColor: 'rgba(153, 102, 255, 1)',
+//                                 backgroundColor: 'rgba(153, 102, 255, 0.2)',
+//                                 fill: false,
+//                                 tension: 0.3,
+//                                 borderWidth: 2
+//                             }
+//                         ]
+//                     },
+//                     options: {
+//                         responsive: true,
+//                         scales: {
+//                             y: {
+//                                 min: 0,
+//                                 max: 1000,
+//                                 ticks: { stepSize: 100 },
+//                                 title: { display: true, text: 'Vehicle Count' }
+//                             },
+//                             x: {
+//                                 title: { display: true, text: 'Day of the Month' }
+//                             }
+//                         },
+//                         plugins: {
+//                             legend: {
+//                                 position: 'top',
+//                                 labels: { usePointStyle: true }
+//                             },
+//                             tooltip: {
+//                                 mode: 'index',
+//                                 intersect: false
+//                             }
+//                         }
+//                     }
+//                 });
+
+//             } else {
+//                 console.warn("No data available for clientDeployedReturnedChart");
+//             }
+//         },
+//         error: function(xhr) {
+//             console.error("AJAX error:", xhr.responseText);
+//             hideCWDRPreloader();
+//         }
+//     });
+// }
+function ClientwiseDeployedandReturnedFunction() {
+    showCWDRPreloader();
+
+    $.ajax({
+        url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
+        type: "GET",
         data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Deployed Vehicle',
-                    data: [10, 20, 30, 50, 80, 150, 300, 500, 400, 350, 300, 250, 200, 180, 400, 600, 800, 900, 850, 800, 750, 700, 950, 900, 850, 800, 750, 900, 950, 1000, 2050].slice(0, daysInMonth),
-                    borderColor: 'rgba(0, 123, 255, 1)',
-                    backgroundColor: 'rgba(0, 123, 255, 0.2)',
-                    fill: false,
-                    tension: 0.3,
-                    borderWidth: 2
-                },
-                {
-                    label: 'Returned Vehicle',
-                    data: [5, 10, 15, 25, 50, 100, 250, 450, 380, 330, 280, 230, 180, 160, 380, 580, 750, 850, 800, 770, 720, 680, 900, 850, 800, 760, 720, 850, 900, 950, 990].slice(0, daysInMonth),
-                    borderColor: 'rgba(153, 102, 255, 1)',
-                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                    fill: false,
-                    tension: 0.3,
-                    borderWidth: 2
-                }
-            ]
+            chart_type: "clientDeployedReturnedChart",
+            timeline: "{{ $timeline }}",
+            from_date: "{{ $from_date }}",
+            to_date: "{{ $to_date }}",
+            vehicle_type: "{{ $vehicle_type }}",
+            vehicle_model: "{{ $vehicle_model }}",
+            location_id: "{{$location_id}}",
+            accountability_type_id: "{{$accountability_type_id}}",
+            customer_id: "{{$customer_id}}"
         },
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    min: 0,
-                    max: 1000,
-                    ticks: {
-                        stepSize: 100 // 1000, 900, 800, etc.
+        success: function(response) {
+            hideCWDRPreloader();
+
+            if (response.data && response.data.length > 0) {
+                const year = response.filterYear;
+                const month = response.filterMonth; // 1–12
+                const daysInMonth = new Date(year, month, 0).getDate();
+
+                // Convert API data into map for quick lookup
+                const dataMap = {};
+                response.data.forEach(item => {
+                    const day = new Date(item.date).getDate(); // extract day
+                    dataMap[day] = {
+                        deployed: item.deployed_count,
+                        returned: item.returned_count,
+                        fullDate: item.date
+                    };
+                });
+
+                // Fill missing days with zeros
+                const labels = [];
+                const deployedData = [];
+                const returnedData = [];
+                const fullDates = [];
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const key = day;
+                    const dayLabel = String(day).padStart(2, '0');
+                    labels.push(dayLabel);
+                    fullDates.push(`${year}-${String(month).padStart(2, '0')}-${dayLabel}`);
+
+                    if (dataMap[key]) {
+                        deployedData.push(dataMap[key].deployed);
+                        returnedData.push(dataMap[key].returned);
+                    } else {
+                        deployedData.push(0);
+                        returnedData.push(0);
+                    }
+                }
+
+                const maxY = Math.max(...deployedData, ...returnedData) + 5;
+                const ctx = document.getElementById('clientDeployedReturnedChart').getContext('2d');
+
+                if (window.clientDRChart) window.clientDRChart.destroy();
+
+                window.clientDRChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels, // show only DD on X-axis
+                        datasets: [
+                            {
+                                label: 'Deployed Vehicle',
+                                data: deployedData,
+                                borderColor: 'rgba(0, 123, 255, 1)',
+                                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'Returned Vehicle',
+                                data: returnedData,
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 2
+                            }
+                        ]
                     },
-                    title: {
-                        display: true,
-                        text: 'Vehicle Count'
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: maxY,
+                                ticks: { stepSize: Math.ceil(maxY / 5) },
+                                title: { display: true, text: 'Vehicle Count' }
+                            },
+                            x: {
+                                title: { display: true, text: 'Day' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { usePointStyle: true }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    // Show full date in tooltip
+                                    title: function(context) {
+                                        const index = context[0].dataIndex;
+                                        return fullDates[index]; // full date (YYYY-MM-DD)
+                                    }
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: `Client-wise Deployed vs Returned (${String(month).padStart(2, '0')}/${year})`
+                            }
+                        }
                     }
-                },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Day of the Month'
-                    }
+                });
+
+                // // Update totals dynamically
+                // $("#totalDeployedCount").text(response.total_deployed_count);
+                // $("#totalReturnedCount").text(response.total_returned_count);
+
+            } else {
+            //   console.warn("No data available for clientDeployedReturnedChart");
+                const canvas = document.getElementById('clientDeployedReturnedChart');
+                const cw_ctx = canvas.getContext('2d');
+                if (window.clientDRChart) {
+                    window.clientDRChart.destroy();
+                    window.clientDRChart = null;
                 }
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true
-                    }
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
-                }
+                cw_ctx.clearRect(0, 0, canvas.width, canvas.height);
+                cw_ctx.font = 'bold 16px Arial';
+                cw_ctx.fillStyle = '#999';
+                cw_ctx.textAlign = 'center';
+                cw_ctx.textBaseline = 'middle';
+                cw_ctx.fillText('No Data Available', canvas.width / 2, canvas.height / 2);
+            
+                hideCWDRPreloader();
             }
+        },
+        error: function(xhr) {
+            console.error("AJAX error:", xhr.responseText);
+            hideCWDRPreloader();
         }
     });
+}
+
+
+
 </script>
 
 
@@ -2469,7 +3138,6 @@ function InSumFilter_Function(){
         }
     });
 }
-
 
 </script>
     @endsection

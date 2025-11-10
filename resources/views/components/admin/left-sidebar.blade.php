@@ -469,6 +469,24 @@
                                 
                                 @endif
                                 
+                                @if (can('recovery_reason'))
+                                
+                                    @php
+                                    $isRecoveryReasonActive = request()->routeIs('admin.Green-Drive-Ev.master_management.recovery_reason.*');
+                                    $fillColor_recoveryReasonMaster = $isRecoveryReasonActive ? '#52c552' : '#bbbfc4';
+                                  @endphp
+                        
+                                <li class="{{ $isRecoveryReasonActive ? 'mm-active' : '' }}">
+                                    <a class="text-capitalize {{ $isRecoveryReasonActive == true ? 'submenu-activeclass' : '' }}" style="color:{{$isRecoveryReasonActive == true ? '#52c552' : '#8a8e91'}}" href="{{route('admin.Green-Drive-Ev.master_management.recovery_reason.index')}}" target="_self">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="21" viewBox="0 0 24 21" fill="{{$fillColor_recoveryReasonMaster}}">
+                                    <path d="M5.75 15.25H23.75V17.75H5.75V20.499L0.416992 16.5L5.75 12.5V15.25ZM23.582 4.5L18.25 8.49902V5.75H0.25V3.25H18.25V0.5L23.582 4.5Z" stroke="#4B5563" stroke-width="0.5"/>
+                                    </svg>
+                                       Recovery Reasons
+                                    </a>
+                                </li>
+                                
+                                @endif
+                                
                                 
                               
                                 @php
@@ -519,6 +537,20 @@
                                     </li>
                                  @endif
                                  
+                                  @php
+                                    $isUpdatesMasterActive = request()->routeIs('admin.Green-Drive-Ev.master_management.recovery_updates_master.*');
+                                    $fillColor_UpdatesMaster = $isUpdatesMasterActive ? '#52c552' : '#bbbfc4';
+                                  @endphp
+                                @if (can('recovery_updates_master'))
+                                    <li class="{{ $isUpdatesMasterActive ? 'mm-active' : '' }}">
+                                        <a class="text-capitalize {{ $isUpdatesMasterActive == true ? 'submenu-activeclass' : '' }}" style="color:{{$isUpdatesMasterActive == true ? '#52c552' : '#8a8e91'}}" href="{{route('admin.Green-Drive-Ev.master_management.recovery_updates_master.index')}}" target="_self">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="21" viewBox="0 0 24 21" fill="{{$fillColor_UpdatesMaster}}">
+                                        <path d="M5.75 15.25H23.75V17.75H5.75V20.499L0.416992 16.5L5.75 12.5V15.25ZM23.582 4.5L18.25 8.49902V5.75H0.25V3.25H18.25V0.5L23.582 4.5Z" stroke="#4B5563" stroke-width="0.5"/>
+                                        </svg>
+                                           Recovery Updates
+                                        </a>
+                                    </li>
+                                 @endif
                                  
                         
                      </x-admin.multi-nav>

@@ -9,7 +9,10 @@ use Modules\AssetMaster\Entities\QualityCheckReinitiate;
 use Modules\VehicleManagement\Entities\VehicleType;
 use Modules\AssetMaster\Entities\VehicleModelMaster;
 use Modules\AssetMaster\Entities\LocationMaster;
+use Modules\City\Entities\City; //updated by Mugesh.B
 use App\Models\User;
+use Modules\MasterManagement\Entities\CustomerMaster;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType;
 use Modules\Deliveryman\Entities\Deliveryman;
 use Modules\Zones\Entities\Zones;
 
@@ -53,6 +56,11 @@ class QualityCheck extends Model
     {
         return $this->belongsTo(VehicleModelMaster::class, 'vehicle_model', 'id');
     }
+    
+    public function customer_relation()
+    {
+        return $this->belongsTo(CustomerMaster::class, 'customer_id', 'id');
+    }
 
     
     public function vehicle_type_relation()
@@ -72,9 +80,16 @@ class QualityCheck extends Model
     
      public function location_relation()
     {
-        return $this->belongsTo(LocationMaster::class, 'location' , 'id');
+        return $this->belongsTo(City::class, 'location' , 'id');
     }
 
+
+
+         public function accountability_type_relation()
+    {
+        return $this->belongsTo(EvTblAccountabilityType::class, 'accountability_type' , 'id');
+    }
+    
     public function zone()
     {
         return $this->belongsTo(Zones::class, 'zone_id' , 'id');

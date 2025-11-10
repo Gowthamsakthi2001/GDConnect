@@ -241,11 +241,12 @@
                             </div>
                         </th>
                         <th scope="col" class="custom-dark text-center">Request ID</th>
+                        <th scope="col" class="custom-dark text-center">Accountability Type</th>
                         <th scope="col" class="custom-dark text-center">Rider Name</th>
                         <th scope="col" class="custom-dark text-center">Rider Contact</th>
                         <th scope="col" class="custom-dark text-center">Vehicle No</th>
                         <th scope="col" class="custom-dark text-center">Vehicle Type</th>
-                        <th scope="col" class="custom-dark text-center">Vehicle model</th>
+                        <th scope="col" class="custom-dark text-center">Vehicle Make</th>
                         <th scope="col" class="custom-dark text-center">City</th>
                         <th scope="col" class="custom-dark text-center">Zone Name</th>
                         <th scope="col" class="custom-dark text-center">Handover Type</th>
@@ -272,91 +273,46 @@
                     <!--    <button class="btn btn-outline-secondary w-50" onclick="clearAssignFilter()">Clear All</button>-->
                     <!--    <button class="btn btn-success w-50" onclick="applyAssignFilter()">Apply</button>-->
                     <!--</div>-->
-                    
-                    <!-- Status Filter -->
-                    <div class="card mb-3" hidden>
+                                      <div class="card mb-3">
                         <div class="card-header p-2">
-                            <div><h6 class="custom-dark">Select Status</h6></div>
+                            <div><h6 class="custom-dark">Date Between</h6></div>
                         </div>
-                        <div class="card-body">
-                            <!-- All -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_all" value="all" 
-                                    {{ request('status', 'all') == 'all' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_all">All</label>
+                      <div class="card-body">
+         
+                            <div class="mb-3">
+                                <label class="form-label" for="assignment_status">Status</label>
+                                <select name="assignment_status" id="assignment_status" class="form-control custom-select2-field">
+                                    <option value="">All</option>
+                                    <option value="running">Running</option>
+                                    <option value="under_maintenance">Under Maintenance</option>
+                                    <option value="recovery_request">Recovery Request</option>
+                                    <option value="recovered">Recovered</option>
+                                    <option value="accident">Accident</option>
+                                    <option value="return_request">Return Request</option>
+                                </select>
                             </div>
-                        
-                            <!-- Completed -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_completed" value="1" 
-                                    {{ request('status') === '1' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_completed">Completed</label>
+                       </div>
+                    </div>
+                    
+                    <div class="card mb-3">
+                       <div class="card-header p-2">
+                           <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+                       </div>
+                       <div class="card-body">
+         
+                            <div class="mb-3">
+                                <label class="form-label" for="FromDate">Accountability Type</label>
+                                <select name="accountability_type" id="accountability_type" class="form-control custom-select2-field">
+                                    <option value="">Select Type</option>
+                                    @if(isset($accountability_types))
+                                    @foreach($accountability_types as $type)
+                                    <option value="{{$type->id}}" >{{$type->name}}</option>
+                                    @endforeach
+                                    @endif
+        
+                                </select>
                             </div>
-                        
-                            <!-- Running -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_running" value="running" 
-                                    {{ request('status') === 'running' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_running">Running</label>
-                            </div>
-                        
-                            <!-- Ticket Raised -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_ticket" value="ticket_raised" 
-                                    {{ request('status') === 'ticket_raised' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_ticket">Ticket Raised</label>
-                            </div>
-                        
-                            <!-- Return Request -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_return_request" value="return_request" 
-                                    {{ request('status') === 'return_request' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_return_request">Return Request</label>
-                            </div>
-                        
-                            <!-- Returned -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_returned" value="returned" 
-                                    {{ request('status') === 'returned' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_returned">Returned</label>
-                            </div>
-                        
-                            <!-- GDM Recovery Initialized -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_gdm_init" value="gdm_recovery_initialized" 
-                                    {{ request('status') === 'gdm_recovery_initialized' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_gdm_init">GDM Recovery Initialized</label>
-                            </div>
-                        
-                            <!-- GDM Recovered -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_gdm_recovered" value="gdm_recovered" 
-                                    {{ request('status') === 'gdm_recovered' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_gdm_recovered">GDM Recovered</label>
-                            </div>
-                        
-                            <!-- Accident -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_accident" value="accident" 
-                                    {{ request('status') === 'accident' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_accident">Accident</label>
-                            </div>
-                        
-                            <!-- Client Recovery Request -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_client_request" value="client_recovery_request" 
-                                    {{ request('status') === 'client_recovery_request' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_client_request">Client Recovery Request</label>
-                            </div>
-                        
-                            <!-- Client Recovered -->
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="radio" name="status_value" id="status_client_recovered" value="client_recovered" 
-                                    {{ request('status') === 'client_recovered' ? 'checked' : '' }}>
-                                <label class="form-check-label" for="status_client_recovered">Client Recovered</label>
-                            </div>
-                        </div> 
-
+                       </div>
                     </div>
                     
                     <!-- Date Filter -->
@@ -416,6 +372,17 @@
                         </div>
                       </div>
                       
+                                            
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field5">Accountability Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="accountability_type" name="accountability_type">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
                           <label class="form-check-label mb-0" for="vehicle_id">Vehicle ID</label>
@@ -432,6 +399,34 @@
                           </div>
                         </div>
                       </div>
+                      
+                        <div class="col-md-3 col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <label class="form-check-label mb-0" for="vehicle_number">Vehicle Number</label>
+                          <div class="form-check form-switch m-0">
+                            <input class="form-check-input export-field-checkbox" type="checkbox" name="vehicle_number" id="vehicle_number">
+                          </div>
+                        </div>
+                      </div>
+                      
+                    <div class="col-md-3 col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <label class="form-check-label mb-0" for="vehicle_model">Vehicle Model</label>
+                          <div class="form-check form-switch m-0">
+                            <input class="form-check-input export-field-checkbox" type="checkbox" name="vehicle_model" id="vehicle_model">
+                          </div>
+                        </div>
+                      </div>
+                      
+                        <div class="col-md-3 col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <label class="form-check-label mb-0" for="vehicle_make">Vehicle Make</label>
+                          <div class="form-check form-switch m-0">
+                            <input class="form-check-input export-field-checkbox" type="checkbox" name="vehicle_make" id="vehicle_make">
+                          </div>
+                        </div>
+                      </div>
+                      
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
                           <label class="form-check-label mb-0" for="vehicle_type">Vehicle Type</label>
@@ -472,6 +467,16 @@
                           </div>
                         </div>
                       </div>
+                      
+                      <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="customer_name">Customer Name</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="customer_name" name="customer_name">
+                        </div>
+                      </div>
+                    </div>
+                    
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
                           <label class="form-check-label mb-0" for="status">Status</label>
@@ -621,6 +626,15 @@
                         </div>
                       </div>
                     </div>
+                    
+                                            <div class="col-md-3 col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <label class="form-check-label mb-0" for="status">Status</label>
+                          <div class="form-check form-switch m-0">
+                            <input class="form-check-input export-field-checkbox" type="checkbox" name="status" id="status">
+                          </div>
+                        </div>
+                      </div>
                       
                     </div>
                   </div>
@@ -735,7 +749,8 @@ function RightSideFilerOpen() {
         return;
     }
     
-    
+        const accountability_type   = document.getElementById('accountability_type').value;
+    const status   = document.getElementById('assignment_status').value;
 
    
     const fromDate = document.getElementById('FromDate').value;
@@ -752,7 +767,8 @@ function RightSideFilerOpen() {
     // if (status) params.append('status', status);
     // if (city) params.append('city', city);
     // if (zone) params.append('zone', zone);
-    
+        if (accountability_type) params.append('accountability_type', accountability_type);
+    if (status) params.append('status', status);
 
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
@@ -800,6 +816,8 @@ function clearAssignFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
     // $('input[name="status_value"][value="all"]').prop('checked', true);
+        $('#accountability_type').val('').trigger('change');
+    $('#assignment_status').val('').trigger('change');
     table.ajax.reload();
     
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
@@ -822,6 +840,8 @@ function clearAssignFilter() {
             data: function (d) {
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
+                d.accountability_type = $('#accountability_type').val();
+                d.status   = $('#assignment_status').val();
             },
             beforeSend: function () {
                 $('#loadingOverlay').show();
@@ -843,11 +863,12 @@ function clearAssignFilter() {
             { data: 5 },
             { data: 6 },
             { data: 7 },
-            { data: 8 , orderable: false, searchable: false},
-            { data: 9 },
+            { data: 8 },
+            { data: 9 , orderable: false, searchable: false},
             { data: 10 },
             { data: 11 },
-            { data: 12, orderable: false, searchable: false },
+            { data: 12 },
+            { data: 13, orderable: false, searchable: false },
         ],
         lengthMenu: [[25, 50, 100, 250, -1], [25, 50, 100, 250, "All"]],
         scrollX: true,

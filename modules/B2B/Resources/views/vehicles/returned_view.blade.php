@@ -420,9 +420,10 @@
                 <div class="col-md-6 mb-3">
                         <label class="form-label">Odometer Image</label>
                         <div class="file-preview-container">
+                            
                             @if(!empty($data->odometer_image))
                                 @php
-                                    $frontExtension = pathinfo($data->kilometer_image, PATHINFO_EXTENSION);
+                                    $frontExtension = pathinfo($data->odometer_image, PATHINFO_EXTENSION);
                                     $frontPath = asset('b2b/odometer_images/'.$data->odometer_image);
                                 @endphp
                                
@@ -714,6 +715,14 @@
                         </div>
                     </div>
                   
+                  
+                        <!-- Agent Remarks -->
+                        <div class="col-md-12 mb-3">
+                            <div class="form-group">
+                                <label class="input-label mb-2 ms-1" for="remarks">Agent Remarks</label>
+                                <textarea class="form-control bg-white" name="remarks" id="remarks" rows="8" placeholder="Remarks" readonly>{{$data->agent_remarks ?? ''}}</textarea>
+                            </div>
+                        </div>
                   @endif  
             </div>
 

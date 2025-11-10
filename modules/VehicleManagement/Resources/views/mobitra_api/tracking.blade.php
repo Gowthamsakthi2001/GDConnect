@@ -972,7 +972,7 @@
     <!-- The rest of your HTML/PHP code remains exactly the same -->
     @php
    
-    $data = $results['data'];
+    $data = $results['data'] ?? [];
     @endphp
 
     <div class="main-container">

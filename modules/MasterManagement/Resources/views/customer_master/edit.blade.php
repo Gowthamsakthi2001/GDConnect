@@ -173,6 +173,74 @@ table thead th {
                             </div>
                         </div>
                         
+                                                                  <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label class="col-12 col-md-4 col-form-label text-start" for="client_type">Client Type <span class="text-danger fw-bold">*</span></label>
+                                <div class="col-12 col-md-8">
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="client_type" name="client_type">
+                                        <option value="">Select</option>
+                                        @if(isset($customer_types))
+                                           @foreach($customer_types as $type)
+                                              <option value="{{$type->id}}" {{ isset($customer_data) && $customer_data->client_type == $type->id ? 'selected' : '' }}>{{$type->name}}</option>
+                                           @endforeach
+                                        @endif
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        @php
+                            $selectedAccountabilities = [];
+                            if (isset($customer_data->accountability_type_id)) {
+                                // If it's already an array
+                                if (is_array($customer_data->accountability_type_id)) {
+                                    $selectedAccountabilities = $customer_data->accountability_type_id;
+                                }
+                                // If it's a JSON string
+                                elseif (is_string($customer_data->accountability_type_id)) {
+                                    $decoded = json_decode($customer_data->accountability_type_id, true);
+                                    $selectedAccountabilities = is_array($decoded) ? $decoded : [];
+                                }
+                            }
+                        @endphp
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label class="col-12 col-md-4 col-form-label text-start" for="accountability_type">Accountability Type<span class="text-danger fw-bold">*</span></label>
+                                <div class="col-12 col-md-8">
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="accountability_type" name="accountability_type[]" multiple>
+                                        <option value="">Select</option>
+                                        @if(isset($types))
+                                           @foreach($types as $type)
+                                              <option value="{{$type->id}}" {{ in_array($type->id, $selectedAccountabilities) ? 'selected' : '' }}>
+                                              {{$type->name}}</option>
+                                           @endforeach
+                                        @endif
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label for="Contact_no" class="col-12 col-md-4 col-form-label text-start ">Contract Start Date</label>
+                                <div class="col-12 col-md-8">
+                                    <input type="date"  class="form-control border-0 border-bottom rounded-0 shadow-none" name="start_date" value="{{$customer_data->start_date ?? ''}}"  id="start_date">
+                                </div>
+                            </div>
+                        </div>
+                        
+                                                <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label for="Contact_no" class="col-12 col-md-4 col-form-label text-start ">Contract End Date</label>
+                                <div class="col-12 col-md-8">
+                                    <input type="date"  class="form-control border-0 border-bottom rounded-0 shadow-none" name="end_date" value="{{$customer_data->end_date ?? ''}}" id="end_date">
+                                
+                        </div>
+                        </div>
+                         </div>
+                        
                         <div class="col-12 my-3">
                             <h6>Company Address Details</h6>
                         </div>
@@ -183,6 +251,8 @@ table thead th {
                                 <input type="hidden" name="client_coordinate" id="zoneInput">
                             </div>
                         </div>
+                        
+  
                         
                         <div class="col-md-6 mb-3">
                             <div class="form-group row">
@@ -601,6 +671,82 @@ table thead th {
                             </div>
                         </div>
                         
+                        <?php
+                            $profileImgSrc = !empty($customer_data->profile_img)
+                                ? asset("EV/vehicle_transfer/profile_images/{$customer_data->profile_img}")
+                                : asset("admin-assets/img/defualt_upload_img.jpg");
+                            
+                            $isProfilePdf = !empty($customer_data->profile_img) && str_contains($customer_data->profile_img, '.pdf');
+                        ?>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group position-relative mb-3">
+                                <label class="input-label mb-2 ms-1" for="profile_img">Profile Image</label>
+                                <input type="file" class="form-control bg-white" name="profile_img" id="profile_img"
+                                       accept="image/png,image/jpeg,image/jpg,application/pdf"
+                                       onchange="showImagePreview(this,'profile_Image','profile_PDF')">
+                            </div>
+                        
+                            <div class="preview-container border rounded shadow overflow-hidden position-relative"
+                                 style="height: 300px; display: flex; justify-content: center; align-items: center;">
+                        
+                                <button type="button" class="btn btn-sm btn-danger position-absolute"
+                                        style="top: 10px; right: 10px; z-index: 10;"
+                                        onclick="resetPreview('profile_Image','profile_PDF')">
+                                    ✖
+                                </button>
+                        
+                                <img id="profile_Image"
+                                     src="{{ !$isProfilePdf ? $profileImgSrc : asset('admin-assets/img/defualt_upload_img.jpg') }}"
+                                     style="max-height: 100%; max-width: 100%; object-fit: contain; display: {{ $isProfilePdf ? 'none' : 'block' }};">
+                        
+                                <iframe id="profile_PDF"
+                                        src="{{ $isProfilePdf ? $profileImgSrc : '' }}"
+                                        style="width: 100%; height: 100%; display: {{ $isProfilePdf ? 'block' : 'none' }};"
+                                        frameborder="0">
+                                </iframe>
+                            </div>
+                        </div>
+                        
+                        <?php
+                            $companyLogoSrc = !empty($customer_data->company_logo)
+                                ? asset("EV/vehicle_transfer/company_logos/{$customer_data->company_logo}")
+                                : asset("admin-assets/img/defualt_upload_img.jpg");
+                            
+                            $isCompanyLogoPdf = !empty($customer_data->company_logo) && str_contains($customer_data->company_logo, '.pdf');
+                        ?>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group position-relative mb-3">
+                                <label class="input-label mb-2 ms-1" for="company_logo_img">Company Logo</label>
+                                <input type="file" class="form-control bg-white" name="company_logo_img" id="company_logo_img"
+                                       accept="image/png,image/jpeg,image/jpg,application/pdf"
+                                       onchange="showImagePreview(this,'company_logo_Image','company_logo_PDF')">
+                            </div>
+                        
+                            <div class="preview-container border rounded shadow overflow-hidden position-relative"
+                                 style="height: 300px; display: flex; justify-content: center; align-items: center;">
+                        
+                                <button type="button" class="btn btn-sm btn-danger position-absolute"
+                                        style="top: 10px; right: 10px; z-index: 10;"
+                                        onclick="resetPreview('company_logo_Image','company_logo_PDF')">
+                                    ✖
+                                </button>
+                        
+                                <img id="company_logo_Image"
+                                     src="{{ !$isCompanyLogoPdf ? $companyLogoSrc : asset('admin-assets/img/defualt_upload_img.jpg') }}"
+                                     style="max-height: 100%; max-width: 100%; object-fit: contain; display: {{ $isCompanyLogoPdf ? 'none' : 'block' }};">
+                        
+                                <iframe id="company_logo_PDF"
+                                        src="{{ $isCompanyLogoPdf ? $companyLogoSrc : '' }}"
+                                        style="width: 100%; height: 100%; display: {{ $isCompanyLogoPdf ? 'block' : 'none' }};"
+                                        frameborder="0">
+                                </iframe>
+                            </div>
+                        </div>
+
+
+
                         <div class="col-12 text-end gap-2">
                             <button type="button" class="btn btn-danger px-3">Reset</button>
                             <button type="submit" id="submitBtn" class="btn btn-success px-3">Update</button>
@@ -613,9 +759,13 @@ table thead th {
             
     </div>
     
+     <?php
+  $apiKey = \App\Models\BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
    
+  ?>
 @section('script_js')
-<script src="https://maps.googleapis.com/maps/api/js?key={{ env('MAP_KEY') }}&libraries=places"></script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key={{ $apiKey }}&libraries=places"></script>
 
 <script>
     function initAutocompleteOnly() {
@@ -851,11 +1001,36 @@ document.addEventListener('DOMContentLoaded', function () {
         let gst = $('#gst_no').val().trim();
         let pan = $('#pan_no').val().trim();
         
+        
+                let startDate = $('#start_date').val();
+        let endDate = $('#end_date').val();
+        
+        
+        if (startDate && new Date(endDate) < new Date(startDate)) {
+            $('#end_date').addClass('is-invalid');
+            toastr.error('Contract End Date cannot be before Contract Start Date.');
+            isValid = false;
+        }
+        
+         if (!startDate) {
+            $('#start_date').addClass('is-invalid');
+            toastr.error('Contract Start Date is required.');
+            isValid = false;
+        }
+        if (!endDate) {
+            $('#end_date').addClass('is-invalid');
+            toastr.error('Contract End Date is required.');
+            isValid = false;
+        }
+        
         // Validate Email if not empty
-        let emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        // let emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        
+        let emailRegex = /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i; //updated by Gowtham.S
+
         if (email && !emailRegex.test(email)) {
             $('#Email').addClass('is-invalid');
-            toastr.error('Please enter a valid Gmail ID (example@gmail.com)');
+            toastr.error('Please enter a valid Gmail ID (example@gmail.com or example@gmail.in)');
             isValid = false;
         }
         

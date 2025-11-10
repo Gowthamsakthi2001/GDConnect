@@ -169,6 +169,7 @@
                                   </div>
                                 </th>
                                 <th class="custom-dark">Request Id</th>
+                                 <th class="custom-dark">Accountability Type</th>
                                 <th class="custom-dark">Vehicle No</th>
                                 <th class="custom-dark">Chassis No</th>
                                 <th class="custom-dark">Rider Name</th>
@@ -224,6 +225,15 @@
                         <label class="form-check-label mb-0" for="field3">Request ID</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="req_id" name="req_id">
+                        </div>
+                      </div>
+                    </div>
+                    
+                       <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Accountability Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="accountability_type" name="accountability_type">
                         </div>
                       </div>
                     </div>
@@ -436,9 +446,27 @@
                     
                         <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">Created Date & Time</label>
+                        <label class="form-check-label mb-0" for="created_at">Created Date & Time</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="created_at" name="created_at">
+                        </div>
+                      </div>
+                    </div>
+                    
+                            <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="updated_at">Updated Date & Time</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="updated_at" name="updated_at">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="aging">Aging</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="aging" name="aging">
                         </div>
                       </div>
                     </div>
@@ -509,6 +537,29 @@
                     </div>
                </div>
             </div>
+            
+            
+                        <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field">
+                            <option value="">Select Type</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
             
              @if($guard == 'master')
             <div class="card mb-3">
@@ -637,6 +688,7 @@
                 d.status = $('#status_value').val();
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
+                d.accountability_type = $('#accountabilitytype').val();
         },
         beforeSend: function () {
                 $('#accidentList tbody').html(`
@@ -673,7 +725,8 @@
             { data: 9 }, 
             { data: 10 }, 
             { data: 11 },
-            { data: 12, orderable: false, searchable: false } // Action
+            { data: 12 },
+            { data: 13, orderable: false, searchable: false } // Action
             ],
     order:[[1,'desc']],
     lengthMenu:[[25,50,100,-1],[25,50,100,"All"]],
@@ -711,6 +764,8 @@ $('#applyFilterBtn').on('click', function(e){
         $('#ToDate').val('');
         $('#city_id').val('').trigger('change');
         $('#zone_id').val('').trigger('change');
+               $('#accountabilitytype').val('').trigger('change');
+        $('#status_value').val('').trigger('change');
         accidentTable.ajax.reload();
           const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
         if (bsOffcanvas) {
@@ -946,6 +1001,8 @@ $('#applyFilterBtn').on('click', function(e){
     const city   = document.getElementById('city_id')?.value || '';
     const zone   = document.getElementById('zone_id')?.value || '';
     const status   = document.getElementById('status_value')?.value || '';
+    	
+    const accountability_type   = document.getElementById('accountabilitytype')?.value || '';
     // ✅ Build query params
     const params = new URLSearchParams();
  
@@ -954,6 +1011,7 @@ $('#applyFilterBtn').on('click', function(e){
     if (zone) params.append('zone_id', zone);
     if (city) params.append('city_id', city);
     if (status) params.append('status', status);
+        if (accountability_type) params.append('accountability_type', accountability_type);
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
 

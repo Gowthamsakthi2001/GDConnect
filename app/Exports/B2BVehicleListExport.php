@@ -20,8 +20,9 @@ class B2BVehicleListExport implements FromCollection, WithHeadings, WithMapping
     protected $city;
     protected $zone;
     protected $status;
+    protected $accountability_type;
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status = null , $accountability_type = null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -30,6 +31,7 @@ class B2BVehicleListExport implements FromCollection, WithHeadings, WithMapping
         $this->city           = $city;
         $this->zone           = $zone;
         $this->status         = $status;
+        $this->accountability_type = $accountability_type;
     }
 
 public function collection()
@@ -50,6 +52,7 @@ public function collection()
         'VehicleRequest.city', 
         'VehicleRequest.zone',// eager load city through request
         'VehicleRequest.rider.customerLogin.customer_relation',
+        'recovery_Request',
     ]);
 
     if (!empty($this->selectedIds)) {
@@ -61,6 +64,11 @@ public function collection()
                 $q->whereIn('created_by', $customerLoginIds);
             }
 
+            if ($this->accountability_type) {
+                $q->where('account_ability_type', $this->accountability_type);
+            }
+            
+            
             if ($guard === 'master') {
                 $q->where('city_id', $user->city_id);
             }
@@ -78,22 +86,24 @@ public function collection()
                 $q->where('zone_id', $this->zone);
             }
 
-            if ($this->status) {
-                $q->where('status', $this->status);
-            }
-
-            if ($this->from_date) {
-                $q->whereDate('created_at', '>=', $this->from_date);
-            }
-
-            if ($this->to_date) {
-                $q->whereDate('created_at', '<=', $this->to_date);
-            }
-
-            // $q->whereNotIn('status', ['return_request', 'returned']);
+  
         });
+        
+        if (!empty($this->status)) {
+            $query->where('status', $this->status);
+        }
+        
+        if (!empty($this->from_date)) {
+            $query->whereDate('created_at', '>=', $this->from_date);
+        }
+        
+        if (!empty($this->to_date)) {
+            $query->whereDate('created_at', '<=', $this->to_date);
+        }
+
     }
-    // $data = $query->orderBy('id', 'desc')->get();
+    $data = $query->orderBy('id', 'desc')->get();
+    
  
     return $query->orderBy('id', 'desc')->get();
     
@@ -111,7 +121,7 @@ public function collection()
                     break;
 
                 case 'vehicle_id':
-                    $mapped[] = $row->asset_vehicle_id ?? '-';
+                    $mapped[] = $row->vehicle->vehicle_id ?? '-';
                     break;
 
                 case 'chassis_number':
@@ -122,6 +132,20 @@ public function collection()
                     $mapped[] = $row->vehicle->vehicle_type_relation->name ?? '-';
                     break;
 
+
+                case 'vehicle_number':
+                    $mapped[] = $row->vehicle->permanent_reg_number ?? '-';
+                    break;
+                case 'vehicle_model':
+                    $mapped[] = $row->vehicle->vehicle_model_relation->vehicle_model ?? '-';
+                    break;
+                case 'vehicle_make':
+                    $mapped[] = $row->vehicle->vehicle_model_relation->make ?? '-';
+                    break;
+                    
+                case 'customer_name':
+                    $mapped[] = $row->VehicleRequest->customerLogin->customer_relation->trade_name ?? '-';
+                    break;
                 case 'handover_type':
                     $mapped[] = $row->handover_type ?? '-';
                     break;
@@ -137,10 +161,24 @@ public function collection()
                 case 'zone':
                     $mapped[] = $row->VehicleRequest->zone->name ?? '-';
                     break;
+                    
+                case 'accountability_type':
+                        $mapped[] = $row->VehicleRequest->accountAbilityRelation->name ?? '-';
+                        break;
 
                 case 'status':
-                    $mapped[] = ucfirst($row->status ?? '-') ;
+                    if ($row->status === 'recovery_request') {
+                        $creator = $row->recovery_Request->created_by_type ?? null;
+                        $statusText = ($creator === 'b2b-admin-dashboard')
+                            ? 'GDM Recovery Initiated'
+                            : 'Client Recovery Initiated';
+                    } else {
+                        $statusText = ucwords(str_replace('_', ' ', $row->status ?? '-'));
+                    }
+                    $mapped[] = $statusText;
                     break;
+
+
 
                 case 'name':
                     $mapped[] = optional($row->rider)->name ?? '-';
@@ -225,12 +263,16 @@ public function collection()
             'request_id'             => 'Request ID',
             'vehicle_id'             => 'Vehicle ID',
             'chassis_number'         => 'Chassis Number',
+            'vehicle_number'         => 'Vehicle Number',
+            'vehicle_model'         => 'Vehicle Model',
+            'vehicle_make'           => 'Vehicle Make',
             'vehicle_type'           => 'Vehicle Type',
             'handover_type'          => 'Handover Type',
-            'handover_time'          => 'Handover Time',
+            'handover_time'          => 'Handover Date & Time',
             'city'                   => 'City',
             'zone'                   => 'Zone',
-            'status'                 => 'Status',
+            'status'                 => 'Status', 
+            'customer_name'          => 'Customer Name' ,
             'name'                   => 'Rider Name',
             'mobile_no'              => 'Mobile Number',
             'email'                  => 'Email',

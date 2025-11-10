@@ -170,6 +170,60 @@ table thead th {
                             </div>
                         </div>
                         
+                        
+                                                <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label class="col-12 col-md-4 col-form-label text-start" for="client_type">Client Type <span class="text-danger fw-bold">*</span></label>
+                                <div class="col-12 col-md-8">
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="client_type" name="client_type">
+                                        <option value="">Select</option>
+                                        @if(isset($customer_types))
+                                           @foreach($customer_types as $type)
+                                              <option value="{{$type->id}}">{{$type->name}}</option>
+                                           @endforeach
+                                        @endif
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label class="col-12 col-md-4 col-form-label text-start" for="accountability_type">Accountability Type<span class="text-danger fw-bold">*</span></label>
+                                <div class="col-12 col-md-8">
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="accountability_type" name="accountability_type[]" multiple>
+                                        <option value="">Select</option>
+                                        @if(isset($types))
+                                           @foreach($types as $type)
+                                              <option value="{{$type->id}}">{{$type->name}}</option>
+                                           @endforeach
+                                        @endif
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label for="Contact_no" class="col-12 col-md-4 col-form-label text-start ">Contract Start Date</label>
+                                <div class="col-12 col-md-8">
+                                    <input type="date"  class="form-control border-0 border-bottom rounded-0 shadow-none" name="start_date"  id="start_date">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group row">
+                                <label for="Contact_no" class="col-12 col-md-4 col-form-label text-start ">Contract End Date</label>
+                                <div class="col-12 col-md-8">
+                                    <input type="date"  class="form-control border-0 border-bottom rounded-0 shadow-none" name="end_date"  id="end_date">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        
                         <div class="col-12 my-3">
                             <h6>Company Address Details</h6>
                         </div>
@@ -777,11 +831,41 @@ document.addEventListener('DOMContentLoaded', function () {
         let gst = $('#gst_no').val().trim();
         let pan = $('#pan_no').val().trim();
         
+                let startDate = $('#start_date').val();
+        let endDate = $('#end_date').val();
+        let today = new Date().toISOString().split('T')[0]; // today's date in yyyy-mm-dd format
+        
         // Validate Email if not empty
-        let emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        // let emailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+        
+         if (new Date(startDate) < new Date(today)) {
+            $('#start_date').addClass('is-invalid');
+            toastr.error('Contract Start Date cannot be before today.');
+            isValid = false;
+        }
+    
+         if (startDate && new Date(endDate) < new Date(startDate)) {
+            $('#end_date').addClass('is-invalid');
+            toastr.error('Contract End Date cannot be before Contract Start Date.');
+            isValid = false;
+        }
+        
+         if (!startDate) {
+            $('#start_date').addClass('is-invalid');
+            toastr.error('Contract Start Date is required.');
+            isValid = false;
+        }
+        if (!endDate) {
+            $('#end_date').addClass('is-invalid');
+            toastr.error('Contract End Date is required.');
+            isValid = false;
+        }
+        // let emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.(com|in|co\.in)|shadowfax\.in|abc\.com|xyz\.in)$/; 
+        
+        let emailRegex = /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i; //updated by Gowtham.S
         if (email && !emailRegex.test(email)) {
             $('#Email').addClass('is-invalid');
-            toastr.error('Please enter a valid Gmail ID (example@gmail.com)');
+            toastr.error('Please enter a valid Gmail ID (example@gmail.com or example@gmail.in)');
             isValid = false;
         }
         
@@ -881,6 +965,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
     }
 
+$(document).ready(function() {
+    // Get today's date in yyyy-mm-dd format
+    let today = new Date().toISOString().split('T')[0];
+    // Set today's date as the minimum for start_date
+    $('#start_date').attr('min', today);
+    $('#end_date').attr('min', today);
+    // When Start Date changes, update End Date's min value
+    $('#start_date').on('change', function() {
+        let startDate = $(this).val();
+        $('#end_date').attr('min', startDate);
+    });
+ 
+});
 </script>
 @endsection
 </x-app-layout>

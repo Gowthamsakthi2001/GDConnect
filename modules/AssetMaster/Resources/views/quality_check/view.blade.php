@@ -177,7 +177,6 @@
 
 </style>
 
-
     <div class="main-content">
        
         <div class="card my-4">
@@ -530,10 +529,32 @@
                                                 
                                                  >
                                     
-                                            <iframe id="qc_PDF"
-                                                    src="{{ $pdfSrc }}"
-                                                    style="width: 100%; height: 100%; {{ !$isPDF ? 'display: none;' : '' }} border: none;"
-                                                    frameborder="0"></iframe>
+                                            <!--<iframe id="qc_PDF"-->
+                                            <!--        src="{{ $pdfSrc }}"-->
+                                            <!--        style="width: 100%; height: 100%; {{ !$isPDF ? 'display: none;' : '' }} border: none;"-->
+                                            <!--        frameborder="0"></iframe>-->
+                                                    
+                                             @if($pdfSrc)
+                                                    <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                                        <iframe id="qc_PDF"
+                                                                src="{{ $pdfSrc }}"
+                                                                class="w-100 h-100 border-0"
+                                                                style="pointer-events: none; border-radius: 0.5rem;">
+                                                        </iframe>
+                                        
+                                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                             style="cursor: pointer; background: transparent;"
+                                                             onclick="OpenImageModal('{{ $pdfSrc }}')">
+                                                        </div>
+                                                    </div>
+                                                @endif
+                
+                                                @if(!$pdfSrc)
+                                                    <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                         style="cursor: pointer; background: transparent;"
+                                                         onclick="OpenImageModal('{{ $imageSrc }}')">
+                                                    </div>
+                                                @endif
                                         </div>
                                     </div>
 
@@ -647,7 +668,13 @@
                                                     $status = strtolower($item->status);
                                                     $isFail = $status === 'fail';
                                                     $isPass = $status === 'pass';
-                                                    $buttonClass = $isFail ? 'btn-danger' : 'btn-success';
+                                                    $isUpdated = $status === 'updated';
+                                                       $buttonClass = match (true) {
+                                                        $isFail => 'btn-danger',
+                                                        $isPass => 'btn-success',
+                                                        $isUpdated => 'btn-info', 
+                                                        default => 'btn-secondary',
+                                                    };
                                                     $statusText = ucfirst($status); // "Fail" or "Pass"
                                                 @endphp
                                         
@@ -663,7 +690,7 @@
                                                                     {{ \Carbon\Carbon::parse($item->created_at)->format('d M Y, h:i A') }}
                                                                 </p>
                                                             </div>
-                                                            @if($isFail || $isPass)
+                                                            @if($isFail || $isPass || $isUpdated)
                                                                 <div>
                                                                     <button class="btn btn-sm {{ $buttonClass }}">{{ $statusText }}</button>
                                                                 </div>
@@ -749,34 +776,7 @@
         <!--Image Preview Section-->
     
     
-<div class="modal fade" id="BKYC_Verify_view_modal" tabindex="-1" aria-labelledby="BKYC_Verify_viewLabel" aria-hidden="true">
-  <div class="modal-dialog modal-md">
-    <div class="modal-content rounded-4">
-
-      <!-- Header with fixed control buttons -->
-      <div class="modal-header border-0 d-flex justify-content-end gap-1">
-        <button class="btn btn-sm btn-dark" onclick="zoomIn()">
-          <i class="bi bi-zoom-in"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" onclick="zoomOut()">
-          <i class="bi bi-zoom-out"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" onclick="rotateImage()">
-          <i class="bi bi-arrow-repeat"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" data-bs-dismiss="modal">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-
-      <!-- Scrollable modal body -->
-      <div class="modal-body text-center py-6" style="overflow: auto; max-height: 80vh;">
-        <img src="" id="kyc_image" style="max-width: 100%; transition: transform 0.3s ease;">
-      </div>
-
-    </div>
-  </div>
-</div>
+ @include('assetmaster::asset_master.action_popup_modal') 
    
 @section('script_js')
 
@@ -1096,30 +1096,49 @@ $(document).ready(function () {
 
 
 
-
-function OpenImageModal(img_url) {
-    $("#kyc_image").attr("src", ""); // Clear image first
-    $("#BKYC_Verify_view_modal").modal('show'); // Corrected selector
-    $("#kyc_image").attr("src", img_url); // Load new image
-}
-
 let scale = 1;
 let rotation = 0;
+let currentFileUrl = '';
+let currentType = ''; 
 
-function OpenImageModal(img_url) {
+function OpenImageModal(fileUrl) {
+    currentFileUrl = fileUrl;
+    const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+
     scale = 1;
     rotation = 0;
     updateImageTransform();
-    $("#kyc_image").attr("src", img_url);
-    $("#BKYC_Verify_view_modal").modal('show');
+
+    if (isPDF) {
+        $("#kyc_image").hide();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").hide(); // Hide image tools for PDF
+        $("#kyc_pdf").attr("src", fileUrl).show();
+        currentType = 'pdf';
+    } else {
+        $("#kyc_pdf").hide();
+        $("#kyc_image").attr("src", fileUrl).show();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").show();
+        currentType = 'image';
+    }
+
+    $("#downloadBtn").off("click").on("click", function () {
+        const link = document.createElement("a");
+        link.href = currentFileUrl;
+        link.download = currentFileUrl.split('/').pop();
+        link.click();
+    });
+
+    $("#BKYC_Verify_view_modal").modal("show");
 }
 
 function zoomIn() {
+    if (currentType !== 'image') return;
     scale += 0.1;
     updateImageTransform();
 }
 
 function zoomOut() {
+    if (currentType !== 'image') return;
     if (scale > 0.2) {
         scale -= 0.1;
         updateImageTransform();
@@ -1127,15 +1146,17 @@ function zoomOut() {
 }
 
 function rotateImage() {
+    if (currentType !== 'image') return;
     rotation = (rotation + 90) % 360;
     updateImageTransform();
 }
 
 function updateImageTransform() {
     const img = document.getElementById("kyc_image");
-    img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    if (img) {
+        img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    }
 }
-
 
 
 function getZones(CityID) {

@@ -212,11 +212,8 @@
                             </div>
                         </div>
                          <?php
-                            // $image_src4 = !empty($data->assetVehicle->tax_invoice_attachment)
-                            //     ? asset("EV/asset_master/tax_invoice_attachments/{$data->assetVehicle->tax_invoice_attachment}")
-                            //     : asset("admin-assets/img/defualt_upload_img.jpg");
                                 
-                                     $TaxInvoiceattachment = $data->assetVehicle->tax_invoice_attachment ?? '';
+                                $TaxInvoiceattachment = $data->assetVehicle->tax_invoice_attachment ?? '';
                                 $defaultImage = asset('admin-assets/img/defualt_upload_img.jpg');
                                 $TaxInvoicefilePath = !empty($TaxInvoiceattachment)
                                     ? asset("EV/asset_master/tax_invoice_attachments/{$TaxInvoiceattachment}")
@@ -228,24 +225,46 @@
                                 $TaxInvoiceimageSrc = (!$TaxInvoicefilePath || $isTaxInvoicePDF) ? $defaultImage : $TaxInvoicefilePath;
                             ?>
                         <div class="col-md-12 mb-4 my-4">
-                         <div class="preview-container border rounded shadow overflow-hidden position-relative" style="height: 300px; display: flex; justify-content: center; align-items: center;">
-                                <button type="button" class="btn btn-sm btn-danger position-absolute" style="top: 10px; right: 10px; z-index: 10;" onclick="resetPreview('tax_invoice_Image')">
+                            <div class="preview-container border rounded shadow overflow-hidden position-relative"
+                                 style="height: 300px; display: flex; justify-content: center; align-items: center;">
+                        
+                                <button type="button"
+                                        class="btn btn-sm btn-danger position-absolute"
+                                        style="top: 10px; right: 10px; z-index: 10;"
+                                        onclick="resetPreview('tax_invoice_Image')">
                                     ✖
                                 </button>
+                        
                                 <img id="tax_invoice_Image"
                                      src="{{ $TaxInvoiceimageSrc }}"
                                      alt="Tax Invoice Attachment"
                                      class="img-fluid rounded shadow border"
-                                      style="max-height: 300px; object-fit: cover; {{ $isTaxInvoicePDF ? 'display: none;' : '' }}" onclick="OpenImageModal('{{$TaxInvoiceimageSrc}}')">
-                                     
-                                     
-                                                                              
-                                <iframe id="tax_invoice_PDF"
-                                         src="{{ $isTaxInvoicePDF ? $TaxInvoicefilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isTaxInvoicePDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                     style="max-height: 300px; object-fit: cover; {{ $isTaxInvoicePDF ? 'display:none;' : '' }}">
+
+                                @if($isTaxInvoicePDF)
+                                    <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                        <iframe id="tax_invoice_PDF"
+                                                src="{{ $TaxInvoicefilePath }}"
+                                                class="w-100 h-100 border-0"
+                                                style="pointer-events: none; border-radius: 0.5rem;">
+                                        </iframe>
+                        
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $TaxInvoicefilePath }}')">
+                                        </div>
+                                    </div>
+                                @endif
+
+                                @if(!$isTaxInvoicePDF)
+                                    <div class="position-absolute top-0 start-0 w-100 h-100"
+                                         style="cursor: pointer; background: transparent;"
+                                         onclick="OpenImageModal('{{ $TaxInvoiceimageSrc }}')">
+                                    </div>
+                                @endif
                             </div>
                         </div>
+
 
                         
                         <div class="col-md-6 mb-3" hidden>
@@ -358,12 +377,28 @@
                                      alt="Master Lease Agreement"
                                      class="img-fluid rounded shadow border"
                                      style="max-height: 300px; object-fit: cover; {{ $isMasterLeasePDF ? 'display: none;' : '' }}" onclick="OpenImageModal('{{$MasterLeaseimageSrc}}')">
-                                     
-                                                                                                              
-                                <iframe id="master_lease_PDF"
-                                         src="{{ $isMasterLeasePDF ? $MasterLeasefilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isMasterLeasePDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                        
+                                    @if($isMasterLeasePDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="master_lease_PDF"
+                                                    src="{{ $MasterLeasefilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $MasterLeasefilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isMasterLeasePDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $MasterLeaseimageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -451,11 +486,28 @@
                                      alt="Hypothecation Document"
                                      class="img-fluid rounded shadow border"
                                      style="max-height: 300px; object-fit: cover; {{ $isHypothecationPDF ? 'display: none;' : '' }}" onclick="OpenImageModal('{{$HypothecationimageSrc}}')">
-                                     
-                                    <iframe id="hypothecation_PDF"
-                                         src="{{ $isHypothecationPDF ? $HypothecationfilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isHypothecationPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                   
+                                     @if($isHypothecationPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="hypothecation_PDF"
+                                                    src="{{ $HypothecationfilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $HypothecationfilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isHypothecationPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $HypothecationimageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -546,11 +598,28 @@
                                  alt="Insurance Attachment"
                                  class="img-fluid rounded shadow border"
                                  style="max-height: 300px; object-fit: cover; {{ $isInsurancePDF ? 'display: none;' : '' }}">
-                    
-                            <iframe id="insurance_PDF"
-                                    src="{{ $isInsurancePDF ? $insuranceFilePath : '' }}"
-                                    style="width: 100%; height: 100%; {{ !$isInsurancePDF ? 'display: none;' : '' }} border: none;"
-                                    frameborder="0"></iframe>
+                                    
+                                 @if($isInsurancePDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="master_lease_PDF"
+                                                    src="{{ $insuranceFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $insuranceFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isInsurancePDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $insuranceImageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -636,10 +705,27 @@
                                      style="max-height: 300px; object-fit: cover; {{ $isTemporaryPDF ? 'display: none;' : '' }}"
                                      onclick="OpenImageModal('{{ $temporaryImageSrc }}')">
                         
-                                <iframe id="temporary_certificate_PDF"
-                                        src="{{ $isTemporaryPDF ? $temporaryFilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isTemporaryPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                 @if($isTemporaryPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="temporary_certificate_PDF"
+                                                    src="{{ $temporaryFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $temporaryFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isTemporaryPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $temporaryImageSrc }}')">
+                                        </div>
+                                    @endif
                                                              
                                      
                             </div>
@@ -700,11 +786,29 @@
                                      class="img-fluid rounded shadow border"
                                      style="max-height: 300px; object-fit: cover; {{ $isHsrpPDF ? 'display: none;' : '' }}"
                                      onclick="OpenImageModal('{{ $hsrpImageSrc }}')">
-                        
-                                <iframe id="hsrp_certificate_PDF"
-                                        src="{{ $isHsrpPDF ? $hsrpFilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isHsrpPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+
+                                        
+                                    @if($isHsrpPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="hsrp_certificate_PDF"
+                                                    src="{{ $hsrpFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $hsrpFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isHsrpPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $hsrpImageSrc }}')">
+                                        </div>
+                                    @endif
 
                             </div>
                         </div>
@@ -744,10 +848,28 @@
                                      style="max-height: 300px; object-fit: cover; {{ $isRegPDF ? 'display: none;' : '' }}"
                                      onclick="OpenImageModal('{{ $regImageSrc }}')">
                         
-                                <iframe id="reg_certificate_PDF"
-                                        src="{{ $isRegPDF ? $regFilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isRegPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                        
+                                 @if($isRegPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="reg_certificate_PDF"
+                                                    src="{{ $regFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $regFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isRegPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $regImageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -795,11 +917,29 @@
                          class="img-fluid rounded shadow border"
                          style="max-height: 300px; object-fit: cover; {{ $isFcPDF ? 'display: none;' : '' }}"
                          onclick="OpenImageModal('{{ $fcImageSrc }}')">
-            
-                    <iframe id="fc_attachment_PDF"
-                            src="{{ $isFcPDF ? $fcFilePath : '' }}"
-                            style="width: 100%; height: 100%; {{ !$isFcPDF ? 'display: none;' : '' }} border: none;"
-                            frameborder="0"></iframe>
+
+                            @if($isFcPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="fc_attachment_PDF"
+                                                    src="{{ $fcFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $fcFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isFcPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $fcImageSrc }}')">
+                                        </div>
+                                    @endif
+                            
                                         </div>
                         </div>
                         
@@ -1147,39 +1287,8 @@
             
      </div>  
     </div>
-    
-    <!--Image Preview Section-->
-    
-    
-    <div class="modal fade" id="BKYC_Verify_view_modal" tabindex="-1" aria-labelledby="BKYC_Verify_viewLabel" aria-hidden="true">
-  <div class="modal-dialog modal-md">
-    <div class="modal-content rounded-4">
 
-      <!-- Header with fixed control buttons -->
-      <div class="modal-header border-0 d-flex justify-content-end gap-1">
-        <button class="btn btn-sm btn-dark" onclick="zoomIn()">
-          <i class="bi bi-zoom-in"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" onclick="zoomOut()">
-          <i class="bi bi-zoom-out"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" onclick="rotateImage()">
-          <i class="bi bi-arrow-repeat"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" data-bs-dismiss="modal">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-
-      <!-- Scrollable modal body -->
-      <div class="modal-body text-center py-6" style="overflow: auto; max-height: 80vh;">
-        <img src="" id="kyc_image" style="max-width: 100%; transition: transform 0.3s ease;">
-      </div>
-
-    </div>
-  </div>
-</div>
-    
+    @include('assetmaster::asset_master.action_popup_modal') 
    
 @section('script_js')
 <script>
@@ -1241,32 +1350,50 @@
         fileInput.click();
     }
         
-        
-        
-        
-function OpenImageModal(img_url) {
-    $("#kyc_image").attr("src", ""); // Clear image first
-    $("#BKYC_Verify_view_modal").modal('show'); // Corrected selector
-    $("#kyc_image").attr("src", img_url); // Load new image
-}
 
 let scale = 1;
 let rotation = 0;
+let currentFileUrl = '';
+let currentType = ''; 
 
-function OpenImageModal(img_url) {
+function OpenImageModal(fileUrl) {
+    currentFileUrl = fileUrl;
+    const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+
     scale = 1;
     rotation = 0;
     updateImageTransform();
-    $("#kyc_image").attr("src", img_url);
-    $("#BKYC_Verify_view_modal").modal('show');
+
+    if (isPDF) {
+        $("#kyc_image").hide();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").hide(); // Hide image tools for PDF
+        $("#kyc_pdf").attr("src", fileUrl).show();
+        currentType = 'pdf';
+    } else {
+        $("#kyc_pdf").hide();
+        $("#kyc_image").attr("src", fileUrl).show();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").show();
+        currentType = 'image';
+    }
+
+    $("#downloadBtn").off("click").on("click", function () {
+        const link = document.createElement("a");
+        link.href = currentFileUrl;
+        link.download = currentFileUrl.split('/').pop();
+        link.click();
+    });
+
+    $("#BKYC_Verify_view_modal").modal("show");
 }
 
 function zoomIn() {
+    if (currentType !== 'image') return;
     scale += 0.1;
     updateImageTransform();
 }
 
 function zoomOut() {
+    if (currentType !== 'image') return;
     if (scale > 0.2) {
         scale -= 0.1;
         updateImageTransform();
@@ -1274,16 +1401,17 @@ function zoomOut() {
 }
 
 function rotateImage() {
+    if (currentType !== 'image') return;
     rotation = (rotation + 90) % 360;
     updateImageTransform();
 }
 
 function updateImageTransform() {
     const img = document.getElementById("kyc_image");
-    img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    if (img) {
+        img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    }
 }
-
-
     </script>
 
 

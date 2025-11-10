@@ -16,6 +16,7 @@ use Modules\AssetMaster\Entities\AssetVehicleInventory;
 use Modules\B2B\Entities\B2BVehicleAssignment;//updated by Mugesh.B
 use Modules\AssetMaster\Entities\AssetMasterVehicle;
 use Modules\B2B\Entities\B2BVehicleAssignmentLog;//updated by Mugesh.B
+use Modules\MasterManagement\Entities\RepairTypeMaster;
 use Modules\B2B\Entities\B2BServiceRequest;
 use Illuminate\Support\Facades\Log;
 use Modules\City\Entities\Area;
@@ -40,8 +41,8 @@ class VehicleServiceTicketController extends Controller
         $cities = City::where('status',1)->get();
         $vehicle_types = VehicleType::where('is_active', 1)->get();
         $apiKey = BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
-
-        return view('vehicleserviceticket::web_ticket_create_form',compact('cities' ,'vehicle_types' ,'apiKey'));
+        $repair_types = RepairTypeMaster::where('status',1)->get();
+        return view('vehicleserviceticket::web_ticket_create_form',compact('cities' ,'vehicle_types' ,'apiKey' , 'repair_types'));
     }
     
     public function create_user_ticket(Request $request)
@@ -69,7 +70,7 @@ class VehicleServiceTicketController extends Controller
      
      
             $validator = Validator::make($request->all(), [
-                'vehicle_no'        => 'required|string|max:100',
+                'vehicle_no'        => 'required|string|max:100|regex:/^[A-Z0-9\- ]+$/i',
                 'city_id'           => 'required|exists:ev_tbl_city,id',
                 'area_id'           => 'required|exists:ev_tbl_area,id',
                 'vehicle_type'      => 'required|string|max:50',
@@ -79,7 +80,7 @@ class VehicleServiceTicketController extends Controller
                 // 'chassis_number'     => 'required|string',
                 // 'battery_number'     => 'required|string',
                 // 'telematics_number'     => 'required|string',
-                'repairType'        => 'required|integer|in:1,2',
+                'repairType'        => 'required|exists:ev_tbl_repair_types,id',
                 // 'address'           => 'required|string',
                 'latitude'          => 'nullable|string|max:100',
                 'longitude'         => 'nullable|string|max:100',
@@ -185,6 +186,7 @@ class VehicleServiceTicketController extends Controller
        
              $vehicle = AssetMasterVehicle::where('permanent_reg_number' , $request->vehicle_no)->first();
              
+             $repair_type =  RepairTypeMaster::find($request->repairType);
 
              $ticketData = [
                 "vehicle_number" => $request->vehicle_no,
@@ -197,7 +199,7 @@ class VehicleServiceTicketController extends Controller
                 "state" => $state_name,
                 "priority" => 'High',
                 "point_of_contact_info" => $request->poc_name." - ".$request->poc_contact_no,
-                "job_type" => $request->repairType == 1 ? "Breakdown Repair" : ($request->repairType == 2 ? "Running Repair" : null),
+                "job_type" => $repair_type->name ?? '-',
                 "issue_description" => $request->issue_remarks,
                 'image' => !empty($imageUrl) ? [$imageUrl] : [],
                 "greendrive_ticketid" => $ticket_id,
@@ -820,7 +822,11 @@ class VehicleServiceTicketController extends Controller
             
              if ($new_ticket_status === 'closed') {
                 $vehicleNumber = $fieldproxy->vehicle_number ?? null;
-                $vehicle = AssetMasterVehicle::where('permanent_reg_number', $vehicleNumber)->first();
+                $chassis_number = $fieldproxy->chassis_number ?? null;
+                
+                if(!empty($chassis_number)){
+                    
+                $vehicle = AssetMasterVehicle::where('chassis_number', $chassis_number)->first();
             
                 if ($vehicle) {
                     $inventory = AssetVehicleInventory::where('asset_vehicle_id', $vehicle->id)
@@ -828,6 +834,9 @@ class VehicleServiceTicketController extends Controller
                         ->first();
             
                     if ($inventory) {
+                         $from_transfer_status = $inventory->transfer_status;
+                         
+                         
                         //  SCENARIO CHECK
                         $activeAssignment = B2BVehicleAssignment::where('asset_vehicle_id', $vehicle->id)
                             // ->whereNotIn('status', ['returned', 'return_request'])
@@ -852,15 +861,20 @@ class VehicleServiceTicketController extends Controller
                         }
             
                         $inventory->save();
+                        
+                        $to_transfer_status = $inventory->transfer_status;
             
                         VehicleTransferChassisLog::create([
                             'chassis_number' => $vehicle->chassis_number,
+                            'from_location_source'    => $from_transfer_status,   // previous transfer status
+                            'to_location_destination' => $to_transfer_status,     // new transfer status
                             'vehicle_id'     => $vehicle->id,
                             'remarks'        => $remarks,
                             'status'           => 'updated', 
                             'type'           => 'fieldproxy'
                         ]);
                     }
+                }
                 }
             }
 

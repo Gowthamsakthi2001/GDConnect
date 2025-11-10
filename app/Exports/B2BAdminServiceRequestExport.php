@@ -15,8 +15,11 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
     protected $selectedFields;
     protected $city;
     protected $zone;
+    protected $accountability_type; //updated by logesh
+    protected $customer_id; //updated by logesh
+    protected $status; //updated by logesh
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status =null ,$accountability_type = null,$customer_id=null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -24,6 +27,9 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
         $this->selectedFields = $selectedFields;
         $this->city           = $city;
         $this->zone           = $zone;
+        $this->accountability_type = $accountability_type; //updated by logesh
+        $this->customer_id = $customer_id; //updated by logesh
+        $this->status = $status; //updated by logesh
     }
 
     public function collection()
@@ -53,9 +59,26 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
             if ($this->from_date) {
                 $query->whereDate('created_at', '>=', $this->from_date);
             }
+            
+            if ($this->status) {
+                $query->where('status', $this->status);
+            }
+
 
             if ($this->to_date) {
                 $query->whereDate('created_at', '<=', $this->to_date);
+            }
+            //updated by logesh
+            if ($this->accountability_type) {
+                $query->wherehas('assignment.VehicleRequest', function ($p) {
+                     $p->where('account_ability_type', $this->accountability_type);
+                });
+            }
+            //updated by logesh
+            if ($this->customer_id) {
+                $query->wherehas('assignment.VehicleRequest.rider.customerLogin.customer_relation', function ($p) {
+                     $p->where('id', $this->customer_id);
+                });
             }
         }
 
@@ -66,6 +89,37 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
     {
         $mapped = [];
 
+
+        if ($row->status === 'closed') {
+            $created   = \Carbon\Carbon::parse($row->created_at);
+            $completed = \Carbon\Carbon::parse($row->updated_at);
+            $diffInDays = $created->diffInDays($completed);
+            $diffInHours = $created->diffInHours($completed);
+            $diffInMinutes = $created->diffInMinutes($completed);
+        
+            if ($diffInDays > 0) {
+                $aging = $diffInDays . ' days';
+            } elseif ($diffInHours > 0) {
+                $aging = $diffInHours . ' hours';
+            } else {
+                $aging = $diffInMinutes . ' mins';
+            }
+        } else {
+            $created   = \Carbon\Carbon::parse($row->created_at);
+            $now       = now();
+            $diffInDays = $created->diffInDays($now);
+            $diffInHours = $created->diffInHours($now);
+            $diffInMinutes = $created->diffInMinutes($now);
+        
+            if ($diffInDays > 0) {
+                $aging = $diffInDays . ' days';
+            } elseif ($diffInHours > 0) {
+                $aging = $diffInHours . ' hours';
+            } else {
+                $aging = $diffInMinutes . ' mins';
+            }
+        }
+
         foreach ($this->selectedFields as $key) {
             switch ($key) {
                 case 'req_id':
@@ -74,6 +128,11 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
                 
                 case 'ticket_id':
                     $mapped[] = $row->ticket_id ?? '-';
+                    break;
+                
+                //updated by logesh
+                case 'accountability_type':
+                    $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
                     break;
                     
                 case 'rider_name':
@@ -127,6 +186,16 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
                         ? $row->created_at->format('d M Y h:i A')
                         : '-';
                     break;
+                    
+                case 'updated_at':
+                    $mapped[] = $row->updated_at
+                        ? $row->updated_at->format('d M Y h:i A')
+                        : '-';
+                    break;
+                    
+                case 'aging':
+                    $mapped[] = $aging ?? '-';
+                    break;
 
                 default:
                     $mapped[] = $row->$key ?? '-';
@@ -143,6 +212,7 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
         $customHeadings = [
             'req_id'        => 'Request ID',
             'ticket_id'     => 'Ticket ID',
+            'accountability_type'    => 'Accountablity Type', //updated by logesh
             'vehicle_no'    => 'Vehicle Number',
             'chassis_number'=> 'Chassis Number',
             'rider_name'    => 'Rider Name',
@@ -158,6 +228,8 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
             'created_by'    => 'Created By',
             'status'        => 'Status',
             'created_at'    => 'Created Date & Time',
+            'updated_at'    => 'Updated Date & Time',
+            'aging'         => 'Aging'
         ];
 
         foreach ($this->selectedFields as $key) {

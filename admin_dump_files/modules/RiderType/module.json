@@ -1,0 +1,11 @@
+{
+    "name": "RiderType",
+    "alias": "ridertype",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\RiderType\\Providers\\RiderTypeServiceProvider"
+    ],
+    "files": []
+}

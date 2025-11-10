@@ -23,8 +23,19 @@
             <?php
             
                 $Modules = \Illuminate\Support\Facades\DB::table('sidebar_modules')->where('status',1)->get();
+                $userRole = auth()->user()->role;
                 if (!session()->has('active_module_id') && $Modules->count() > 0) {
-                    session(['active_module_id' => $Modules->first()->id]);
+                    if($userRole == 24){
+                        $module = $Modules->where('id', 7)->first();
+                        if ($module) {
+                            session(['active_module_id' => $module->id]);
+                        }else{
+                         session(['active_module_id' => $Modules->first()->id]);
+                        }
+                    }else{
+                         session(['active_module_id' => $Modules->first()->id]);
+                    }
+                   
                 }
                 $activeModule = $Modules->where('id', session('active_module_id'))->first();
                 // dd($activeModule->id,$activeModule);
@@ -43,6 +54,8 @@
                   <x-admin.b2b_admin_sidebar />
                 @elseif(!empty($activeModule) && $activeModule->id == 6) <!-- BGV Vendor sidebar-->
                   <x-admin.bgv_sidebar />
+                @elseif(!empty($activeModule) && $activeModule->id == 7) <!-- Recovery Manager sidebar-->
+                  <x-admin.recovery_manager_sidebar />
                 @else
                   <x-admin.left-sidebar />
                 @endif

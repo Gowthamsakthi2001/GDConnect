@@ -1,0 +1,31 @@
+{
+    "name": "bdtask/riderbackgroundverification",
+    "description": "",
+    "authors": [
+        {
+            "name": "Bdtask Limited",
+            "email": "business@bdtask.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\RiderBackgroundVerification\\": "",
+            "Modules\\RiderBackgroundVerification\\App\\": "app/",
+            "Modules\\RiderBackgroundVerification\\Database\\Factories\\": "database/factories/",
+            "Modules\\RiderBackgroundVerification\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\RiderBackgroundVerification\\Tests\\": "tests/"
+        }
+    }
+}

@@ -33,6 +33,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Modules\B2B\Entities\B2BVehicleAssignment;
 use Modules\B2B\Entities\B2BVehicleAssignmentLog;//updated by Mugesh.B
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
+use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
+use Modules\B2B\Entities\B2BRecoveryRequest; //updated by Gowtham.S
+use Modules\RecoveryManager\Entities\RecoveryComment; //updated by Gowtham.S
+use App\Helpers\RecoveryNotifyHandler; //updated by Gowtham.S
 
 class DeployedAssetController extends Controller
 {
@@ -65,6 +70,17 @@ class DeployedAssetController extends Controller
                             $zn->where('id', $request->zone_id);
                         });
                     }
+                //updated by logesh
+                    if ($request->filled('accountability_type')) {
+                        $query->whereHas('VehicleRequest', function($zn) use ($request) {
+                            $zn->where('account_ability_type', $request->accountability_type);
+                        });
+                    }
+                    if ($request->filled('customer_id')) {
+                        $query->whereHas('rider.customerlogin.customer_relation', function($zn) use ($request) {
+                            $zn->where('id', $request->customer_id);
+                        });
+                    }
                     
             // 🔹 Search across related fields
             if (!empty($search)) {
@@ -84,6 +100,9 @@ class DeployedAssetController extends Controller
                     $q->orWhereHas('rider.customerlogin.customer_relation', function ($c) use ($search) {
                         $c->where('trade_name', 'like', "%{$search}%");
                     });
+                     $q->whereHas('VehicleRequest.accountAbilityRelation', function($zn) use ($search) {
+                            $zn->where('name', 'like', "%{$search}%");
+                        });
                 });
             }
             
@@ -107,11 +126,24 @@ class DeployedAssetController extends Controller
                 $vehicle = $item->vehicle;
                 $rider   = $item->rider;
                 $vehicleRequest = $item->VehicleRequest;
+                $contract_end_date = $item->rider->customerlogin->customer_relation->end_date ?? '';
+                $contract_end_date_format = 'N/A';
+                
+                if (!empty($contract_end_date)) {
+                    $contract_end_date_format = \Carbon\Carbon::parse($contract_end_date)->format('d M Y');
+                }
+
+                $RRcolor = ($item->status === 'recovery_request') ? '#F87171' : '#A1DBD0';
+                $Reactcolor = ($item->status === 'recovery_request') ? '#f4f8f7ff' : '#14A388';
+                $RR_Text = ($item->status === 'recovery_request') ? 'You have already recovery requested' : 'Create Recovery Request';
+                $RR_route = ($item->status === 'recovery_request') ? 'javascript:void(0);' : route('b2b.admin.deployed_asset.recovery_request', encrypt($item->id));
                 return [
                     '<div class="form-check">
                         <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" 
                                name="is_select[]" type="checkbox" value="'.$item->id.'">
                     </div>',
+                    e($vehicleRequest->req_id ?? 'N/A'),// Updated By Gowtham
+                    e($vehicleRequest->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                     e($vehicle->permanent_reg_number ?? 'N/A'),
                     e($vehicle->chassis_number ?? 'N/A'),
                     e($vehicle->vehicle_type_relation->name ?? 'N/A'),
@@ -121,15 +153,51 @@ class DeployedAssetController extends Controller
                     e($rider->customerlogin->customer_relation->trade_name ?? 'N/A'),
                     e($vehicleRequest->city->city_name ?? 'N/A'),
                     e($vehicleRequest->zone->name ?? 'N/A'),
-                    $item->created_at ? \Carbon\Carbon::parse($item->assigned_at)->format('d M Y, h:i A') : 'N/A',
-                    $item->VehicleRequest && $item->VehicleRequest->end_date
-                        ? \Carbon\Carbon::parse(optional($item->VehicleRequest)->end_date)->format('d M Y')
-                        : 'N/A',
-                    '<a href="'.route('b2b.admin.deployed_asset.deployed_asset_view', encrypt($item->id)).'"
-                        class="d-flex align-items-center justify-content-center border-0" title="View"
-                        style="background-color:#CAEDE7;color:#0F5847;border-radius:8px;width:35px;height:31px;">
-                        <i class="bi bi-eye fs-5"></i>
-                    </a>'
+                    $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d M Y, h:i A') : 'N/A',
+                    $contract_end_date_format,
+                    '<div class="d-flex justify-content-between align-items-center gap-2">
+                        <a href="'.route('b2b.admin.deployed_asset.deployed_asset_view', encrypt($item->id)).'"
+                            class="d-flex align-items-center justify-content-center border-0" title="View"
+                            style="background-color:#CAEDE7;color:#0F5847;border-radius:8px;width:33px;height:33px;">
+                            <i class="bi bi-eye fs-5"></i>
+                        </a>
+                        <a href="'.$RR_route.'" class="cursor-pointer" title="'.$RR_Text.'">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 27 27" fill="none">
+                                <rect width="27" height="27" rx="8" fill="'.$RRcolor.'"></rect>
+                                <path d="M8.68754 13.5C8.68754 13.7317 8.70404 13.9641 8.73636 14.1916L7.37511 14.3862C7.33305 14.0927 7.31214 13.7965
+                                    7.31254 13.5C7.31254 10.0879 10.0887 7.3125 13.5 7.3125C14.9046 7.3125 16.2803 7.7965 17.3741 8.67444L16.5127 9.74694C15.6605
+                                    9.05723 14.5963 8.68299 13.5 8.6875C10.8463 8.6875 8.68754 10.8463 8.68754 13.5ZM8.00004 16.25C8.00004 16.4323 8.07248 16.6072
+                                    8.20141 16.7361C8.33034 16.8651 8.50521 16.9375 8.68754 16.9375C8.86988 16.9375 9.04475 16.8651 9.17368 16.7361C9.30261 16.6072
+                                    9.37504 16.4323 9.37504 16.25C9.37504 16.0677 9.30261 15.8928 9.17368 15.7639C9.04475 15.6349 8.86988 15.5625 8.68754
+                                    15.5625C8.50521 15.5625 8.33034 15.6349 8.20141 15.7639C8.07248 15.8928 8.00004 16.0677 8.00004 16.25ZM13.5
+                                    5.25C18.0492 5.25 21.75 8.95081 21.75 13.5H23.125C23.125 8.1925 18.8075 3.875 13.5 3.875C12.3705 3.875 11.2636
+                                    4.06888 10.2104 4.45181L10.6806 5.74431C11.5844 5.41651 12.5386 5.24923 13.5 5.25ZM17.625 10.75C17.625 10.9323
+                                    17.6975 11.1072 17.8264 11.2361C17.9553 11.3651 18.1302 11.4375 18.3125 11.4375C18.4949 11.4375 18.6697 11.3651
+                                    18.7987 11.2361C18.9276 11.1072 19 10.9323 19 10.75C19 10.5677 18.9276 10.3928 18.7987 10.2639C18.6697 10.1349 
+                                    18.4949 10.0625 18.3125 10.0625C18.1302 10.0625 17.9553 10.1349 17.8264 10.2639C17.6975 10.3928 17.625 10.5677
+                                    17.625 10.75ZM8.68754 6.625C8.86988 6.625 9.04475 6.55257 9.17368 6.42364C9.30261 6.2947 9.37504 6.11984 9.37504
+                                    5.9375C9.37504 5.75516 9.30261 5.5803 9.17368 5.45136C9.04475 5.32243 8.86988 5.25 8.68754 5.25C8.50521 5.25 
+                                    8.33034 5.32243 8.20141 5.45136C8.07248 5.5803 8.00004 5.75516 8.00004 5.9375C8.00004 6.11984 8.07248 6.2947
+                                    8.20141 6.42364C8.33034 6.55257 8.50521 6.625 8.68754 6.625ZM5.25004 13.5C5.25004 11.2966 6.10804 9.22444
+                                    7.66661 7.66656L6.69379 6.69375C5.79699 7.58531 5.08606 8.646 4.6022 9.81434C4.11834 10.9827 3.87118 12.2354 
+                                    3.87504 13.5C3.87504 18.8075 8.19254 23.125 13.5 23.125V21.75C8.95086 21.75 5.25004 18.0492 5.25004
+                                    13.5ZM22.0938 20.0312C22.0938 21.1684 21.1684 22.0938 20.0313 22.0938C18.8942 22.0938 17.9688 21.1684
+                                    17.9688 20.0312C17.9688 19.7136 18.0472 19.4166 18.175 19.1478L14.3835 15.3556C14.1154 15.4841 13.8177
+                                    15.5625 13.5 15.5625C12.3629 15.5625 11.4375 14.6371 11.4375 13.5C11.4375 12.3629 12.3629 11.4375 13.5
+                                    11.4375C14.6372 11.4375 15.5625 12.3629 15.5625 13.5C15.5625 13.8176 15.4849 14.1146 15.3563
+                                    14.3834L19.1479 18.1757C19.416 18.0471 19.7137 17.9688 20.0313 17.9688C21.1684 17.9688 22.0938 
+                                    18.8941 22.0938 20.0312ZM13.5 14.1875C13.8789 14.1875 14.1875 13.8788 14.1875 13.5C14.1875 13.1212
+                                    13.8789 12.8125 13.5 12.8125C13.1212 12.8125 12.8125 13.1212 12.8125 13.5C12.8125 13.8788 13.1212
+                                    14.1875 13.5 14.1875ZM20.7188 20.0312C20.7187 19.8488 20.6461 19.6739 20.5171 19.545C20.388 19.416
+                                    20.213 19.3437 20.0306 19.3438C19.8482 19.3438 19.6733 19.4164 19.5443 19.5455C19.4154 19.6745
+                                    19.343 19.8495 19.3431 20.0319C19.3432 20.2144 19.4158 20.3893 19.5448 20.5182C19.6739 20.6471
+                                    19.8489 20.7195 20.0313 20.7194C20.2137 20.7193 20.3886 20.6468 20.5176 20.5177C20.6465 20.3887
+                                    20.7189 20.2137 20.7188 20.0312Z" fill="'.$Reactcolor.'">
+                                </path>
+                            </svg>
+                        </a>
+                    </div>
+                    '
                 ];
             });
 
@@ -153,7 +221,13 @@ class DeployedAssetController extends Controller
     }
     
     $cities = City::where('status',1)->get();
-    return view('b2badmin::deployed_asset.list', compact('cities'));
+    $accountability_types = EvTblAccountabilityType::where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+    $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+    return view('b2badmin::deployed_asset.list', compact('cities','accountability_types','customers'));
 }
     
     
@@ -174,6 +248,172 @@ class DeployedAssetController extends Controller
         return view('b2badmin::deployed_asset.view',compact('data' ,'current_status'));
     }
 
+    public function deployed_asset_recovery_request(Request $request , $id)//updated by Gowtham.S
+    {
+        
+        $decrypt_id = decrypt($id);
+        $data = B2BVehicleAssignment::with('vehicle' ,'vehicleRequest','rider.customerLogin.customer_relation') 
+            ->where('id', $decrypt_id)
+            ->first();
+        if($data->status == 'recovery_request'){
+            return back()->with('warning','You have already recovery requested');
+        }
+            
+        return view('b2badmin::deployed_asset.vh_create_recovery_request',compact('data'));
+        
+    }
+    
+    public function uploadFile($file, $directory) //updated by Gowtham.S
+    {
+        $imageName = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $file->move(public_path($directory), $imageName);
+        return $imageName;
+    }
+    
+    public function store_recovery_request(Request $request) //updated by Gowtham.S
+    {
+        $user = auth()->user();
+
+        if (!$user) {
+            return response()->json([
+                'status'  => 'failed',
+                'message' => 'Unauthenticated!',
+            ], 401);
+        }
+        
+            
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+           
+            // 'datetime'             => 'required|date',
+            'city_id'              =>'required|integer',
+            'zone_id'              =>'required|integer',
+            'reason_for_recovery'  => 'required|string',
+            'vehicle_number'       => 'required|string|max:255',
+            'chassis_number'       => 'nullable|string|max:255',
+            'rider_id'             => 'nullable|string|max:255',
+            'rider_name'           => 'nullable|string|max:255',
+            'client_business_name' => 'nullable|string|max:255',
+            'contact_person_name'  => 'nullable|string|max:255',
+            'contact_no'           => 'nullable|string|max:20',
+            'contact_email'        => 'nullable|email|max:255',
+            'description'          => 'nullable|string',
+            'terms_condition'      => 'accepted',
+            'reason_for_recovery_txt'=>'required', //updated by Gowtham.S
+            // 'files.*'              => 'nullable|mimes:jpg,jpeg,png,pdf,mp4,mov,avi|max:5120',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+
+         try {
+                DB::beginTransaction();
+        
+                $uploadedFiles = [];
+                if ($request->hasFile('files')) {
+                    foreach ($request->file('files') as $file) {
+                        $uploadedFiles[] = $this->uploadFile($file, 'b2b/recovery_request');
+                    }
+                }
+        
+                $recovery = new B2BRecoveryRequest();
+                $recovery->assign_id          = $request->id;
+                $recovery->city_id            = $request->city_id;
+                $recovery->zone_id            = $request->zone_id; 
+                $recovery->reason             = $request->reason_for_recovery;
+                $recovery->vehicle_number     = $request->vehicle_number;
+                $recovery->chassis_number     = $request->chassis_number;
+                $recovery->rider_id           = $request->rider_id;
+                $recovery->rider_name         = $request->rider_name;
+                $recovery->client_name        = $request->client_business_name;
+                $recovery->rider_mobile_no    = $request->rider_mobile_no;
+                $recovery->contact_no         = $request->contact_no;
+                $recovery->contact_email      = $request->contact_email;
+                $recovery->description        = $request->description;
+                $recovery->terms_condition    = $request->has('terms_condition') ? 1 : 0;
+                $recovery->created_by         = $user->id;
+                $recovery->created_by_type    = 'b2b-admin-dashboard';
+                // $recovery->accident_photos    = json_encode($uploadedFiles);
+                $recovery->save();
+        
+                $assignment = B2BVehicleAssignment::find($request->id);
+                if ($assignment) {
+                    
+                    $assignment->update(['status' => 'recovery_request']);
+        
+                    // $vehicle_request = B2BVehicleRequests::where('req_id', $assignment->req_id)
+                    //     // ->where('is_active', 1)
+                    //     ->first();
+        
+                    // if ($vehicle_request) {
+                    //     $vehicle_request->update(['is_active' => 0]);
+                    // }
+                }
+        
+                B2BVehicleAssignmentLog::create([
+                    'assignment_id'   => $request->id,
+                    'status'          => 'opened',
+                    'remarks'         => "Vehicle {$request->vehicle_number} has been requested for recovery",
+                    'action_by'       => $user->id,
+                    'type'            => 'b2b-admin-dashboard',
+                    'request_type'    => 'recovery_request',
+                    'request_type_id' => $recovery->id,
+                ]);
+                
+                RecoveryComment::create([
+                    'req_id'    => $recovery->id,
+                    'status'    => 'opened',
+                    'comments'  => "Vehicle {$request->vehicle_number} has been requested for recovery",
+                    'user_id'   => $user->id ?? null,
+                    'user_type' => 'b2b-admin-dashboard',
+                ]);
+        
+                DB::commit();
+                
+                $requestID = $assignment->req_id;
+                $rider_id = $assignment->rider_id;
+                $vehicle_id = $assignment->asset_vehicle_id;
+                $tc_create_type = 'b2b-admin-dashboard';
+                $recoveryInfo = [
+                    'recovery_reason' => $request->reason_for_recovery_txt,
+                    'recovery_description' => $request->description
+                ];
+                
+                if(!empty($requestID)){
+                    RecoveryNotifyHandler::AutoSendRecoveryRequestEmail($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+                    // RecoveryNotifyHandler::AutoSendRecoveryRequestWhatsApp($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+                    \App\Jobs\SendRecoveryWhatsAppJob::dispatch(
+                        $requestID,
+                        $rider_id,
+                        $vehicle_id,
+                        $recoveryInfo,
+                        $tc_create_type
+                    );
+                }
+       
+                return response()->json([
+                    'status'  => 'success',
+                    'message' => 'Recovery Request submitted successfully!',
+                    'data'    => $recovery,
+                ], 200);
+        
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error('Recovery Request Error: '.$e->getMessage());
+        
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Something went wrong while submitting the recovery request.',
+                    'error'   => $e->getMessage(),
+                ], 500);
+            }
+    }
+    
+    
     public function deployment_list(Request $request)
     {
         if ($request->ajax()) {
@@ -207,6 +447,17 @@ class DeployedAssetController extends Controller
                 $query->where('zone_id', $request->zone_id);
             }
             
+            //updated by logesh
+             if ($request->filled('accountability_type')) {
+                       
+                $query->where('account_ability_type', $request->accountability_type);
+            }
+            //updated by logesh
+            if ($request->filled('customer_id')) {
+                        $query->whereHas('rider.customerlogin.customer_relation', function($zn) use ($request) {
+                            $zn->where('id', $request->customer_id);
+                        });
+                    }
             
             if (!empty($search)) {
                 $query->where(function($q) use ($search) {
@@ -236,6 +487,10 @@ class DeployedAssetController extends Controller
                     // Zone
                     $q->orWhereHas('zone', function($z) use ($search) {
                         $z->where('name', 'like', "%{$search}%");
+                    });
+                    //updateb by logesh
+                    $q->orWhereHas('accountAbilityRelation', function($c) use ($search) {
+                        $c->where('name', 'like', "%{$search}%");
                     });
                 });
             }
@@ -308,6 +563,7 @@ class DeployedAssetController extends Controller
                         <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" name="is_select[]" type="checkbox" value="'.$item->id.'">
                     </div>',
                     $requestId,
+                    e($item->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                     e($rider->name ?? ''),
                     e($rider->mobile_no ?? ''),
                     e($item->rider->customerlogin->customer_relation->trade_name ?? 'N/A'), 
@@ -345,9 +601,15 @@ class DeployedAssetController extends Controller
         }
         
         $cities = City::where('status',1)->get();
+        $accountability_types = EvTblAccountabilityType::where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
         
+        $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
         
-        return view('b2badmin::deployed_asset.deployed_list' , compact('cities'));
+        return view('b2badmin::deployed_asset.deployed_list' , compact('cities','accountability_types','customers'));
     }
     
     
@@ -355,7 +617,7 @@ class DeployedAssetController extends Controller
     {
         $request_id = decrypt($id);
        
-        $data = B2BVehicleRequests::where('id', $request_id)
+        $data = B2BVehicleRequests::with('assignment','rider','agent')->where('id', $request_id)
                 ->first();
                 
         $vehicle_types = VehicleType::where('is_active', 1)->get();
@@ -447,7 +709,14 @@ class DeployedAssetController extends Controller
                     $zn->where('id', $request->zone_id);
                 });
             }
-
+            
+            //updated by logesh
+             if ($request->filled('accountability_type')) {
+                        $query->whereHas('VehicleRequest', function($zn) use ($request) {
+                            $zn->where('account_ability_type', $request->accountability_type);
+                        });
+                    }
+                    
             if (!empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('status', 'like', "%{$search}%")
@@ -477,6 +746,9 @@ class DeployedAssetController extends Controller
                     });
 
                     $q->orWhereHas('assignment.VehicleRequest.zone', function ($zn) use ($search) {
+                        $zn->where('name', 'like', "%{$search}%");
+                    });
+                    $q->orWhereHas('assignment.VehicleRequest.accountAbilityRelation', function ($zn) use ($search) {
                         $zn->where('name', 'like', "%{$search}%");
                     });
                 });
@@ -535,6 +807,7 @@ class DeployedAssetController extends Controller
                 return [
                     $start + $key + 1,
                      e($requestId),
+                     e($item->assignment->VehicleRequest->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                     e($description),
                     e($accidentType),
                     e($item->assignment->VehicleRequest->city->city_name ?? ''),
@@ -569,7 +842,7 @@ class DeployedAssetController extends Controller
 }
 
 
-      public function export_deploymet_request(Request $request)
+     public function export_deploymet_request(Request $request)
     {
         
         $fields    = $request->input('fields', []);  
@@ -578,19 +851,22 @@ class DeployedAssetController extends Controller
         $zone = $request->input('zone')?? null;
         $status = $request->input('status')?? null;
         $city = $request->input('city')?? null;
+        $accountability_type = $request->input('accountability_type')?? null;
+        $customer_id = $request->input('customer_id')?? null;
          $selectedIds = $request->input('selected_ids', []);
 
-    
+        
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
     
         return Excel::download(
-            new B2BAdminDeploymentRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone ,$status),
+            new B2BAdminDeploymentRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone ,$status,$accountability_type,$customer_id),
             'Deployment-request-list-' . date('d-m-Y') . '.xlsx'
         );
     }
      
+     //updated by logesh
       public function export_deployed_list(Request $request)
     {
         
@@ -600,6 +876,8 @@ class DeployedAssetController extends Controller
         $zone = $request->input('zone')?? null;
         $status = $request->input('status')?? null;
         $city = $request->input('city')?? null;
+        $customer_id = $request->input('customer_id')?? null;
+        $accountability_type = $request->input('accountability_type')?? null;
          $selectedIds = $request->input('selected_ids', []);
 
     
@@ -608,7 +886,7 @@ class DeployedAssetController extends Controller
         }
     
         return Excel::download(
-            new B2BAdminDeployedAssetExport($from_date, $to_date, $selectedIds, $fields,$city,$zone ,$status),
+            new B2BAdminDeployedAssetExport($from_date, $to_date, $selectedIds, $fields,$city,$zone ,$status,$accountability_type,$customer_id),
             'Deployed-asset-list-' . date('d-m-Y') . '.xlsx'
         );
     }  
@@ -639,12 +917,14 @@ class DeployedAssetController extends Controller
         $renderItem = function($val, $color) {
             $reqId = $val->assignment->VehicleRequest->req_id ?? '';
             $vehicleNo = $val->assignment->vehicle->permanent_reg_number ?? '';
+            $ticketID = $val->ticket_id ?? '';
             $createdAt = \Carbon\Carbon::parse($val->created_at)->format('d M, Y H:i A');
     
             return '<div class="kanban-items m-1" id="item' . $val->id . '" data-item_id="' . $val->id . '" draggable="true">
                 <div class="card task-card bg-white m-2 task-body" style="border-top: 2px solid ' . $color . '">
                     <div class="card-body">
                         <p class="mb-0 small-para fw-medium" style="color:' . $color . ';"><span class="lead-heading">Request ID : </span>' . $reqId . '</p>
+                         <p class="mb-0 small-para fw-medium phone-number"><span class="lead-heading">Ticket ID:</span> ' . $ticketID . '</p>
                         <p class="mb-0 small-para fw-medium phone-number"><span class="lead-heading">Vehicle No :</span> ' . $vehicleNo . '</p>
                         <p class="mb-0 small-para fw-medium"><span class="lead-heading">Created Date & Time :</span> ' . $createdAt . '</p>
                     </div>

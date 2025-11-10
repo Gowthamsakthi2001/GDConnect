@@ -268,6 +268,8 @@ class DashboardController extends Controller
             'total_hr_approve_count','total_hr_probation_count','total_hr_probation_count','total_hr_live_count','hr_approve_percentage','hr_probation_percentage','hr_reject_percentage','hr_live_percentage','todays_applications','total_application_percentage'));
         }else if($login_user_role == 12){ //HR Manager
             return redirect()->route('admin.Green-Drive-Ev.hr_level_one.dashboard');
+        }else if($login_user_role == 24){ //Recovery Manager
+            return redirect()->route('admin.recovery_management.dashboard');
         }
         else{
  

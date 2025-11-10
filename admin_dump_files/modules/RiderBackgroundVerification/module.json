@@ -1,0 +1,11 @@
+{
+    "name": "RiderBackgroundVerification",
+    "alias": "riderbackgroundverification",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\RiderBackgroundVerification\\Providers\\RiderBackgroundVerificationServiceProvider"
+    ],
+    "files": []
+}

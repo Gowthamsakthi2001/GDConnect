@@ -22,8 +22,11 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
     protected $selectedFields;
     protected $images = [];
     protected $location;
+    protected $zone;
+    protected $customer;
+    protected $accountability_type;
     
-    public function __construct($status , $from_date , $to_date , $timeline, $selectedIds = [] , $selectedFields =[] ,$location)
+    public function __construct($status , $from_date , $to_date , $timeline, $selectedIds = [] , $selectedFields =[] ,$location , $zone , $customer , $accountability_type)
     {
         $this->status = $status;
         $this->from_date = $from_date;
@@ -32,6 +35,9 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
         $this->selectedIds = $selectedIds;
         $this->selectedFields = $selectedFields;
         $this->location = $location;
+        $this->zone = $zone;
+        $this->customer = $customer;
+        $this->accountability_type = $accountability_type;
     }
 
     public function collection()
@@ -56,7 +62,18 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
             $query->where('location', $this->location);
         }
         
-    
+        if (!empty($this->zone)) {
+            $query->where('zone_id', $this->zone);
+        }
+        
+        if (!empty($this->customer)) {
+            $query->where('customer_id', $this->customer);
+        }
+        
+        if (!empty($this->accountability_type)) {
+            $query->where('accountability_type', $this->accountability_type);
+        }
+        
           if ($this->timeline) {
             switch ($this->timeline) {
                 case 'today':
@@ -147,13 +164,26 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
             case 'vehicle_type':
                 $mapped[] = $row->vehicle_type_relation->name ?? '-';
                 break;
+                
 
             case 'vehicle_model':
                 $mapped[] = $row->vehicle_model_relation->vehicle_model ?? '-';
                 break;
 
             case 'location':
-                $mapped[] = $row->location_relation->name ?? '-';
+                $mapped[] = $row->location_relation->city_name ?? '-';
+                break;
+                
+            case 'zone':
+                $mapped[] = $row->zone->name ?? '-';
+                break;
+                
+            case 'customer':
+                $mapped[] = $row->customer_relation->trade_name ?? '-';
+                break;
+                
+            case 'accountability_type':
+                $mapped[] = $row->accountability_type_relation->name ?? '-';
                 break;
         
             case 'result':

@@ -117,9 +117,9 @@
             </li>
         @endif
         
-        
+         @if (b2bCan('b2b_rider_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.rider_list') ? 'active' : '' }}" href="{{ route('b2b.rider_list') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.rider_list') || request()->routeIs('b2b.rider_view') ? 'active' : '' }}" href="{{ route('b2b.rider_list') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <mask id="mask0_2579_3190" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
                     <rect width="24" height="24" fill="#D9D9D9"/>
@@ -132,10 +132,11 @@
                     <span class="tooltip-text">List Of Riders</span>
                 </a>
             </li>
+        @endif
         
         @if (b2bCan('b2b_vehicle_request_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.vehicle_request.vehicle_request_list') ? 'active' : '' }}" href="{{ route('b2b.vehicle_request.vehicle_request_list') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.vehicle_request.vehicle_request_list') || request()->routeIs('b2b.vehicle_request.vehicle_request_view') ? 'active' : '' }}"  href="{{ route('b2b.vehicle_request.vehicle_request_list') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path d="M2.5 12C2.5 7.52166 2.5 5.28249 3.89124 3.89124C5.28249 2.5 7.52166 2.5 12 2.5C16.4783 2.5 18.7175 2.5 20.1088 3.89124C21.5 5.28249 21.5 7.52166 21.5 12C21.5 16.4783 21.5 18.7175 20.1088 20.1088C18.7175 21.5 16.4783 21.5 12 21.5C7.52166 21.5 5.28249 21.5 3.89124 20.1088C2.5 18.7175 2.5 16.4783 2.5 12Z" stroke="#1A1A1A" stroke-width="1.5"/>
                     <path d="M11 7H17" stroke="#1A1A1A" stroke-width="1.5" stroke-linecap="round"/>
@@ -157,7 +158,8 @@
             {{-- Vehicle List --}}
             @if (b2bCan('b2b_vehicle_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.vehiclelist') ? 'active' : '' }}" href="{{ route('b2b.vehiclelist') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.vehiclelist') || request()->routeIs('b2b.vehicle_details_view') || request()->routeIs('b2b.rider_details_view') || request()->routeIs('b2b.service_request')  || request()->routeIs('b2b.recovery_request')  || request()->routeIs('b2b.accident_report')  || request()->routeIs('b2b.return_request') ? 'active' : '' }}"
+                href="{{ route('b2b.vehiclelist') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
                     <mask id="mask0_1541_780" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
                     <rect width="24" height="24" fill="#D9D9D9"/>
@@ -173,9 +175,9 @@
             @endif
            
             
-            @if (b2bCan('b2b_vehicle_list'))
+            @if (b2bCan('b2b_return_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.returned.list') ? 'active' : '' }}" href="{{ route('b2b.returned.list') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.returned.list') || request()->routeIs('b2b.returned.checkview') ? 'active' : '' }}" href="{{ route('b2b.returned.list') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" >
                             <rect width="24" height="24" rx="8" fill=""/>
                             <path d="M4.3335 9.8335V20.8335C4.3335 21.846 5.15431 22.6668 6.16683 22.6668H20.8335C21.846 22.6668 22.6668 21.846 22.6668 20.8335V9.8335" stroke="#58490F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
@@ -189,9 +191,9 @@
             </li>
             @endif
             
-            @if (b2bCan('b2b_vehicle_list'))
+            @if (b2bCan('b2b_service_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.service.list') ? 'active' : '' }}" href="{{ route('b2b.service.list') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.service.list') ||  request()->routeIs('b2b.service.view') ? 'active' : '' }}" href="{{ route('b2b.service.list') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" >
                             <rect width="24" height="24" rx="8" fill=""/>
                             <path d="M13.9582 9.8335L11.6665 13.5002H15.3332L13.0415 17.1668" stroke="#1a1a1a" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
@@ -203,9 +205,9 @@
             </li>
             @endif
             
-            @if (b2bCan('b2b_vehicle_list'))
+            @if (b2bCan('b2b_recovery_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.recovery.list') ? 'active' : '' }}" href="{{ route('b2b.recovery.list') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.recovery.list') || request()->routeIs('b2b.recovery.view') ? 'active' : '' }}" href="{{ route('b2b.recovery.list') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none">
                             <rect width="24" height="24" rx="8" fill=""/>
                             <path d="M8.68754 13.5C8.68754 13.7317 8.70404 13.9641 8.73636 14.1916L7.37511 14.3862C7.33305 14.0927 7.31214 13.7965 7.31254 13.5C7.31254 10.0879 10.0887 7.3125 13.5 7.3125C14.9046 7.3125 16.2803 7.7965 17.3741 8.67444L16.5127 9.74694C15.6605 9.05723 14.5963 8.68299 13.5 8.6875C10.8463 8.6875 8.68754 10.8463 8.68754 13.5ZM8.00004 16.25C8.00004 16.4323 8.07248 16.6072 8.20141 16.7361C8.33034 16.8651 8.50521 16.9375 8.68754 16.9375C8.86988 16.9375 9.04475 16.8651 9.17368 16.7361C9.30261 16.6072 9.37504 16.4323 9.37504 16.25C9.37504 16.0677 9.30261 15.8928 9.17368 15.7639C9.04475 15.6349 8.86988 15.5625 8.68754 15.5625C8.50521 15.5625 8.33034 15.6349 8.20141 15.7639C8.07248 15.8928 8.00004 16.0677 8.00004 16.25ZM13.5 5.25C18.0492 5.25 21.75 8.95081 21.75 13.5H23.125C23.125 8.1925 18.8075 3.875 13.5 3.875C12.3705 3.875 11.2636 4.06888 10.2104 4.45181L10.6806 5.74431C11.5844 5.41651 12.5386 5.24923 13.5 5.25ZM17.625 10.75C17.625 10.9323 17.6975 11.1072 17.8264 11.2361C17.9553 11.3651 18.1302 11.4375 18.3125 11.4375C18.4949 11.4375 18.6697 11.3651 18.7987 11.2361C18.9276 11.1072 19 10.9323 19 10.75C19 10.5677 18.9276 10.3928 18.7987 10.2639C18.6697 10.1349 18.4949 10.0625 18.3125 10.0625C18.1302 10.0625 17.9553 10.1349 17.8264 10.2639C17.6975 10.3928 17.625 10.5677 17.625 10.75ZM8.68754 6.625C8.86988 6.625 9.04475 6.55257 9.17368 6.42364C9.30261 6.2947 9.37504 6.11984 9.37504 5.9375C9.37504 5.75516 9.30261 5.5803 9.17368 5.45136C9.04475 5.32243 8.86988 5.25 8.68754 5.25C8.50521 5.25 8.33034 5.32243 8.20141 5.45136C8.07248 5.5803 8.00004 5.75516 8.00004 5.9375C8.00004 6.11984 8.07248 6.2947 8.20141 6.42364C8.33034 6.55257 8.50521 6.625 8.68754 6.625ZM5.25004 13.5C5.25004 11.2966 6.10804 9.22444 7.66661 7.66656L6.69379 6.69375C5.79699 7.58531 5.08606 8.646 4.6022 9.81434C4.11834 10.9827 3.87118 12.2354 3.87504 13.5C3.87504 18.8075 8.19254 23.125 13.5 23.125V21.75C8.95086 21.75 5.25004 18.0492 5.25004 13.5ZM22.0938 20.0312C22.0938 21.1684 21.1684 22.0938 20.0313 22.0938C18.8942 22.0938 17.9688 21.1684 17.9688 20.0312C17.9688 19.7136 18.0472 19.4166 18.175 19.1478L14.3835 15.3556C14.1154 15.4841 13.8177 15.5625 13.5 15.5625C12.3629 15.5625 11.4375 14.6371 11.4375 13.5C11.4375 12.3629 12.3629 11.4375 13.5 11.4375C14.6372 11.4375 15.5625 12.3629 15.5625 13.5C15.5625 13.8176 15.4849 14.1146 15.3563 14.3834L19.1479 18.1757C19.416 18.0471 19.7137 17.9688 20.0313 17.9688C21.1684 17.9688 22.0938 18.8941 22.0938 20.0312ZM13.5 14.1875C13.8789 14.1875 14.1875 13.8788 14.1875 13.5C14.1875 13.1212 13.8789 12.8125 13.5 12.8125C13.1212 12.8125 12.8125 13.1212 12.8125 13.5C12.8125 13.8788 13.1212 14.1875 13.5 14.1875ZM20.7188 20.0312C20.7187 19.8488 20.6461 19.6739 20.5171 19.545C20.388 19.416 20.213 19.3437 20.0306 19.3438C19.8482 19.3438 19.6733 19.4164 19.5443 19.5455C19.4154 19.6745 19.343 19.8495 19.3431 20.0319C19.3432 20.2144 19.4158 20.3893 19.5448 20.5182C19.6739 20.6471 19.8489 20.7195 20.0313 20.7194C20.2137 20.7193 20.3886 20.6468 20.5176 20.5177C20.6465 20.3887 20.7189 20.2137 20.7188 20.0312Z" fill="#1a1a1a"/>
@@ -216,9 +218,9 @@
             </li>
             @endif
             
-            @if (b2bCan('b2b_vehicle_list'))
+            @if (b2bCan('b2b_accident_list'))
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('b2b.accident.list') ? 'active' : '' }}" href="{{ route('b2b.accident.list') }}">
+                <a class="nav-link {{ request()->routeIs('b2b.accident.list') || request()->routeIs('b2b.accident.view') ? 'active' : '' }}" href="{{ route('b2b.accident.list') }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
                             <rect width="27" height="27" rx="8" fill=""/>
                             <path d="M9.37516 20.8335C9.37516 21.8461 8.55435 22.6669 7.54183 22.6669C6.52931 22.6669 5.7085 21.8461 5.7085 20.8335M9.37516 20.8335C9.37516 19.8211 8.55435 19.0002 7.54183 19.0002C6.52931 19.0002 5.7085 19.8211 5.7085 20.8335M9.37516 20.8335H11.2085C11.7148 20.8335 12.1252 20.4232 12.1252 19.9169V17.1802C12.1252 16.8842 11.9822 16.6063 11.7413 16.4343L8.91683 14.4169M5.7085 20.8335H4.3335M8.91683 14.4169H4.3335M8.91683 14.4169L5.98222 10.2245C5.81067 9.97942 5.53032 9.83347 5.23117 9.8335L4.3335 9.83358" stroke="#1a1a1a" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>

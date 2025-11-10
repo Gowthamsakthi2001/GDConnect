@@ -15,8 +15,11 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
     protected $selectedFields;
     protected $city;
     protected $zone;
+    protected $accountability_type; //updated by logesh
+    protected $customer_id; //updated by logesh
+    protected $status; //updated by logesh
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null,$status = null,$accountability_type = null,$customer_id=null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -24,6 +27,9 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
         $this->selectedFields = $selectedFields;
         $this->city           = $city;
         $this->zone           = $zone;
+        $this->accountability_type = $accountability_type; //updated by logesh
+        $this->customer_id = $customer_id; //updated by logesh
+        $this->status = $status; //updated by logesh
     }
 
     public function collection()
@@ -54,10 +60,27 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
             if ($this->from_date) {
                 $query->whereDate('created_at', '>=', $this->from_date);
             }
-
+            
             if ($this->to_date) {
                 $query->whereDate('created_at', '<=', $this->to_date);
             }
+            //updated by logesh
+            if ($this->accountability_type) {
+                $query->wherehas('assignment.VehicleRequest', function ($p) {
+                     $p->where('account_ability_type', $this->accountability_type);
+                });
+            }
+            //updated by logesh
+            if ($this->customer_id) {
+                $query->wherehas('assignment.VehicleRequest.rider.customerLogin.customer_relation', function ($p) {
+                     $p->where('id', $this->customer_id);
+                });
+            }
+            
+            if ($this->status) {
+                $query->where('status', $this->status);
+            }
+            
         }
 
         return $query->orderBy('id', 'desc')->get();
@@ -66,13 +89,26 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
     public function map($row): array
     {
         $mapped = [];
+        
+        if ($row->status === 'closed' && $row->closed_at) {
+            $aging = \Carbon\Carbon::parse($row->created_at)
+                        ->diffForHumans(\Carbon\Carbon::parse($row->closed_at), true);
+        } else {
+            $aging = \Carbon\Carbon::parse($row->created_at)
+                        ->diffForHumans(now(), true);
+        }
 
         foreach ($this->selectedFields as $key) {
             switch ($key) {
                 case 'req_id':
                     $mapped[] = $row->assignment->VehicleRequest->req_id ?? '-';
                     break;
-
+                
+                //updated by logesh
+                case 'accountability_type':
+                    $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
+                    break;
+                    
                 case 'rider_name':
                     $mapped[] = $row->assignment->rider->name ?? '-';
                     
@@ -179,7 +215,16 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
                         ? $row->created_at->format('d M Y h:i A')
                         : '-';
                     break;
-
+                case 'updated_at':
+                    $mapped[] = $row->updated_at
+                        ? $row->updated_at->format('d M Y h:i A')
+                        : '-';
+                    break;
+                    
+                case 'aging':
+                    $mapped[] = $aging ?? '-';
+                    break;
+                    
                 default:
                     $mapped[] = $row->$key ?? '-';
             }
@@ -194,6 +239,7 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
 
         $customHeadings = [
             'req_id'        => 'Request ID',
+            'accountability_type'    => 'Accountablity Type', //updated by logesh
             'vehicle_no'    => 'Vehicle Number',
             'chassis_number'=> 'Chassis Number',
             'rider_name'    => 'Rider Name',
@@ -220,6 +266,8 @@ class B2BAdminReturnRequestExport implements FromCollection, WithHeadings, WithM
             'created_by'    => 'Created By',
             'status'        => 'Status',
             'created_at'    => 'Created Date & Time',
+            'updated_at'    => 'Updated Date & Time',
+            'aging'         => 'Aging'
         ];
 
         foreach ($this->selectedFields as $key) {

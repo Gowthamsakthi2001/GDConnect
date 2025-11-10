@@ -119,6 +119,7 @@
                 </div>
             </div>
         <!-- End Page Header -->
+        
 
         <div class="table-responsive table-container">
                <div id="loadingOverlay" class="datatable-loading-overlay">
@@ -395,12 +396,17 @@
                     
                      <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field16">City Code</label>
+                        <label class="form-check-label mb-0" for="field16">City</label>
                         <div class="form-check form-switch m-0">
-                          <input class="form-check-input get-export-label" type="checkbox" id="field16" value="city_code">
+                          <input class="form-check-input get-export-label" type="checkbox" id="field16" value="city">
                         </div>
                       </div>
                     </div>
+                    
+
+                    
+                    
+
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -972,6 +978,28 @@
                         </div>
                       </div>
                     </div>
+                    
+                    
+                     <div class="col-md-3 col-12 mb-3">
+                  <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field16">Accountability Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input get-export-label" type="checkbox" id="field16" value="accountability_type">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field16">Zone</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input get-export-label" type="checkbox" id="field16" value="zone">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
                   </div>
                 </div>
 
@@ -1039,11 +1067,70 @@
  
                     <div class="mb-3">
                         <label class="form-label" for="FromDate">City</label>
-                        <select name="city_id" id="city_id" class="form-control custom-select2-field">
+                        <select name="city_id" id="city_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
                             <option value="">Select</option>
                             @if(isset($locations))
                             @foreach($locations as $l)
-                            <option value="{{$l->id}}" {{ $city == $l->id ? 'selected' : '' }}>{{$l->name." - ".$l->city_code}}</option>
+                            <option value="{{$l->id}}" {{ $city == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+                        <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Zone</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="zone_id">Zone</label>
+                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
+                            <option value="">Select a city first</option>
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Accountability Type</label>
+                        <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">
+                            <option value="">All</option>
+                            @if(isset($accountablity_types))
+                            @foreach($accountablity_types as $type)
+                            <option value="{{$type->id}}" {{ $accountability_type == $type->id ? 'selected' : '' }}>{{$type->name ?? ''}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Customer</label>
+                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
                             @endforeach
                             @endif
 
@@ -1257,6 +1344,9 @@ $(document).ready(function () {
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
                 d.city = $('#city_id').val();
+                d.zone = $('#zone_id').val();
+                d.customer = $('#customer_id').val();
+                d.accountability_type = $('#accountability_type_id').val();
             },
             beforeSend: function() {
                 // Show loading overlay when AJAX starts
@@ -1380,6 +1470,9 @@ function clearAssetMasterFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
     $('#city_id').val('').trigger('change');
+    $('#zone_id').val('').trigger('change');
+    $('#customer_id').val('').trigger('change');
+    $('#accountability_type_id').val('').trigger('change');
     
     // Reload DataTable with cleared filters
     $('#AssetMasterTable_List').DataTable().ajax.reload();
@@ -1418,7 +1511,10 @@ function ExportAssetMasterData() {
     const timeline = selectedTimeline ? selectedTimeline.value : '';
     const from_date = document.getElementById('FromDate').value;
     const to_date = document.getElementById('ToDate').value;
-    const city = "{{ $city ?? '' }}";
+    const city = document.getElementById('city_id').value;
+    const zone = document.getElementById('zone_id').value;
+    const customer = document.getElementById('customer_id').value;
+    const accountability_type = document.getElementById('accountability_type_id').value;
 
     let req_ids = [];
     $('input[name="is_select[]"]:checked').each(function () {
@@ -1467,6 +1563,11 @@ function ExportAssetMasterData() {
     form.append($('<input>', { type: 'hidden', name: 'from_date', value: from_date }));
     form.append($('<input>', { type: 'hidden', name: 'to_date', value: to_date }));
     form.append($('<input>', { type: 'hidden', name: 'city', value: city }));
+    
+    
+    form.append($('<input>', { type: 'hidden', name: 'zone', value: zone }));
+    form.append($('<input>', { type: 'hidden', name: 'customer', value: customer }));
+    form.append($('<input>', { type: 'hidden', name: 'accountability_type', value: accountability_type }));
     
     form.appendTo('body').submit();
 }
@@ -1790,6 +1891,52 @@ function DeleteRecord(id, redirect = window.location.href) {
           }
         });
       });
+      
+      
+      function getZones(CityID) {
+        let ZoneDropdown = $('#zone_id');
+        ZoneDropdown.empty().append('<option value="">Loading...</option>');
+
+           
+        if (CityID) {
+            $.ajax({
+                url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+                type: "GET",
+                success: function (response) {
+                    ZoneDropdown.empty().append('<option value="">--Select Zone--</option>');
+    
+                    if (response.data && response.data.length > 0) {
+                        $.each(response.data, function (key, zone) {
+                            ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                        });
+                        const selectedZone = "{{ $zone_id ?? '' }}";
+                        if (selectedZone) {
+                        ZoneDropdown.val(selectedZone).trigger('change');
+                        }
+                        
+                    } else {
+                        ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                    }
+                },
+                error: function () {
+                    ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+                }
+            });
+        } else {
+            ZoneDropdown.empty().append('<option value="">Select a city first</option>');
+            // ZoneWrapper.hide();
+        }
+       
+       
+    }
+    
+    
+    $(document).ready(function () {
+        const existingCity = "{{ $city ?? '' }}";
+            if (existingCity) {
+                getZones(existingCity);
+            }
+    });
 </script>
 @endsection
 

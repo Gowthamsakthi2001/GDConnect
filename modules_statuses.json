@@ -34,5 +34,6 @@
     "VehicleType": true,
     "MasterManagement": true,
     "B2B": true,
-    "B2BAdmin": true
+    "B2BAdmin": true,
+    "RecoveryManager": true
 }

@@ -17,6 +17,9 @@ use App\Exports\AssetMasterVehicleExport;
 use App\Exports\AssetVehicleLogHistory;
 use Modules\VehicleManagement\Entities\VehicleType;
 use Modules\AssetMaster\Entities\VehicleModelMaster; //updated by Mugesh.B
+use Modules\City\Entities\City;//updated by Mugesh.B
+use Modules\Zones\Entities\Zones; //updated by Mugesh.B
+use Modules\MasterManagement\Entities\EvTblAccountabilityType;//updated by Mugesh.B
 use App\Helpers\CustomHandler;
 use App\Models\BusinessSetting;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +50,7 @@ use Modules\MasterManagement\Entities\ColorMaster;//updated by Mugesh.B
 use Modules\AssetMaster\Entities\LocationMaster;
 use Modules\AssetMaster\Entities\AssetMasterVehicleLogHistory;
 use Modules\AssetMaster\Entities\QualityCheck;
+use Modules\AssetMaster\Entities\QualityCheckReinitiate;
 use Modules\AssetMaster\Entities\AssetVehicleInventory;
 use Modules\AssetMaster\Entities\PoTable;
 use Modules\Deliveryman\Entities\Deliveryman;
@@ -79,12 +83,14 @@ class AssetMasterController extends Controller
         $timeline   = $request->timeline ?? '';
         $from_date  = $request->from_date ?? '';
         $to_date    = $request->to_date ?? '';
-        
+        $customer_id = $request->input('customer_id') ?? 'all';
+        $accountability_type_id = $request->input('accountability_type_id') ?? 'all';
         $location_id = $request->location_id ?? '';
         $vehicle_type = $request->vehicle_type ?? '';
         $vehicle_model = $request->vehicle_model ?? '';
-        
-        
+                
+
+        // dd($from_date,$to_date,$timeline);
         
     //   $assetWiseTable = DB::table('vehicle_qc_check_lists as qc')
     //     ->select(
@@ -225,7 +231,7 @@ class AssetMasterController extends Controller
         //  Log::info("Asset Management Dashboard Loading End".now());
         
         return view('assetmaster::asset_management_dashboard', compact( //updated by Mugesh B
-            'timeline', 'from_date', 'to_date','vehicle_type','vehicle_model', 'location_id',
+            'timeline', 'from_date', 'to_date','vehicle_type','vehicle_model', 'location_id','accountability_type_id','customer_id'
         ));
         
     }
@@ -239,32 +245,67 @@ class AssetMasterController extends Controller
         $vehicle_model = $request->vehicle_model ?? '';
         $chart_type = $request->chart_type ?? '';
         $vehicle_types = DB::table('vehicle_types')->where('is_active',1)->get();
+        $customer_id = $request->customer_id ?? 'all';
+        $accountability_type_id = $request->accountability_type_id ?? 'all';
         
         if(!empty($chart_type) && $chart_type == 'SummaryCardcountShow'){
-             
-             $countData = DB::table('vehicle_qc_check_lists as qc')
+            
+             $query = DB::table('vehicle_qc_check_lists as qc')
             ->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
             ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
+            ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+            ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+            ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
             ->when($location_id, fn($q) => $q->where('qc.location', $location_id))
             ->when($vehicle_model, fn($q) => $q->where('qc.vehicle_model', $vehicle_model))
             ->when($vehicle_type, fn($q) => $q->where('qc.vehicle_type', $vehicle_type))
-            ->when($timeline, function ($q) use ($timeline) {
+             ->when($timeline, function ($query) use ($timeline, &$from_date, &$to_date) {
                 switch ($timeline) {
-                    case 'today': $q->whereDate('qc.created_at', today()); break;
-                    case 'this_week': $q->whereBetween('qc.created_at', [now()->startOfWeek(), now()->endOfWeek()]); break;
-                    case 'this_month': $q->whereBetween('qc.created_at', [now()->startOfMonth(), now()->endOfMonth()]); break;
-                    case 'this_year': $q->whereBetween('qc.created_at', [now()->startOfYear(), now()->endOfYear()]); break;
+                    case 'today':
+                        $query->whereDate('qc.created_at', today());
+                        break;
+        
+                    case 'this_week':
+                        $query->whereBetween('qc.created_at', [
+                            now()->startOfWeek(), now()->endOfWeek()
+                        ]);
+                        break;
+        
+                    case 'this_month':
+                        $query->whereBetween('qc.created_at', [
+                            now()->startOfMonth(), now()->endOfMonth()
+                        ]);
+                        break;
+        
+                    case 'this_year':
+                        $query->whereBetween('qc.created_at', [
+                            now()->startOfYear(), now()->endOfYear()
+                        ]);
+                        break;
                 }
+        
+                // reset manual dates
+                $from_date = null;
+                $to_date = null;
+            })
+            ->when(!$timeline && $from_date, function ($query) use ($from_date) {
+                $query->whereDate('qc.created_at', '>=', $from_date);
+            })
+            ->when(!$timeline && $to_date, function ($query) use ($to_date) {
+                $query->whereDate('qc.created_at', '<=', $to_date);
             })
             ->where('vh.delete_status', 0)
             ->selectRaw("
+                SUM(CASE WHEN qc.delete_status = 0 AND qc.status = 'pass' THEN 1 ELSE 0 END) as total_qc_count,
                 SUM(CASE WHEN inv.transfer_status = 1 THEN 1 ELSE 0 END) as onRoad,
-                SUM(CASE WHEN inv.transfer_status <> 1 OR inv.transfer_status IS NULL THEN 1 ELSE 0 END) as offRoad,
+                SUM(CASE WHEN inv.transfer_status != 1 THEN 1 ELSE 0 END) as offRoad,
                 SUM(CASE WHEN inv.transfer_status = 2 THEN 1 ELSE 0 END) as underMaintenance,
                 SUM(CASE WHEN inv.transfer_status = 6 THEN 1 ELSE 0 END) as accidentCase
-            ")
-            ->first();
+            ");
 
+
+        $countData =  $query->first();
+        $total_qc_count = intval($countData->total_qc_count) ?? 0;
         $onRoad_asset_count = $countData->onRoad ?? 0;
         $offRoad_asset_count = $countData->offRoad ?? 0;
         $undermaintance_asset_count = $countData->underMaintenance ?? 0;
@@ -288,13 +329,14 @@ class AssetMasterController extends Controller
             ? round(($accident_asset_count / $total_asset_count) * 100, 2) 
             : 0;
             
-           
             $countData = [
+                'total_qc_count'    => $total_qc_count,
                 'onRoad_asset_count' => $onRoad_asset_count,
                 'offRoad_asset_count' => $offRoad_asset_count,
                 'undermaintanance_asset_count' => $undermaintance_asset_count,
                 'accident_asset_count' => $accident_asset_count,
-                'total_asset_count' => $total_asset_count,
+                // 'total_asset_count' => $total_asset_count,
+                'total_asset_count' => $total_qc_count,
                 'onRoad_percentage' => $onRoad_percentage,
                 'offRoad_percentage' => $offRoad_percentage,
                 'undermaintanance_percentage' => $undermaintanance_percentage,
@@ -303,7 +345,6 @@ class AssetMasterController extends Controller
             ];
 
 
-            
             return response()->json([
                 'status' => true,
                 'count_data' => $countData,
@@ -313,11 +354,17 @@ class AssetMasterController extends Controller
         }
         
         if(!empty($chart_type) && $chart_type == 'MapChart'){
-                $clientWiseTable = DB::table('vehicle_qc_check_lists as qc')
-                ->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
-                ->leftJoin('ev_tbl_location_master as lo', 'lo.id', '=', 'qc.location')
+                $sql_query = DB::table('vehicle_qc_check_lists as qc')
+                ->when($accountability_type_id === 'all', function ($query) {
+                    $query->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                          ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                }, function ($query) {
+                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                })
+                ->Join('ev_tbl_city as lo', 'lo.id', '=', 'qc.location')
                 ->where('qc.delete_status', 0)
+                ->distinct('vh.chassis_number')
                 ->when($location_id != "", fn($q) => $q->where('qc.location', $location_id))
                 ->when($vehicle_model != "", fn($q) => $q->where('qc.vehicle_model', $vehicle_model))
                 ->when($vehicle_type != "", fn($q) => $q->where('qc.vehicle_type', $vehicle_type))
@@ -356,18 +403,23 @@ class AssetMasterController extends Controller
                 ->when(!$timeline && $to_date, function ($query) use ($to_date) {
                     $query->whereDate('qc.created_at', '<=', $to_date);
                 })
-                ->groupBy('qc.location', 'lo.name')
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
+                ->groupBy('qc.location', 'lo.city_name')
                 ->selectRaw("
                     qc.location as location_id,
-                    lo.name as location_name,
+                    lo.city_name as location_name,
                     COUNT(qc.id) AS total_assets,
                     SUM(CASE WHEN inv.transfer_status = 1 THEN 1 ELSE 0 END) AS active_assets,
                     SUM(CASE WHEN inv.transfer_status != 1 THEN 1 ELSE 0 END) AS idle_assets
-                ")
-                ->get();
+                ");
+                
+              $clientWiseTable = $sql_query->get();
         
             $MapchartData = [];
         
+            $Total_values = 0;
             foreach ($clientWiseTable as $row) {
                 $apiKey = BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
                 $url = "https://maps.googleapis.com/maps/api/geocode/json?address=" . urlencode($row->location_name) . "&components=country:IN&key=" . $apiKey;
@@ -380,7 +432,7 @@ class AssetMasterController extends Controller
                     $lat = $data['results'][0]['geometry']['location']['lat'];
                     $lng = $data['results'][0]['geometry']['location']['lng'];
                 }
-        
+                $Total_values += (int)$row->total_assets;
                 $MapchartData[] = [
                     'location_id'=>$row->location_id,
                     'name'     => $row->location_name,
@@ -389,9 +441,8 @@ class AssetMasterController extends Controller
                 ];
             }
         
-            return response()->json(['status'=>true,'map_data'=>$MapchartData]);
+            return response()->json(['status'=>true,'map_data'=>$MapchartData,'total_vehicle_count'=>$Total_values,'sql_query'=>$sql_query->toSql(),'bindings'=>$sql_query->getBindings()]);
         }
-        
         
        if(!empty($chart_type) && $chart_type == 'VehicleStatusSummaryChart' || $chart_type == 'OEMChart'){
     
@@ -403,10 +454,15 @@ class AssetMasterController extends Controller
                     'vt.name as vehicle_type_name',
                     DB::raw('COUNT(DISTINCT qc.id) as total_count'),
                     DB::raw("SUM(CASE WHEN inv.transfer_status = 1 THEN 1 ELSE 0 END) as onroad_count"),
-                    DB::raw("SUM(CASE WHEN inv.transfer_status <> 1 OR inv.transfer_status IS NULL THEN 1 ELSE 0 END) as offroad_count")
+                    DB::raw("SUM(CASE WHEN inv.transfer_status != 1 THEN 1 ELSE 0 END) as offroad_count")
                 )
-                ->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
+                 ->when($accountability_type_id === 'all', function ($query) {
+                    $query->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                          ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                }, function ($query) {
+                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                })
                 ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')
                 ->where('qc.delete_status', 0)
                 ->when($location_id != "", function ($query) use ($location_id) {
@@ -452,6 +508,9 @@ class AssetMasterController extends Controller
                 ->when(!$timeline && $to_date, function ($query) use ($to_date) {
                     $query->whereDate('qc.created_at', '<=', $to_date);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->groupBy('qc.vehicle_type','vt.name')
                 ->get();
                 
@@ -461,7 +520,7 @@ class AssetMasterController extends Controller
                     'total_offroad' => 0,
                     'types' => []
                 ];
-                
+                $total_vh_count = 0;
                 foreach ($vehicleData as $row) {
                     $type = $row->vehicle_type ?? 'Unknown';
                 
@@ -478,6 +537,7 @@ class AssetMasterController extends Controller
                     $summary['total_assets'] += $row->total_count;
                     $summary['total_onroad'] += $row->onroad_count;
                     $summary['total_offroad'] += $row->offroad_count;
+                    $total_vh_count += $row->total_count;
                 }
                 
 
@@ -485,7 +545,7 @@ class AssetMasterController extends Controller
                     ? round(($summary['total_onroad'] / $summary['total_assets']) * 100, 2)
                     : 0;
 
-                return response()->json(['status'=>true,'vehicle_summary'=>$summary]);
+                return response()->json(['status'=>true,'vehicle_summary'=>$summary,'total_vh_count'=>$total_vh_count]);
             }else{
                 
                 $assetWiseTable = DB::table('vehicle_qc_check_lists as qc')
@@ -497,9 +557,14 @@ class AssetMasterController extends Controller
                     DB::raw('COUNT(qc.vehicle_type) as vehicle_count'),
                     DB::raw("SUM(CASE WHEN qc.status = 'pass' AND vh.is_status = 'accepted' THEN 1 ELSE 0 END) as registered_vehicles")
                 )
-                ->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
-                ->leftJoin('ev_tbl_location_master as lo', 'lo.id', '=', 'qc.location')
+                ->when($accountability_type_id === 'all', function ($query) {
+                    $query->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                          ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                }, function ($query) {
+                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                })
+                ->leftJoin('ev_tbl_city as lo', 'lo.id', '=', 'qc.location')
                 ->leftJoin('ev_tbl_vehicle_models as vm', 'qc.vehicle_model', '=', 'vm.id')
                 ->leftJoin('ev_tbl_brands as bm', 'vm.brand', '=', 'bm.id')
                 ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')  
@@ -513,7 +578,7 @@ class AssetMasterController extends Controller
                 ->when($vehicle_type != "", function ($query) use ($vehicle_type) {
                     return $query->where('qc.vehicle_type', $vehicle_type);
                 })
-                    ->when($timeline, function ($query) use ($timeline, &$from_date, &$to_date) {
+                ->when($timeline, function ($query) use ($timeline, &$from_date, &$to_date) {
                     switch ($timeline) {
                         case 'today':
                             $query->whereDate('qc.created_at', today());
@@ -538,7 +603,6 @@ class AssetMasterController extends Controller
                             break;
                     }
             
-                    // reset manual dates
                     $from_date = null;
                     $to_date = null;
                 })
@@ -548,9 +612,12 @@ class AssetMasterController extends Controller
                 ->when(!$timeline && $to_date, function ($query) use ($to_date) {
                     $query->whereDate('qc.created_at', '<=', $to_date);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->groupBy('bm.brand_name', 'vm.vehicle_model', 'qc.vehicle_type', 'vt.name')
                 ->get();
-                
+                $total_vh_count = 0;
                 $brandWiseData = [];
                 foreach ($assetWiseTable as $row) {
                     $brand = $row->brand_name;
@@ -569,12 +636,13 @@ class AssetMasterController extends Controller
                         'type'    => $row->vehicle_type_name,
                         'count'   => $row->vehicle_count,
                     ];
+                    $total_vh_count += $row->vehicle_count;
                 }
                 
                 $brandWiseData = array_values($brandWiseData);
             }
     
-          return response()->json(['status'=>true,'brandWiseData'=>$brandWiseData]);
+          return response()->json(['status'=>true,'brandWiseData'=>$brandWiseData,'total_vh_count'=>$total_vh_count]);
         }
         
         
@@ -590,6 +658,9 @@ class AssetMasterController extends Controller
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
                     $query->whereBetween('vh.insurance_expiry_date', [$from_date, $to_date]);
                 });
@@ -605,6 +676,9 @@ class AssetMasterController extends Controller
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
                     $query->whereBetween('vh.fc_expiry_date', [$from_date, $to_date]);
                 });
@@ -620,6 +694,9 @@ class AssetMasterController extends Controller
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
                     $query->whereBetween('vh.road_tax_next_renewal_date', [$from_date, $to_date]);
                 });
@@ -635,6 +712,9 @@ class AssetMasterController extends Controller
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
                     $query->whereBetween('vh.lease_end_date', [$from_date, $to_date]);
                 });
@@ -654,6 +734,9 @@ class AssetMasterController extends Controller
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('qc.location', $location_id);
                 })
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
                 ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
                     $query->whereBetween('vh.created_at', [$from_date, $to_date]);
                 })
@@ -721,7 +804,10 @@ class AssetMasterController extends Controller
                 ->when(!$timeline && $to_date, function ($query) use ($to_date) {
                     $query->whereDate('qc.created_at', '<=', $to_date);
                 })
-                ->groupBy('qc.vehicle_type', 'vt.name', 'inv.transfer_status', 'vs.name') // ✅ Added vt.name
+                ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
+                ->groupBy('qc.vehicle_type', 'vt.name', 'inv.transfer_status', 'vs.name') 
                 ->get();
 
             
@@ -729,11 +815,203 @@ class AssetMasterController extends Controller
 
         }
         
+        if (!empty($chart_type) && $chart_type == 'ClientwiseDeployment') {
+
+             $query =  DB::table('asset_vehicle_inventories as inv')
+            ->join('ev_tbl_asset_master_vehicles as vh', 'inv.asset_vehicle_id', '=', 'vh.id')
+            ->join('vehicle_qc_check_lists as qc', 'qc.id', '=', 'vh.qc_id')
+            ->join('ev_tbl_accountability_types as ac', 'ac.id', '=', 'qc.accountability_type')
+            ->leftjoin('ev_tbl_customer_master as cm', 'vh.client', '=', 'cm.id')
+            ->whereNotNull('vh.client')
+                     ->when($location_id != "", fn($q) => $q->where('qc.location', $location_id))
+                    ->when($vehicle_model != "", fn($q) => $q->where('qc.vehicle_model', $vehicle_model))
+                    ->when($vehicle_type != "", fn($q) => $q->where('qc.vehicle_type', $vehicle_type))
+                    ->when($timeline, function ($query) use ($timeline, &$from_date, &$to_date) {
+                        switch ($timeline) {
+                            case 'today':
+                                $query->whereDate('qc.created_at', today());
+                                break;
+                
+                            case 'this_week':
+                                $query->whereBetween('qc.created_at', [
+                                    now()->startOfWeek(), now()->endOfWeek()
+                                ]);
+                                break;
+                
+                            case 'this_month':
+                                $query->whereBetween('qc.created_at', [
+                                    now()->startOfMonth(), now()->endOfMonth()
+                                ]);
+                                break;
+                
+                            case 'this_year':
+                                $query->whereBetween('qc.created_at', [
+                                    now()->startOfYear(), now()->endOfYear()
+                                ]);
+                                break;
+                        }
+                
+                        // reset manual dates
+                        $from_date = null;
+                        $to_date = null;
+                    })
+                        ->when(!$timeline && $from_date, function ($query) use ($from_date) {
+                            $query->whereDate('qc.created_at', '>=', $from_date);
+                        })
+                        ->when(!$timeline && $to_date, function ($query) use ($to_date) {
+                            $query->whereDate('qc.created_at', '<=', $to_date);
+                        })
+                        ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
+                        ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
+                        ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
+                ->groupBy('vh.client', 'qc.accountability_type', 'ac.name', 'cm.trade_name')
+                ->select(
+                    'qc.accountability_type',
+                    'ac.name',
+                    'vh.client',
+                    'cm.trade_name',
+                    DB::raw('COUNT(qc.accountability_type) as depployed_count')
+                );
+                
+               $results = $query->get();
+    
+                // Format data (just like your example)
+                $clientDeployedData = $results->map(function ($item) {
+                    return [
+                        'ac_type'    => $item->accountability_type,
+                        'client_id' => $item->client,
+                         'client_name' => $item->trade_name ?? 'Client',
+                        'depployed_count' => (int)$item->depployed_count,
+                    ];
+                });
+            
+                return response()->json([
+                    'data' => $clientDeployedData,
+                    'total_count' => $clientDeployedData->sum('depployed_count')
+                ]);
+        
+           
+        }
+        
+        if (!empty($chart_type) && $chart_type == 'clientDeployedReturnedChart') {
+            
+                $cw_depReturedArr = AssetVehicleInventory::select(
+                        DB::raw('DATE(assl.created_at) AS date'),
+                        DB::raw("SUM(CASE 
+                                    WHEN assl.status = 'closed' 
+                                         AND assl.request_type = 'return_request' 
+                                    THEN 1 ELSE 0 
+                                 END) AS returned_count"),
+                        DB::raw("SUM(CASE 
+                                    WHEN assl.status = 'running' 
+                                    THEN 1 ELSE 0 
+                                 END) AS running_count")
+                    )
+                    ->join('b2b_tbl_vehicle_assignments as ass', 'asset_vehicle_inventories.asset_vehicle_id', '=', 'ass.asset_vehicle_id')
+                    ->join('b2b_tbl_vehicle_assignment_logs as assl', 'assl.assignment_id', '=', 'ass.id')
+            
+                    // Default filter — current month
+                    // ->when(!$timeline, function ($query) {
+                    //     $query->whereMonth('assl.created_at', now()->month)
+                    //           ->whereYear('assl.created_at', now()->year);
+                    // })
+            
+                    // QC-based filters
+                    ->when($location_id, fn($q) => 
+                        $q->whereHas('assetVehicle.quality_check', fn($qc) => 
+                            $qc->where('location', $location_id)
+                        )
+                    )
+                    ->when($vehicle_type, fn($q) => 
+                        $q->whereHas('assetVehicle.quality_check', fn($qc) => 
+                            $qc->where('vehicle_type', $vehicle_type)
+                        )
+                    )
+                    ->when($vehicle_model, fn($q) => 
+                        $q->whereHas('assetVehicle.quality_check', fn($qc) => 
+                            $qc->where('vehicle_modal', $vehicle_model)
+                        )
+                    )
+                    ->when($accountability_type_id !== 'all', fn($q) => 
+                        $q->whereHas('assetVehicle.quality_check', fn($qc) => 
+                            $qc->where('accountability_type', $accountability_type_id)
+                        )
+                    )
+                    ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => 
+                        $q->whereHas('assetVehicle.quality_check', fn($qc) => 
+                            $qc->where('customer_id', $customer_id)
+                        )
+                    )
+                    ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => 
+                        $q->whereHas('assetVehicle', fn($qc) => 
+                            $qc->where('client', $customer_id)
+                        )
+                    )
+                    
+            
+                    // Timeline filters
+                    ->when($timeline, function ($query) use ($timeline) {
+                        switch ($timeline) {
+                            case 'today':
+                                $query->whereDate('assl.created_at', today());
+                                break;
+                            case 'this_week':
+                                $query->whereBetween('assl.created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                                break;
+                            case 'this_month':
+                                $query->whereBetween('assl.created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+                                break;
+                            case 'this_year':
+                                $query->whereBetween('assl.created_at', [now()->startOfYear(), now()->endOfYear()]);
+                                break;
+                        }
+                        // reset manual dates
+                        $from_date = null;
+                        $to_date = null;
+                    })
+                    ->when(!$timeline && $from_date, fn($q) => $q->whereDate('assl.created_at', '>=', $from_date))
+                    ->when(!$timeline && $to_date, fn($q) => $q->whereDate('assl.created_at', '<=', $to_date))
+            
+                    ->groupBy(DB::raw('DATE(assl.created_at)'))
+                    ->orderBy(DB::raw('DATE(assl.created_at)'), 'asc')
+                    ->get();
+            
+                // Prepare response data
+                $clientwisebothData = [];
+                foreach ($cw_depReturedArr as $val) {
+                    $clientwisebothData[] = [
+                        'date' => $val->date,
+                        'deployed_count' => (int) $val->running_count,
+                        'returned_count' => (int) $val->returned_count,
+                    ];
+                }
+            
+                $filterMonth = now()->month;
+                $filterYear = now()->year;
+                if(!empty($filterMonth) || !empty($filterYear)){
+                    $filterMonth = $timeline === 'this_month' ? now()->month : ($from_date ? \Carbon\Carbon::parse($from_date)->month : now()->month);
+                    $filterYear = $timeline === 'this_month' ? now()->year : ($from_date ? \Carbon\Carbon::parse($from_date)->year : now()->year);
+                }
+                // Calculate totals
+                $total_deployed_count = $cw_depReturedArr->sum('running_count');
+                $total_returned_count = $cw_depReturedArr->sum('returned_count');
+            
+                return response()->json([
+                    'data' => $clientwisebothData,
+                    'total_deployed_count' => $total_deployed_count,
+                    'total_returned_count' => $total_returned_count,
+                    'filterMonth' => $filterMonth,
+                    'filterYear' => $filterYear
+                ]);
+            }
+
+
        if (!empty($chart_type) && $chart_type == 'InventoryDataTable') {
-            $inventory_summary = AssetVehicleInventory::with([
+             $query = AssetVehicleInventory::with([
                 'assetVehicle.vehicle_model_relation',
                 'assetVehicle.vehicle_type_relation',
                 'inventory_location',
+                'assetVehicle.quality_check',
                 'assetVehicle.quality_check.location_relation',
                 'assetVehicle.customer_relation'
             ])
@@ -758,27 +1036,26 @@ class AssetMasterController extends Controller
                     case 'today':
                         $query->whereDate('created_at', today());
                         break;
-        
+            
                     case 'this_week':
                         $query->whereBetween('created_at', [
                             now()->startOfWeek(), now()->endOfWeek()
                         ]);
                         break;
-        
+            
                     case 'this_month':
                         $query->whereBetween('created_at', [
                             now()->startOfMonth(), now()->endOfMonth()
                         ]);
                         break;
-        
+            
                     case 'this_year':
                         $query->whereBetween('created_at', [
                             now()->startOfYear(), now()->endOfYear()
                         ]);
                         break;
                 }
-        
-                // reset manual dates
+            
                 $from_date = null;
                 $to_date = null;
             })
@@ -788,10 +1065,24 @@ class AssetMasterController extends Controller
             ->when(!$timeline && $to_date, function ($query) use ($to_date) {
                 $query->whereDate('created_at', '<=', $to_date);
             })
-            ->orderBy('id', 'desc')
-            ->limit(30)
-            ->get();
+            ->when($accountability_type_id !== 'all', function ($query) use ($accountability_type_id) {
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($accountability_type_id) {
+                    $q->where('accountability_type', $accountability_type_id);
+                });
+            })
 
+            ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => 
+                $q->whereHas('assetVehicle.quality_check', fn($qc) => 
+                    $qc->where('customer_id', $customer_id)
+                )
+            )
+            ->when($customer_id !== 'all' && $accountability_type_id == 1, function ($query) use ($customer_id) {
+                $query->whereHas('assetVehicle', function ($q) use ($customer_id) {
+                    $q->where('client', $customer_id);
+                });
+            });
+            $total_count = (clone $query)->count();
+            $inventory_summary = $query->orderBy('id', 'desc')->limit(30)->get();
         
             $html = '';
 
@@ -824,7 +1115,8 @@ class AssetMasterController extends Controller
             }
             
             return response()->json([
-                'html' => $html
+                'html' => $html,
+                'total_count' => $total_count
             ]);
 
         }
@@ -2514,6 +2806,9 @@ public function asset_master_list(Request $request)
             $from_date = $request->input('from_date');
             $to_date = $request->input('to_date');
             $city = $request->input('city');
+            $zone_id = $request->input('zone');
+            $customer_id = $request->input('customer');
+            $accountability_type_id = $request->input('accountability_type');
             $search = $request->input('search.value');
             $start = $request->input('start', 0);
             $length = $request->input('length', 15);
@@ -2533,8 +2828,41 @@ public function asset_master_list(Request $request)
                 });
             }
             
+            if (!empty($zone_id)) {
+                 $query->where(function($q) use ($zone_id) {
+                    $q->whereHas('quality_check', function($qcQuery) use ($zone_id) {
+                        $qcQuery->where('zone_id',$zone_id);
+                    });
+                });
+            }
             
-
+            if (!empty($accountability_type_id)) {
+                 $query->where(function($q) use ($accountability_type_id) {
+                    $q->whereHas('quality_check', function($qcQuery) use ($accountability_type_id) {
+                        $qcQuery->where('accountability_type',$accountability_type_id);
+                    });
+                });
+            }
+            
+            
+            // if (!empty($customer_id)) {
+            //      $query->where(function($q) use ($customer_id) {
+            //         $q->whereHas('quality_check', function($qcQuery) use ($customer_id) {
+            //             $qcQuery->where('customer_id',$customer_id);
+            //         });
+            //     });
+            // }
+            
+            if (!empty($customer_id) && $accountability_type_id == 2) { //updated by Gowtham.s
+                $query->whereHas('quality_check', function ($q) use ($customer_id) {
+                    $q->where('customer_id', $customer_id);
+                });
+            }
+             if (!empty($customer_id) && $accountability_type_id == 1) { //updated by Gowtham.s
+                    $query->where('client', $customer_id);
+            }
+            
+            
             // Timeline filters
             if (!empty($timeline)) {
                 $now = now();
@@ -2671,9 +2999,12 @@ public function asset_master_list(Request $request)
     }
 
     // For initial page load (non-AJAX)
-    $locations = LocationMaster::where('status', 1)
-        ->select('id', 'name', 'city', 'city_code')
+    $locations = City::where('status', 1)
+        ->select('id', 'city_name')
         ->get();
+        
+    $accountablity_types = EvTblAccountabilityType::where('status', 1)->get();
+    $customers = CustomerMaster::where('status',1)->get();
 
     return view('assetmaster::asset_master.asset_master_list', [
         'lists' => collect(),
@@ -2681,8 +3012,13 @@ public function asset_master_list(Request $request)
         'from_date' => $request->from_date ?? '',
         'to_date' => $request->to_date ?? '',
         'timeline' => $request->timeline ?? '',
+        'customers' => $customers ,
+        'accountablity_types' => $accountablity_types ,
         'locations' => $locations,
         'city' => $request->city ?? '',
+        'zone_id'  => $request->zone,
+        'customer_id' => $request->customer ,
+        'accountability_type' => $request->accountability_type,
         'totalRecords' => $totalRecords
     ]);
 }
@@ -2712,7 +3048,9 @@ public function asset_master_list(Request $request)
         $vehicle_types = VehicleType::where('is_active', 1)->get();
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         
-        $locations = LocationMaster::where('status',1)->get();
+        $locations = City::where('status', 1)
+        ->select('id', 'city_name')
+        ->get();
         $passed_chassis_numbers = AssetMasterVehicle::where('qc_status','pass')->where('is_status','pending')->get();
         $financing_types = FinancingTypeMaster::where('status',1)->get();
         $asset_ownerships = AssetOwnershipMaster::where('status',1)->get();
@@ -2723,9 +3061,10 @@ public function asset_master_list(Request $request)
         $telematics = TelemetricOEMMaster::where('status',1)->get();
         $inventory_locations = InventoryLocationMaster::where('status',1)->get();
          $colors = ColorMaster::where('status',1)->get();
+        $customers = CustomerMaster::where('status',1)->get();
 
 
-        return view('assetmaster::asset_master.create_vehicle',compact('vehicle_types','locations','passed_chassis_numbers' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' ,'hypothecations' ,'registration_types' , 'vehicle_models' ,'telematics' ,'inventory_locations' ,'colors'));
+        return view('assetmaster::asset_master.create_vehicle',compact('vehicle_types','locations','passed_chassis_numbers' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' ,'hypothecations' ,'registration_types' , 'vehicle_models' ,'telematics' ,'inventory_locations' ,'colors' , 'customers'));
     }
     
     
@@ -2733,8 +3072,7 @@ public function asset_master_list(Request $request)
     public function store_vehicle(Request $request)
     {
         
-        
-
+    
         $validator = Validator::make($request->all(), [
         'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number',
         'vehicle_category' => 'string',
@@ -2805,6 +3143,7 @@ public function asset_master_list(Request $request)
         'telematics_serial_no_replacement5' => 'nullable|string',
         'city_code' => 'nullable|string',
          'telematics_oem' => 'nullable|string',
+         'zone_id' => 'required',
 
         // File validations
         'master_lease_agreement' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
@@ -2814,6 +3153,11 @@ public function asset_master_list(Request $request)
         'hypothecation_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'temporary_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'hsrp_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+    ],
+    [
+       
+        'zone_id.required' => 'Please select a Zone. Zone field is mandatory.',
+        'city_code.required' => 'Please select a City. City field is mandatory.',
     ]);
 
     if ($validator->fails()) {
@@ -2839,6 +3183,9 @@ public function asset_master_list(Request $request)
             $vehicle_update = AssetMasterVehicle::where('id', $request->chassis_number)
                 ->where('is_status', 'pending')
                 ->first();
+                
+                
+            $oldValues = $vehicle_update->getOriginal(); 
     
             $QC_PassData = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
                 ->where('status', 'pass')
@@ -2924,7 +3271,7 @@ public function asset_master_list(Request $request)
                 'tax_invoice_number' => $request->tax_invoice_number,
                 'tax_invoice_date' => $request->tax_invoice_date,
                 'tax_invoice_value' => floatval(preg_replace('/[^0-9.]/', '', $request->tax_invoice_value)),
-                'location' => $request->location,
+                'location' => $request->city_code,
                 'gd_hub_name' => $request->gd_hub_id,
                 'financing_type' => $request->financing_type,
                 'asset_ownership' => $request->asset_ownership,
@@ -2987,8 +3334,19 @@ public function asset_master_list(Request $request)
             ]);
             
     
+            $changes = array_diff_assoc($vehicle_update->getDirty(), $oldValues);
+            
+            
             $vehicle_update->save();
-    
+            
+            $quality_check = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
+                ->where('status', 'pass')
+                ->first();
+            
+            
+            $this->handleLogsAndQcUpdate($vehicle_update, $changes , $request, $oldValues, $quality_check);
+            
+            
             // Log
             $remarks = 'The Asset Master Vehicle Chassis Number ' . $vehicle_update->chassis_number . ' has been Uploaded';
     
@@ -2998,7 +3356,8 @@ public function asset_master_list(Request $request)
                 'remarks' => $remarks,
                 'status_type' => 'uploaded',
             ]);
-    
+            
+
             DB::commit();
     
             return response()->json([
@@ -3021,15 +3380,10 @@ public function asset_master_list(Request $request)
 
 
 
-
-
     
     public function update_data(Request $request)
     {
         
-       
-
-
         $validator = Validator::make($request->all(), [
        'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number,' . $request->id,
         'vehicle_category' => 'nullable|string',
@@ -3098,7 +3452,8 @@ public function asset_master_list(Request $request)
         'telematics_serial_no_replacement3' => 'nullable|string',
         'telematics_serial_no_replacement4' => 'nullable|string',
         'telematics_serial_no_replacement5' => 'nullable|string',
-        'city_code' => 'nullable|string',
+        'city_code' => 'required',
+        'zone_id' => 'required',
          'telematics_oem' => 'nullable|string',
 
         // File validations
@@ -3109,6 +3464,11 @@ public function asset_master_list(Request $request)
         'hypothecation_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'temporary_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'hsrp_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+    ],
+    [
+       
+        'zone_id.required' => 'Please select a Zone. Zone field is mandatory.',
+        'city_code.required' => 'Please select a City. City field is mandatory.',
     ]);
 
     if ($validator->fails()) {
@@ -3134,6 +3494,8 @@ public function asset_master_list(Request $request)
             $vehicle_update = AssetMasterVehicle::where('id', $request->id)
                 ->where('is_status', 'pending')
                 ->first();
+                
+             $oldValues = $vehicle_update->getOriginal(); 
     
             $QC_PassData = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
                 ->where('status', 'pass')
@@ -3220,7 +3582,7 @@ public function asset_master_list(Request $request)
                 'tax_invoice_number' => $request->tax_invoice_number,
                 'tax_invoice_date' => $request->tax_invoice_date,
                 'tax_invoice_value' => floatval(preg_replace('/[^0-9.]/', '', $request->tax_invoice_value)),
-                'location' => $request->location,
+                'location' => $request->city_code,
                 'gd_hub_name' => $request->gd_hub_id,
                 'financing_type' => $request->financing_type,
                 'asset_ownership' => $request->asset_ownership,
@@ -3282,8 +3644,16 @@ public function asset_master_list(Request $request)
                 'created_by'=>auth()->id()
             ]);
             
-    
+            $changes = array_diff_assoc($vehicle_update->getDirty(), $oldValues);
             $vehicle_update->save();
+            
+            
+            $quality_check = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
+                ->where('status', 'pass')
+                ->first();
+                
+                
+            $this->handleLogsAndQcUpdate($vehicle_update, $changes , $request, $oldValues, $quality_check);
     
             // Log
             $remarks = 'The Asset Master Vehicle Chassis Number ' . $vehicle_update->chassis_number . ' has been Uploaded';
@@ -3295,6 +3665,8 @@ public function asset_master_list(Request $request)
                 'status_type' => 'uploaded',
             ]);
     
+    
+
             DB::commit();
     
             return response()->json([
@@ -3316,853 +3688,1137 @@ public function asset_master_list(Request $request)
     
 
 
-public function vehicle_bulk_upload_form_import(Request $request)
+/**
+ * Handle Asset Master and QC log updates after saving vehicle data.
+ */
+private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $oldValues, $quality_check)
 {
-    if ($request->hasFile('asset_vehicle_excel_file')) {
-        $ext = strtolower($request->file('asset_vehicle_excel_file')->getClientOriginalExtension());
-    
-        if (!in_array($ext, ['xlsx', 'xls'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors' => [
-                    'asset_vehicle_excel_file' => [
-                        'The asset vehicle excel file field must be a file of type: xlsx, xls.'
-                    ]
-                ]
-            ], 422);
-        }
-    }
+                
+    if (!empty($changes)) {
 
-
-    $validator = Validator::make($request->all(), [
-        'asset_vehicle_excel_file' => 'required|file',
-    ]);
-    
-    try {
-    $file = $request->file('asset_vehicle_excel_file');
-    $excelPath = $file->getPathname();
-
-    $saveRoot = public_path('EV/asset_master');
-    if (!file_exists($saveRoot)) {
-        mkdir($saveRoot, 0777, true);
-    }
-
-    $spreadsheet = IOFactory::load($excelPath);
-    $sheet = $spreadsheet->getActiveSheet();
-
-    $highestColumn = $sheet->getHighestColumn();
-    $highestRow = $sheet->getHighestRow();
-    $highestColumnIndex = Coordinate::columnIndexFromString($highestColumn);
-
-    $headerMap = [];
-    for ($col = 1; $col <= $highestColumnIndex; $col++) {
-        $colLetter = Coordinate::stringFromColumnIndex($col);
-        $cellValue = $sheet->getCell($colLetter . '1')->getValue();
-        $headerName = Str::snake(trim($cellValue));
-        if ($headerName) {
-            $headerMap[$colLetter] = $headerName;
-        }
-    }
-   
-    
-    
-        $columnMap = [
-            "A" => "chassis_number",
-            "B" => "vehicle_category",
-            "C" => "vehicle_type",
-            "D" => "model",
-            "E" => "make",
-            "F" => "variant",
-            "G" => "color",
-            "H" => "motor_number",
-            "I" => "vehicle_id",
-            "J" => "tax_invoice_number",
-            "K" => "tax_invoice_date",
-            "L" => "tax_invoice_value",
-            "M" => "tax_invoice_attachment",
-            "N" => "city_code",
-            "O" => "gd_hub_name",
-            "P" => "gd_hub_id",
-            "Q" => "financing_type",
-            "R" => "asset_ownership",
-            "S" => "master_lease_agreement",
-            "T" => "lease_start_date",
-            "U" => "lease_end_date",
-            "V" => "emi_lease_amount",
-            "W" => "hypothecation",
-            "X" => "hypothecation_to",
-            "Y" => "hypothecation_document",
-            "Z" => "insurer_name",
-            "AA" => "insurance_type",
-            "AB" => "insurance_number",
-            "AC" => "insurance_start_date",
-            "AD" => "insurance_expiry_date",
-            "AE" => "insurance_attachment",
-            "AF" => "registration_type",
-            
-            "AG" => "temproary_reg_number",
-            "AH" => "temproary_reg_date",
-            "AI" => "temproary_reg_expiry_date",
-            "AJ" => "temproary_reg_attachment",
-            "AK" => "permanent_reg_number",
-            "AL" => "permanent_reg_date",
-            "AM" => "reg_certificate_expiry_date",
-            "AN" => "hsrp_copy_attachment",
-            "AO" => "reg_certificate_attachment",
-            "AP" => "fc_expiry_date",
-            "AQ" => "fc_attachment",
-            "AR" => "servicing_dates",
-            "AS" => "road_tax_applicable",
-            "AT" => "road_tax_amount",
-            "AU" => "road_tax_renewal_frequency",
-            "AV" => "road_tax_next_renewal_date",
-            "AW" => "battery_type",
-            "AX" => "battery_serial_no",
-            "AY" => "battery_serial_number1",
-            "AZ" => "battery_serial_number2",
-            "BA" => "battery_serial_number3",
-            "BB" => "battery_serial_number4",
-            "BC" => "battery_serial_number5",
-            "BD" => "charger_variant_name",
-            "BE" => "charger_serial_no",
-            "BF" => "charger_serial_number1",
-            "BG" => "charger_serial_number2",
-            "BH" => "charger_serial_number3",
-            "BI" => "charger_serial_number4",
-            "BJ" => "charger_serial_number5",
-            "BK" => "telematics_variant_name",
-            "BL" => "telematics_oem",
-            "BM" => "telematics_serial_no",
-            "BN" => "telematics_imei_number",
-            "BO" => "telematics_serial_number1",
-            "BP" => "telematics_serial_number2",
-            "BQ" => "telematics_serial_number3",
-            "BR" => "telematics_serial_number4",
-            "BS" => "telematics_serial_number5",
-            "BT" => "client",
-            "BU" => "vehicle_delivery_date",
-            "BV" => "vehicle_status",
+        $fieldLabels = [
+            'chassis_number' => 'Chassis Number',
+            'vehicle_category' => 'Vehicle Category',
+            // 'vehicle_type' => 'Vehicle Type',
+            // 'make' => 'Make',
+            // 'model' => 'Model',
+            // 'variant' => 'Variant',
+            'color' => 'Color',
+            // 'client' => 'Client',
+            // 'motor_number' => 'Motor Number',
+            'vehicle_id' => 'Vehicle ID',
+            'tax_invoice_number' => 'Tax Invoice Number',
+            'tax_invoice_date' => 'Tax Invoice Date',
+            'tax_invoice_value' => 'Tax Invoice Value',
+            // 'location' => 'Location',
+            'gd_hub_name' => 'GD Hub Name',
+            'gd_hub_id' => 'GD Hub ID',
+            'financing_type' => 'Financing Type',
+            'asset_ownership' => 'Asset Ownership',
+            'lease_start_date' => 'Lease Start Date',
+            'lease_end_date' => 'Lease End Date',
+            'vehicle_delivery_date' => 'Vehicle Delivery Date',
+            'emi_lease_amount' => 'EMI Lease Amount',
+            'hypothecation' => 'Hypothecation',
+            'hypothecation_to' => 'Hypothecation To',
+            'insurer_name' => 'Insurer Name',
+            'insurance_type' => 'Insurance Type',
+            'insurance_number' => 'Insurance Number',
+            'insurance_start_date' => 'Insurance Start Date',
+            'insurance_expiry_date' => 'Insurance Expiry Date',
+            'registration_type' => 'Registration Type',
+            'registration_status' => 'Registration Status',
+            'permanent_reg_number' => 'Permanent Registration Number',
+            'permanent_reg_date' => 'Permanent Registration Date',
+            'reg_certificate_expiry_date' => 'Registration Certificate Expiry Date',
+            'fc_expiry_date' => 'FC Expiry Date',
+            'battery_type' => 'Battery Type',
+            'battery_variant_name' => 'Battery Variant Name',
+            // 'battery_serial_no' => 'Battery Serial Number',
+            'charger_variant_name' => 'Charger Variant Name',
+            'charger_serial_no' => 'Charger Serial Number',
+            'telematics_variant_name' => 'Telematics Variant Name',
+            // 'telematics_serial_no' => 'Telematics Serial Number',
+            'vehicle_status' => 'Vehicle Status',
+            'temproary_reg_number' => 'Temporary Registration Number',
+            'temproary_reg_date' => 'Temporary Registration Date',
+            'temproary_reg_expiry_date' => 'Temporary Registration Expiry Date',
+            'servicing_dates' => 'Servicing Dates',
+            'road_tax_applicable' => 'Road Tax Applicable',
+            'road_tax_amount' => 'Road Tax Amount',
+            'road_tax_renewal_frequency' => 'Road Tax Renewal Frequency',
+            'road_tax_next_renewal_date' => 'Next Road Tax Renewal Date',
+            'battery_serial_number1' => 'Battery Serial Number 1',
+            'battery_serial_number2' => 'Battery Serial Number 2',
+            'battery_serial_number3' => 'Battery Serial Number 3',
+            'battery_serial_number4' => 'Battery Serial Number 4',
+            'battery_serial_number5' => 'Battery Serial Number 5',
+            'charger_serial_number1' => 'Charger Serial Number 1',
+            'charger_serial_number2' => 'Charger Serial Number 2',
+            'charger_serial_number3' => 'Charger Serial Number 3',
+            'charger_serial_number4' => 'Charger Serial Number 4',
+            'charger_serial_number5' => 'Charger Serial Number 5',
+            'telematics_oem' => 'Telematics OEM',
+            'telematics_imei_number' => 'Telematics IMEI Number',
+            'telematics_serial_number1' => 'Telematics Serial Number 1',
+            'telematics_serial_number2' => 'Telematics Serial Number 2',
+            'telematics_serial_number3' => 'Telematics Serial Number 3',
+            'telematics_serial_number4' => 'Telematics Serial Number 4',
+            'telematics_serial_number5' => 'Telematics Serial Number 5',
+            // 'city_code' => 'City',
         ];
     
-
-
-    $sheetArray = $sheet->toArray(null, true, true, true);
-    $headerRow = $sheetArray[1];
     
-    $missingColumns = [];
-    foreach (array_keys($columnMap) as $expectedColLetter) {
-        if (!array_key_exists($expectedColLetter, $headerRow)) {
-            $missingColumns[] = $expectedColLetter;
+        $attachmentFields = [
+            'tax_invoice_attachment'     => 'Tax Invoice Attachment',
+            'master_lease_agreement'     => 'Master Lease Agreement',
+            'insurance_attachment'       => 'Insurance Attachment',
+            'reg_certificate_attachment' => 'Registration Certificate Attachment',
+            'fc_attachment'              => 'FC Attachment',
+            'hypothecation_document'     => 'Hypothecation Document',
+            'temproary_reg_attachment'   => 'Temporary Registration Attachment',
+            'hsrp_copy_attachment'       => 'HSRP Certificate Attachment',
+        ];
+
+
+        // Only include changed fields that exist in label map
+        $updatedReadable = [];
+        foreach ($changes as $key => $value) {
+            if (isset($fieldLabels[$key])) {
+                $updatedReadable[] = $fieldLabels[$key];
+            }
+        }
+        
+        foreach ($attachmentFields as $field => $label) {
+            if ($request->hasFile($field)) {
+                $updatedReadable[] = $label;
+            }
+        }
+    
+    
+    if ($quality_check) {
+            $qcFieldMap = [
+                'vehicle_type' => 'Vehicle Type',
+                'vehicle_model' => 'Model',
+                'motor_number' => 'Motor Number',
+                'battery_number' => 'Battery Number',
+                'telematics_number' => 'Telematics Number',
+                'location' => 'City',
+                'customer_id' => 'Customer',
+                'zone_id' => 'Zone',
+            ];
+            
+    
+            foreach ($qcFieldMap as $qcField => $label) {
+                $reqField = match ($qcField) {
+                    'vehicle_model' => 'model',
+                    'battery_number' => 'battery_serial_no',
+                    'telematics_number' => 'telematics_serial_no',
+                    'location' => 'city_code',
+                    'customer_id' => 'client',
+                    'zone_id' => 'zone_id', 
+                    default => $qcField,
+                };
+    
+            $newValue = $request->$reqField ?? null;
+
+            if ($qcField === 'zone_id') {
+                if ($quality_check->zone_id != $request->zone_id) {
+                    $updatedReadable[] = $label;
+                }
+            } elseif ($quality_check->$qcField != $newValue) {
+                $updatedReadable[] = $label;
+            }
+            }
+        }
+
+
+        if (!empty($updatedReadable)) {
+            $updatedText = implode(', ', $updatedReadable);
+            $remarks = "The following Asset Master fields have been updated: {$updatedText}. These updates were applied successfully.";
+    
+            AssetMasterVehicleLogHistory::create([
+                'asset_vehicle_id' => $vehicle_update->id,
+                'user_id' => auth()->id(),
+                'remarks' => $remarks,
+                'status_type' => 'updated',
+            ]);
         }
     }
     
-    if (!empty($missingColumns)) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Some required columns are missing from your Excel file. Please download the latest demo Excel template by clicking the Download Demo Excel button at the top. If you are importing or exporting data, please ensure that all required columns are selected to avoid any issues.'
+
+    
+    $updatedFields = [];
+    $qcUpdates = [];
+    
+    if ($quality_check) {
+        if ($quality_check->vehicle_type != $request->vehicle_type) {
+            $updatedFields[] = 'Vehicle Type';
+            $qcUpdates['vehicle_type'] = $request->vehicle_type;
+        }
+        if ($quality_check->vehicle_model != $request->model) {
+            $updatedFields[] = 'Model';
+            $qcUpdates['vehicle_model'] = $request->model;
+        }
+        if ($quality_check->motor_number != $request->motor_number) {
+            $updatedFields[] = 'Motor Number';
+            $qcUpdates['motor_number'] = $request->motor_number;
+        }
+        if ($quality_check->battery_number != $request->battery_serial_no) {
+            $updatedFields[] = 'Battery Number';
+            $qcUpdates['battery_number'] = $request->battery_serial_no;
+        }
+        if ($quality_check->telematics_number != $request->telematics_serial_no) {
+            $updatedFields[] = 'Telematics Number';
+            $qcUpdates['telematics_number'] = $request->telematics_serial_no;
+        }
+        if ($quality_check->location != $request->city_code) {
+            $updatedFields[] = 'City';
+            $qcUpdates['location'] = $request->city_code;
+        }
+        if ($quality_check->zone_id != $request->zone_id) {
+            $updatedFields[] = 'Zone';
+            $qcUpdates['zone_id'] = $request->zone_id;
+        }
+        
+        if ($quality_check->accountability_type == 2 && $quality_check->customer_id != $request->client) {
+            $updatedFields[] = 'Customer';
+            $qcUpdates['customer_id'] = $request->client;
+        }
+    }
+    
+    
+    if (!empty($updatedFields)) {
+
+        $quality_check->update($qcUpdates);
+    
+        
+        $defaultRemark = "The following QC details were updated in Asset Master";
+        
+        $remarks = "1) {$defaultRemark}\n2) Updated Fields: " . implode(', ', $updatedFields);
+    
+        QualityCheckReinitiate::create([
+            'qc_id' => $quality_check->id ?? null,
+            'status' => "updated",
+            'remarks' => $remarks,
+            'initiated_by' => auth()->id(),
+            'created_at' => now(),
+            'updated_at' => now()
         ]);
     }
-
-
-
-    $successCount = 0;
-    $skippedCount = 0;
-
-    $attachmentFields = [
-        'tax_invoice_attachment'       => 'tax_invoice_attachments',
-        'master_lease_agreement'       => 'master_lease_agreements',
-        'insurance_attachment'         => 'insurance_attachments',
-        'reg_certificate_attachment'   => 'reg_certificate_attachments',
-        'hypothecation_document'     => 'hypothecation_documents',
-        'temproary_reg_attachment' => 'temporary_certificate_attachments',
-        'hsrp_copy_attachment'                => 'hsrp_certificate_attachments',
-        'fc_attachment'   => 'fc_attachments'
-    ];
     
-        $attachmentvalues = [
-        'tax_invoice_attachment',
-        'master_lease_agreement',
-        'insurance_attachment',
-        'reg_certificate_attachment',
-        'hypothecation_document',
-        'temproary_reg_attachment',
-        'hsrp_copy_attachment',
-        'fc_attachment'
-    ];
+}
 
 
-    $updatedChassisNumbers = [];
-    $errorRows =[];
 
-    foreach ($sheet->toArray(null, true, true, true) as $index => $row) {
-        if ($index == 1) continue;
 
-        $data = [];
-
-        foreach ($columnMap as $colLetter => $field) {
-            $value = isset($row[$colLetter]) ? trim($row[$colLetter]) : null;
-
-            if (in_array($field, $attachmentvalues)) {
-                continue;
+    public function vehicle_bulk_upload_form_import(Request $request)
+    {
+     
+     
+        if ($request->hasFile('asset_vehicle_excel_file')) {
+            $ext = strtolower($request->file('asset_vehicle_excel_file')->getClientOriginalExtension());
+        
+            if (!in_array($ext, ['xlsx', 'xls'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => [
+                        'asset_vehicle_excel_file' => [
+                            'The asset vehicle excel file field must be a file of type: xlsx, xls.'
+                        ]
+                    ]
+                ], 422);
             }
-
-            if (array_key_exists($field, $attachmentFields)) {
-                $subFolder = $attachmentFields[$field];
-                $filePath = $saveRoot . '/' . $subFolder . '/' . $value;
-
-                if (!empty($value)) {
-                    if (file_exists($filePath)) {
-                        $data[$field] = 'EV/asset_master/' . $subFolder . '/' . $value;
-                        Log::info("PDF found for $field: $filePath");
+        }
+    
+    
+        $validator = Validator::make($request->all(), [
+            'asset_vehicle_excel_file' => 'required|file',
+        ]);
+        
+        try {
+        $file = $request->file('asset_vehicle_excel_file');
+        $excelPath = $file->getPathname();
+    
+        $saveRoot = public_path('EV/asset_master');
+        if (!file_exists($saveRoot)) {
+            mkdir($saveRoot, 0777, true);
+        }
+    
+        $spreadsheet = IOFactory::load($excelPath);
+        $sheet = $spreadsheet->getActiveSheet();
+    
+        $highestColumn = $sheet->getHighestColumn();
+        $highestRow = $sheet->getHighestRow();
+        $highestColumnIndex = Coordinate::columnIndexFromString($highestColumn);
+    
+        $headerMap = [];
+        for ($col = 1; $col <= $highestColumnIndex; $col++) {
+            $colLetter = Coordinate::stringFromColumnIndex($col);
+            $cellValue = $sheet->getCell($colLetter . '1')->getValue();
+            $headerName = Str::snake(trim($cellValue));
+            if ($headerName) {
+                $headerMap[$colLetter] = $headerName;
+            }
+        }
+       
+        
+        
+            $columnMap = [
+                "A" => "chassis_number",
+                "B" => "vehicle_category",
+                "C" => "vehicle_type",
+                "D" => "model",
+                "E" => "make",
+                "F" => "variant",
+                "G" => "color",
+                "H" => "motor_number",
+                "I" => "vehicle_id",
+                "J" => "tax_invoice_number",
+                "K" => "tax_invoice_date",
+                "L" => "tax_invoice_value",
+                "M" => "tax_invoice_attachment",
+                "N" => "city",
+                "O" => "gd_hub_name",
+                "P" => "gd_hub_id",
+                "Q" => "financing_type",
+                "R" => "asset_ownership",
+                "S" => "master_lease_agreement",
+                "T" => "lease_start_date",
+                "U" => "lease_end_date",
+                "V" => "emi_lease_amount",
+                "W" => "hypothecation",
+                "X" => "hypothecation_to",
+                "Y" => "hypothecation_document",
+                "Z" => "insurer_name",
+                "AA" => "insurance_type",
+                "AB" => "insurance_number",
+                "AC" => "insurance_start_date",
+                "AD" => "insurance_expiry_date",
+                "AE" => "insurance_attachment",
+                "AF" => "registration_type",
+                
+                "AG" => "temproary_reg_number",
+                "AH" => "temproary_reg_date",
+                "AI" => "temproary_reg_expiry_date",
+                "AJ" => "temproary_reg_attachment",
+                "AK" => "permanent_reg_number",
+                "AL" => "permanent_reg_date",
+                "AM" => "reg_certificate_expiry_date",
+                "AN" => "hsrp_copy_attachment",
+                "AO" => "reg_certificate_attachment",
+                "AP" => "fc_expiry_date",
+                "AQ" => "fc_attachment",
+                "AR" => "servicing_dates",
+                "AS" => "road_tax_applicable",
+                "AT" => "road_tax_amount",
+                "AU" => "road_tax_renewal_frequency",
+                "AV" => "road_tax_next_renewal_date",
+                "AW" => "battery_type",
+                "AX" => "battery_serial_no",
+                "AY" => "battery_serial_number1",
+                "AZ" => "battery_serial_number2",
+                "BA" => "battery_serial_number3",
+                "BB" => "battery_serial_number4",
+                "BC" => "battery_serial_number5",
+                "BD" => "charger_variant_name",
+                "BE" => "charger_serial_no",
+                "BF" => "charger_serial_number1",
+                "BG" => "charger_serial_number2",
+                "BH" => "charger_serial_number3",
+                "BI" => "charger_serial_number4",
+                "BJ" => "charger_serial_number5",
+                "BK" => "telematics_variant_name",
+                "BL" => "telematics_oem",
+                "BM" => "telematics_serial_no",
+                "BN" => "telematics_imei_number",
+                "BO" => "telematics_serial_number1",
+                "BP" => "telematics_serial_number2",
+                "BQ" => "telematics_serial_number3",
+                "BR" => "telematics_serial_number4",
+                "BS" => "telematics_serial_number5",
+                "BT" => "client",
+                "BU" => "vehicle_delivery_date",
+                "BV" => "vehicle_status",
+                "BW" => "accountability_type",
+                "BX" => "zone",
+            ];
+        
+    
+    
+        $sheetArray = $sheet->toArray(null, true, true, true);
+        $headerRow = $sheetArray[1];
+        
+        $missingColumns = [];
+        foreach (array_keys($columnMap) as $expectedColLetter) {
+            if (!array_key_exists($expectedColLetter, $headerRow)) {
+                $missingColumns[] = $expectedColLetter;
+            }
+        }
+        
+        if (!empty($missingColumns)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Some required columns are missing from your Excel file. Please download the latest demo Excel template by clicking the Download Demo Excel button at the top. If you are importing or exporting data, please ensure that all required columns are selected to avoid any issues.'
+            ]);
+        }
+    
+    
+    
+        $successCount = 0;
+        $skippedCount = 0;
+    
+        $attachmentFields = [
+            'tax_invoice_attachment'       => 'tax_invoice_attachments',
+            'master_lease_agreement'       => 'master_lease_agreements',
+            'insurance_attachment'         => 'insurance_attachments',
+            'reg_certificate_attachment'   => 'reg_certificate_attachments',
+            'hypothecation_document'     => 'hypothecation_documents',
+            'temproary_reg_attachment' => 'temporary_certificate_attachments',
+            'hsrp_copy_attachment'                => 'hsrp_certificate_attachments',
+            'fc_attachment'   => 'fc_attachments'
+        ];
+        
+            $attachmentvalues = [
+            'tax_invoice_attachment',
+            'master_lease_agreement',
+            'insurance_attachment',
+            'reg_certificate_attachment',
+            'hypothecation_document',
+            'temproary_reg_attachment',
+            'hsrp_copy_attachment',
+            'fc_attachment'
+        ];
+    
+    
+        $updatedChassisNumbers = [];
+        $errorRows =[];
+    
+        foreach ($sheet->toArray(null, true, true, true) as $index => $row) {
+            if ($index == 1) continue;
+    
+            $data = [];
+    
+            foreach ($columnMap as $colLetter => $field) {
+                $value = isset($row[$colLetter]) ? trim($row[$colLetter]) : null;
+    
+                if (in_array($field, $attachmentvalues)) {
+                    continue;
+                }
+    
+                if (array_key_exists($field, $attachmentFields)) {
+                    $subFolder = $attachmentFields[$field];
+                    $filePath = $saveRoot . '/' . $subFolder . '/' . $value;
+    
+                    if (!empty($value)) {
+                        if (file_exists($filePath)) {
+                            $data[$field] = 'EV/asset_master/' . $subFolder . '/' . $value;
+                            Log::info("PDF found for $field: $filePath");
+                        } else {
+                            $data[$field] = null;
+                            Log::warning("PDF NOT FOUND for $field in Row $index: $filePath");
+                        }
                     } else {
                         $data[$field] = null;
-                        Log::warning("PDF NOT FOUND for $field in Row $index: $filePath");
                     }
                 } else {
-                    $data[$field] = null;
-                }
-            } else {
-                $data[$field] = $value;
-            }
-        }
-        
-        
-
-        // if (empty($data['chassis_number'])) {
-        //     $skippedCount++;
-        //     continue;
-        // }
-        
-        
-          $vehicleType = VehicleType::whereRaw('LOWER(name) = ?', [strtolower(trim($data['vehicle_type']))])->first();
-          $data['vehicle_type'] = $vehicleType ? $vehicleType->id : null;
-          
-          $vehicleModel = VehicleModelMaster::whereRaw('LOWER(vehicle_model) = ?', [strtolower(trim($data['model']))])->first();
-          $data['model'] = $vehicleModel ? $vehicleModel->id : null;
-          
-          $LocationMaster = LocationMaster::whereRaw('LOWER(city_code) = ?', [strtolower(trim($data['city_code']))])->first();
-          $data['city_code'] = $LocationMaster ? $LocationMaster->id : null;
-          
-          $cleanFinancingType = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['financing_type']);
-          $cleanFinancingType = trim($cleanFinancingType);
-          if(!empty($cleanFinancingType)){
-          
-          $FinancingTypeMaster = FinancingTypeMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['financing_type']))])->first();
-          $data['financing_type'] = $FinancingTypeMaster ? $FinancingTypeMaster->id : null;
-          
-          }else{
-              $data['financing_type'] = null;
-          }
-          
-          
-            $cleanAssetOwnership = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['asset_ownership']);
-            $cleanAssetOwnership = trim($cleanAssetOwnership);
-           if(!empty($cleanAssetOwnership)){
-          
-          $AssetOwnershipMaster = AssetOwnershipMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['asset_ownership']))])->first();
-          $data['asset_ownership'] = $AssetOwnershipMaster ? $AssetOwnershipMaster->id : null;
-          
-           }
-           else{
-              $data['asset_ownership'] = null;
-          }
-          
-          $cleanHypothecation = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['hypothecation_to']);
-        $cleanHypothecation = trim($cleanHypothecation);
-            
-             if(!empty($cleanHypothecation)){
-                 
-          $HypothecationMaster = HypothecationMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['hypothecation_to']))])->first();
-          $data['hypothecation_to'] = $HypothecationMaster ? $HypothecationMaster->id : null;
-          
-             }
-             else{
-              $data['hypothecation_to'] = null;
-          }
-             
-        $cleanInsurer = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['insurer_name']);
-        $cleanInsurer = trim($cleanInsurer);
-          
-           if(!empty($cleanInsurer)){
-               
-            $InsurerNameMaster = InsurerNameMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['insurer_name']))])->first();
-          $data['insurer_name'] = $InsurerNameMaster ? $InsurerNameMaster->id : null;
-          
-           }
-          else{
-              $data['insurer_name'] = null;
-          }
-          
-          $cleanColor = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['color']);
-            $cleanColor = trim($cleanColor);
-            
-             if(!empty($cleanColor)){
-              
-            $ColorMaster = ColorMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['color']))])->first();
-            $data['color'] = $ColorMaster ? $ColorMaster->id : null;
-            
-             }else{
-              $data['color'] = null;
-          }
-          
-        
-        $cleanInsuranceType = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['insurance_type']);
-        $cleanInsuranceType = trim($cleanInsuranceType);
-        
-        if(!empty($cleanInsuranceType)){
-            
-        $InsuranceTypeMaster = InsuranceTypeMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['insurance_type']))])->first();
-          $data['insurance_type'] = $InsuranceTypeMaster ? $InsuranceTypeMaster->id : null;
-        
-        }else{
-              $data['insurance_type'] = null;
-          }
-          
-          
-        $cleanRegistrationType = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['registration_type']);
-        $cleanRegistrationType = trim($cleanRegistrationType);
-        if(!empty($cleanRegistrationType)){
-            
-        $RegistrationTypeMaster = RegistrationTypeMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['registration_type']))])->first();
-          $data['registration_type'] = $RegistrationTypeMaster ? $RegistrationTypeMaster->id : null;
-          
-        }
-          else{
-              $data['registration_type'] = null;
-          }
-          
-          $cleanTelematicsOEM = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['telematics_oem']);
-        $cleanTelematicsOEM = trim($cleanTelematicsOEM);
-          
-           if(!empty($cleanTelematicsOEM)){
-               
-        $TelemetricOEMMaster = TelemetricOEMMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['telematics_oem']))])->first();
-          $data['telematics_oem'] = $TelemetricOEMMaster ? $TelemetricOEMMaster->id : null;
-          
-           }
-            else{
-              $data['telematics_oem'] = null;
-          }
-           
-        $cleanVehicleStatus = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['vehicle_status']);
-        $cleanVehicleStatus = trim($cleanVehicleStatus);
-        
-         if(!empty($cleanVehicleStatus)){ //comment removed by Gowtham S
-        
-          $InventoryLocationMaster = InventoryLocationMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['vehicle_status']))])->first();
-          $data['vehicle_status'] = $InventoryLocationMaster ? $InventoryLocationMaster->id : null;
-          
-          
-         }else{
-             $InventoryLocationMaster = null;
-              $data['vehicle_status'] = null;
-         }
-          
-         
-        $cleanVehicleCategory = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['vehicle_category']);
-        $cleanVehicleCategory = trim($cleanVehicleCategory);
-        
-        if(!empty($cleanVehicleCategory)){
-        
-        $category = strtolower(trim($data['vehicle_category']));
-        $category = str_replace([' ', '-', '_'], '', $category);
-        
-        if (in_array($category, ['regularvehicle', 'reqularvehicle', 'requarvehicle'])) {
-            $data['vehicle_category'] = 'regular_vehicle';
-        } elseif ($category === 'lowspeedvehicle') {
-            $data['vehicle_category'] = 'low_speed_vehicle';
-        } else {
-            $data['vehicle_category'] = '';
-        }
-        
-        }else{
-              $data['vehicle_category'] = null;
-         }
-
-
-
-        $roadTaxValue =  strtolower(trim(preg_replace('/[^a-zA-Z0-9\s]/', '', $data['road_tax_applicable'])));
-        
-        if ($roadTaxValue === '') {
-            $data['road_tax_applicable'] = 'no';
-        } else {
-            $data['road_tax_applicable'] = ($roadTaxValue === 'yes') ? 'yes' : 'no';
-        }
-
-
-        $hypothecationValue = strtolower(trim(preg_replace('/[^a-zA-Z0-9\s]/', '', $data['hypothecation'])));
-        
-        if ($hypothecationValue === '') {
-            $data['hypothecation'] = 'no';
-        } else {
-            $data['hypothecation'] = ($hypothecationValue === 'yes') ? 'yes' : 'no';
-        }
-        
-
-        $cleanBatteryType  = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['battery_type']);
-        $cleanBatteryType = trim($cleanBatteryType);
-        
-        if(!empty($cleanBatteryType)){
-        
-        $rawBatteryType = strtolower(trim($data['battery_type']));
-
-        // Remove unwanted characters like commas, underscores, etc.
-        $normalized = preg_replace('/[^a-z]/', '', $rawBatteryType); // keep only a-z
-        
-        if ($normalized === 'selfcharging') {
-            $data['battery_type'] = '1'; // Self-Charging
-        } elseif ($normalized === 'portable') {
-            $data['battery_type'] = '2'; // Portable
-        } else {
-            $data['battery_type'] = ''; // Invalid or unmatched like 'ifan', 'cams'
-        }
-        }
-        else{
-            $data['battery_type'] = null;
-        }
-
-
-        
-        $rowErrors = [];
-
-        if (!$vehicleType) {
-            $rowErrors[] = 'Vehicle Type';
-        }
-        
-        if (!$vehicleModel) {
-            $rowErrors[] = 'Vehicle Model';
-        }
-        
-        if (!$LocationMaster) {
-            $rowErrors[] = 'City Code';
-        }
-        
-        if(!empty($cleanFinancingType)){
-            
-        if (!$FinancingTypeMaster) {
-            $rowErrors[] = 'Financing Type';
-        }
-        
-        }
-        
-        if (!empty($cleanAssetOwnership)) {
-        if (!$AssetOwnershipMaster) {
-            $rowErrors[] = 'Asset Ownership';
-        }
-        }
-        if (!empty($cleanHypothecation)) {
-        if (!$HypothecationMaster) {
-            $rowErrors[] = 'Hypothecation To';
-        }
-        }
-        
-        if (!empty($cleanInsurer)) {
-        if (!$InsurerNameMaster) {
-            $rowErrors[] = 'Insurer Name';
-        }
-        }
-        if (!empty($cleanInsuranceType)) {
-        if (!$InsuranceTypeMaster) {
-            $rowErrors[] = 'Insurance Type';
-        }
-        
-        }
-        if (!empty($cleanRegistrationType)) {
-        
-        if (!$RegistrationTypeMaster) {
-            $rowErrors[] = 'Registration Type';
-        }
-        }
-        
-        if (!empty($cleanTelematicsOEM)) {
-        if (!$TelemetricOEMMaster) {
-            $rowErrors[] = 'Telematics OEM';
-        }
-        }
-        
-        // if (!empty($cleanVehicleStatus)) {
-        // if (!$InventoryLocationMaster) {
-        //     $rowErrors[] = 'Vehicle Status';
-        // }
-        // }
-        
-        
-        if (!empty($cleanVehicleCategory)) {
-        // Validate vehicle_category hardcoded values
-        if ($data['vehicle_category'] === '') {
-            $rowErrors[] = 'Vehicle Category';
-        }
-        
-        }
-        
-        // $permanentReg = preg_replace('/[^A-Za-z0-9]/', '', $data['permanent_reg_number']);
-        
-        // if (empty($permanentReg)) {
-        //     $rowErrors[] = 'Permanent Register Number';
-        // }
-
-        
-        
-        // Validate hypothecation
-        if ($data['hypothecation'] === '') {
-            $rowErrors[] = 'Hypothecation';
-        }
-        
-        // Validate road tax applicable
-        if ($data['road_tax_applicable'] === '') {
-            $rowErrors[] = 'Road Tax Applicable';
-        }
-        
-         if(!empty($cleanBatteryType)){
-        // Validate battery_type
-        if ($data['battery_type'] === '') {
-            $rowErrors[] = 'Battery Type';
-        }
-         }
-        
-        if (!empty($cleanColor)) {
-        
-        if (!$ColorMaster) {
-            $rowErrors[] = 'Color';
-        }
-        
-        }
-        
-        
-        
-        if (!empty($rowErrors)) {
-            $errorRows[] = [
-                'row' => $index,
-                'chassis_number' => $row['A'] ?? 'N/A',
-                'fields' => $rowErrors
-            ];
-       
-        }
-        
-        
-          
-          
-        if (empty($data['chassis_number']) || empty($data['vehicle_type']) || empty($data['model']) || empty($data['motor_number']) || empty($data['telematics_serial_no']) || empty($data['city_code'])  || empty($data['road_tax_applicable']) || empty($data['hypothecation']) || (!empty($cleanBatteryType) && empty($data['battery_type'])) ||  (!empty($cleanVehicleCategory) && empty($data['vehicle_category'])) ||
-            (!empty($cleanFinancingType) && empty($data['financing_type'])) ||
-            (!empty($cleanAssetOwnership) && empty($data['asset_ownership'])) ||
-            (!empty($cleanHypothecation) && empty($data['hypothecation_to'])) ||
-            (!empty($cleanInsurer) && empty($data['insurer_name'])) ||
-            (!empty($cleanInsuranceType) && empty($data['insurance_type'])) ||
-            (!empty($cleanRegistrationType) && empty($data['registration_type'])) ||
-            (!empty($cleanTelematicsOEM) && empty($data['telematics_oem'])) ||
-            (!empty($cleanColor) && empty($data['color']))
-        ) {
-                $skippedCount++;
-                continue;
-        }
-        
-        
-            
-
-            
-        $data['make'] = $vehicleModel ? $vehicleModel->make : null;
-        $data['variant'] = $vehicleModel ? $vehicleModel->variant : null;
-        
-            
-
-        $data['emi_lease_amount'] = !empty($data['emi_lease_amount']) ? floatval(preg_replace('/[^0-9.]/', '', $data['emi_lease_amount'])) : 0;
-        $data['tax_invoice_value'] = !empty($data['tax_invoice_value']) ? floatval(preg_replace('/[^0-9.]/', '', $data['tax_invoice_value'])) : 0;
-        $data['is_status'] = 'uploaded';
-        $data['created_by'] = auth()->id();
-
-        $vehicle = AssetMasterVehicle::where('chassis_number', $data['chassis_number'])->first();
-
-        if ($vehicle && $vehicle->is_status === 'pending') {
-            $targetRow = null;
-            foreach ($sheet->getRowIterator() as $rowIter) {
-                $rowIndex = $rowIter->getRowIndex();
-                $cellValue = $sheet->getCell('A' . $rowIndex)->getValue();
-                if ($cellValue === $data['chassis_number']) {
-                    $targetRow = $rowIndex;
-                    break;
+                    $data[$field] = $value;
                 }
             }
-
-            if ($targetRow) {
-                $imageColumnMap = [
-                    'M'  => ['field' => 'tax_invoice_attachment',      'folder' => 'tax_invoice_attachments'],
-                    'S'  => ['field' => 'master_lease_agreement',      'folder' => 'master_lease_agreements'],
-                    'AE' => ['field' => 'insurance_attachment',        'folder' => 'insurance_attachments'],
-                    'AO' => ['field' => 'reg_certificate_attachment',  'folder' => 'reg_certificate_attachments'],
-                    'AQ' => ['field' => 'fc_attachment',               'folder' => 'fc_attachments'],
-                    'Y' => ['field' => 'hypothecation_document',               'folder' => 'hypothecation_documents'],
-                    'AJ' => ['field' => 'temproary_reg_attachment',               'folder' => 'temporary_certificate_attachments'],
-                    'AN' => ['field' => 'hsrp_copy_attachment',               'folder' => 'hsrp_certificate_attachments'],
-                ];
-
-                $imageData = [];
-
-                foreach ($sheet->getDrawingCollection() as $drawing) {
-                    $coords = $drawing->getCoordinates();
-                    preg_match('/([A-Z]+)(\d+)/', $coords, $matches);
-                    $col = $matches[1];
-                    $row = $matches[2];
-
-                    if ($row != $targetRow || !isset($imageColumnMap[$col])) continue;
-
-                    $fieldInfo = $imageColumnMap[$col];
-                    $field = $fieldInfo['field'];
-                    $folder = $fieldInfo['folder'];
-
-                    $storagePath = public_path("EV/asset_master/{$folder}");
-                    if (!file_exists($storagePath)) mkdir($storagePath, 0777, true);
-
-                    if ($drawing instanceof \PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing) {
-                        ob_start();
-                        call_user_func($drawing->getRenderingFunction(), $drawing->getImageResource());
-                        $imageContents = ob_get_clean();
-                        $ext = 'png';
-                    } else {
-                        $path = $drawing->getPath();
-                        $imageContents = file_get_contents($path);
-                        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-
-                        if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
-                            Log::warning("Unsupported image file for $field in row $row: .$ext");
-                            continue;
-                        }
-                    }
-
-                    // $fileName = bin2hex(random_bytes(16)) . '.' . $ext;
-                    do {
-                        $fileName = bin2hex(random_bytes(16)) . '.' . $ext;
-                    } while (file_exists("{$storagePath}/{$fileName}"));
-
-                    file_put_contents("{$storagePath}/{$fileName}", $imageContents);
-
-                    // $imageData[$field] = "EV/asset_master/{$folder}/{$fileName}";
-                    $imageData[$field] = $fileName;
-                    Log::info("Image uploaded for $field in row $row: $fileName");
-                }
-
-                $data = array_merge($data, $imageData);
-            }
-
-            // Format date fields
-        //     $dateFields = [
-        //         'tax_invoice_date', 'lease_start_date', 'lease_end_date', 'vehicle_delivery_date',
-        //         'insurance_start_date', 'insurance_expiry_date', 'permanent_reg_date',
-        //         'reg_certificate_expiry_date', 'fc_expiry_date' ,'temproary_reg_date','temproary_reg_expiry_date',
-        //     ];
-
-        //     // foreach ($dateFields as $field) {
-        //     //     if (!empty($data[$field])) {
-        //     //         try {
-        //     //             $data[$field] = Carbon::createFromFormat('m/d/Y', $data[$field])->format('Y-m-d');
-        //     //         } catch (\Exception $e) {
-        //     //             Log::warning("Invalid date format for $field: " . $data[$field]);
-        //     //             $data[$field] = null;
-        //     //         }
-        //     //     }
-        //     // }
             
-        // foreach ($dateFields as $field) {
-        //     if (!empty($data[$field])) {
-        //         try {
-        //             if (is_numeric($data[$field])) {
-        //                 $data[$field] = Carbon::instance(
-        //                     \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($data[$field])
-        //                 )->format('Y-m-d');
-        //             } else {
-        //                 $dateString = str_replace('/', '-', $data[$field]);
-        //                 $data[$field] = Carbon::createFromFormat('m-d-Y', $dateString)->format('Y-m-d');
-        //             }
-        //         } catch (\Exception $e) {
-        //             try {
-        //                 $data[$field] = Carbon::createFromFormat('d-m-Y', $dateString)->format('Y-m-d');
-        //             } catch (\Exception $e2) {
-        //                 Log::warning("Invalid date for $field: " . $data[$field]);
-        //                 $data[$field] = null;
-        //             }
-        //         }
-        //     }
-        // }
-
-
-            $dateFields = [
-                'tax_invoice_date', 'lease_start_date', 'lease_end_date', 'vehicle_delivery_date',
-                'insurance_start_date', 'insurance_expiry_date', 'permanent_reg_date',
-                'reg_certificate_expiry_date', 'fc_expiry_date', 'temproary_reg_date', 'temproary_reg_expiry_date',
-            ];
             
-            // foreach ($dateFields as $field) {
-            //     if (!empty($data[$field])) {
-            //         try {
-            //             // 1. Excel numeric date
-            //             if (is_numeric($data[$field])) {
-            //                 $data[$field] = Carbon::instance(
-            //                     \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($data[$field])
-            //                 )->format('Y-m-d');
-            //                 continue;
-            //             }
-            
-            //             // 2. Normalize separators
-            //             $dateString = str_replace('/', '-', trim($data[$field]));
-            
-            //             // 3. Try multiple formats
-            //             $possibleFormats = [
-            //                 'd-m-Y', 'm-d-Y', 'Y-m-d',
-            //                 'd-m-y', 'm-d-y', 'Y/m/d',
-            //                 'd/m/Y', 'm/d/Y', 'd.m.Y', 'm.d.Y'
-            //             ];
-            
-            //             $parsed = null;
-            //             foreach ($possibleFormats as $format) {
-            //                 try {
-            //                     $parsed = Carbon::createFromFormat($format, $dateString);
-            //                     // Prevent invalid dates like 31-02-2025
-            //                     if ($parsed && $parsed->format($format) === $dateString) {
-            //                         $data[$field] = $parsed->format('Y-m-d');
-            //                         break;
-            //                     }
-            //                 } catch (\Exception $e) {
-            //                     // Try next format
-            //                 }
-            //             }
-            
-            //             // 4. Fallback: Let Carbon try auto-parse
-            //             if ($parsed === null) {
-            //                 try {
-            //                     $parsed = Carbon::parse($dateString);
-            //                     $data[$field] = $parsed->format('Y-m-d');
-            //                 } catch (\Exception $e) {
-            //                     Log::warning("Invalid date for $field: " . $data[$field]);
-            //                     $data[$field] = null;
-            //                 }
-            //             }
-            
-            //         } catch (\Exception $e) {
-            //             Log::warning("Invalid date for $field: " . $data[$field]);
-            //             $data[$field] = null;
-            //         }
-            //     }
+    
+            // if (empty($data['chassis_number'])) {
+            //     $skippedCount++;
+            //     continue;
             // }
             
             
-        foreach ($dateFields as $field) { //updated by Gowtham.S
-            if (isset($data[$field])) {
-                $Datavalue = trim($data[$field]);
-        
-                // 🚫 1. Invalid placeholders handle first
-                if ($Datavalue === '' || $Datavalue === '0' || $Datavalue === '0000-00-00' || strtoupper($Datavalue) === 'N/A') {
-                    $data[$field] = null;
-                    continue;
-                }
-        
-                try {
-                    // ✅ 2. Excel numeric date
-                    if (is_numeric($Datavalue)) {
-                        $data[$field] = Carbon::instance(
-                            \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($Datavalue)
-                        )->format('Y-m-d');
-                        continue;
-                    }
-        
-                    // ✅ 3. Normalize separators
-                    $dateString = str_replace('/', '-', $Datavalue);
-        
-                    // 🔹 4. Force format check before parsing
-                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateString)) {
-                        try {
-                            $data[$field] = Carbon::parse($dateString)->format('Y-m-d');
-                            continue;
-                        } catch (\Exception $e) {
-                            // If parse fails, move on to the format loop
-                        }
-                    } else {
-                        $data[$field] = $dateString;
-                        continue;
-                    }
-        
-                    // ✅ 5. Try multiple formats
-                    $possibleFormats = [
-                        'd-m-Y', 'm-d-Y', 'Y-m-d',
-                        'd-m-y', 'm-d-y', 'Y/m/d',
-                        'd/m/Y', 'm/d/Y', 'd.m.Y', 'm.d.Y'
-                    ];
-        
-                    $parsed = null;
-                    foreach ($possibleFormats as $format) {
-                        try {
-                            $parsed = Carbon::createFromFormat($format, $dateString);
-                            if ($parsed) {
-                                $data[$field] = $parsed->format('Y-m-d');
-                                break;
-                            }
-                        } catch (\Exception $e) {
-                            // Try next format
-                        }
-                    }
-        
-                    // ✅ 6. Fallback
-                    if ($parsed === null) {
-                        try {
-                            $parsed = Carbon::parse($dateString);
-                            $data[$field] = $parsed->format('Y-m-d');
-                        } catch (\Exception $e) {
-                            Log::warning("Invalid date for $field: " . $Datavalue);
-                            $data[$field] = null;
-                        }
-                    }
-        
-                } catch (\Exception $e) {
-                    Log::warning("Invalid date for $field: " . $Datavalue);
-                    $data[$field] = null;
+              $vehicleType = VehicleType::whereRaw('LOWER(name) = ?', [strtolower(trim($data['vehicle_type']))])->first();
+              $data['vehicle_type'] = $vehicleType ? $vehicleType->id : null;
+              
+              $vehicleModel = VehicleModelMaster::whereRaw('LOWER(vehicle_model) = ?', [strtolower(trim($data['model']))])->first();
+              $data['model'] = $vehicleModel ? $vehicleModel->id : null;
+              
+              $LocationMaster = City::whereRaw('LOWER(city_name) = ?', [strtolower(trim($data['city']))])->first();
+              $data['city_code'] = $LocationMaster ? $LocationMaster->id : null;
+              
+              $ZoneMaster = Zones::whereRaw('LOWER(name) = ?', [strtolower(trim($data['zone']))])->first();
+              $qc_data['zone_id'] = $ZoneMaster ? $ZoneMaster->id : null;
+              
+              
+            
+            $inputType = strtolower(trim($data['accountability_type']));
+            $AccountabilityTypeMaster = EvTblAccountabilityType::whereRaw('LOWER(name)=?', [$inputType])->first() 
+                ?? collect(DB::select("SELECT id FROM ev_tbl_accountability_types WHERE TRIM(LOWER(name))=? LIMIT 1", [$inputType]))->first();
+            $qc_data['accountability_type'] = $AccountabilityTypeMaster->id ?? null;
+    
+              
+              $cleanFinancingType = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['financing_type']);
+              $cleanFinancingType = trim($cleanFinancingType);
+              if(!empty($cleanFinancingType)){
+              
+              $FinancingTypeMaster = FinancingTypeMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['financing_type']))])->first();
+              $data['financing_type'] = $FinancingTypeMaster ? $FinancingTypeMaster->id : null;
+              
+              }else{
+                  $data['financing_type'] = null;
+              }
+              
+              
+              
+                $cleanAssetOwnership = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['asset_ownership']);
+                $cleanAssetOwnership = trim($cleanAssetOwnership);
+               if(!empty($cleanAssetOwnership)){
+              
+              $AssetOwnershipMaster = AssetOwnershipMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['asset_ownership']))])->first();
+              $data['asset_ownership'] = $AssetOwnershipMaster ? $AssetOwnershipMaster->id : null;
+              
+               }
+               else{
+                  $data['asset_ownership'] = null;
+              }
+              
+              $cleanHypothecation = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['hypothecation_to']);
+            $cleanHypothecation = trim($cleanHypothecation);
+                
+                 if(!empty($cleanHypothecation)){
+                     
+              $HypothecationMaster = HypothecationMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['hypothecation_to']))])->first();
+              $data['hypothecation_to'] = $HypothecationMaster ? $HypothecationMaster->id : null;
+              
+                 }
+                 else{
+                  $data['hypothecation_to'] = null;
+              }
+                 
+            $cleanInsurer = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['insurer_name']);
+            $cleanInsurer = trim($cleanInsurer);
+              
+               if(!empty($cleanInsurer)){
+                   
+                $InsurerNameMaster = InsurerNameMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['insurer_name']))])->first();
+              $data['insurer_name'] = $InsurerNameMaster ? $InsurerNameMaster->id : null;
+              
+               }
+              else{
+                  $data['insurer_name'] = null;
+              }
+              
+              $cleanColor = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['color']);
+                $cleanColor = trim($cleanColor);
+                
+                 if(!empty($cleanColor)){
+                  
+                $ColorMaster = ColorMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['color']))])->first();
+                $data['color'] = $ColorMaster ? $ColorMaster->id : null;
+                
+                 }else{
+                  $data['color'] = null;
+              }
+              
+            
+            $cleanInsuranceType = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['insurance_type']);
+            $cleanInsuranceType = trim($cleanInsuranceType);
+            
+            if(!empty($cleanInsuranceType)){
+                
+            $InsuranceTypeMaster = InsuranceTypeMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['insurance_type']))])->first();
+              $data['insurance_type'] = $InsuranceTypeMaster ? $InsuranceTypeMaster->id : null;
+            
+            }else{
+                  $data['insurance_type'] = null;
+              }
+              
+              
+            $cleanRegistrationType = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['registration_type']);
+            $cleanRegistrationType = trim($cleanRegistrationType);
+            if(!empty($cleanRegistrationType)){
+                
+            $RegistrationTypeMaster = RegistrationTypeMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['registration_type']))])->first();
+              $data['registration_type'] = $RegistrationTypeMaster ? $RegistrationTypeMaster->id : null;
+              
+            }
+              else{
+                  $data['registration_type'] = null;
+              }
+              
+              $cleanTelematicsOEM = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['telematics_oem']);
+            $cleanTelematicsOEM = trim($cleanTelematicsOEM);
+              
+               if(!empty($cleanTelematicsOEM)){
+                   
+            $TelemetricOEMMaster = TelemetricOEMMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['telematics_oem']))])->first();
+              $data['telematics_oem'] = $TelemetricOEMMaster ? $TelemetricOEMMaster->id : null;
+              
+               }
+                else{
+                  $data['telematics_oem'] = null;
+              }
+               
+            $cleanVehicleStatus = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['vehicle_status']);
+            $cleanVehicleStatus = trim($cleanVehicleStatus);
+            
+             if(!empty($cleanVehicleStatus)){ //comment removed by Gowtham S
+            
+              $InventoryLocationMaster = InventoryLocationMaster::whereRaw('LOWER(name) = ?', [strtolower(trim($data['vehicle_status']))])->first();
+              $data['vehicle_status'] = $InventoryLocationMaster ? $InventoryLocationMaster->id : null;
+              
+              
+             }else{
+                 $InventoryLocationMaster = null;
+                  $data['vehicle_status'] = null;
+             }
+              
+             
+            $cleanVehicleCategory = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['vehicle_category']);
+            $cleanVehicleCategory = trim($cleanVehicleCategory);
+            
+            if(!empty($cleanVehicleCategory)){
+            
+            $category = strtolower(trim($data['vehicle_category']));
+            $category = str_replace([' ', '-', '_'], '', $category);
+            
+            if (in_array($category, ['regularvehicle', 'reqularvehicle', 'requarvehicle'])) {
+                $data['vehicle_category'] = 'regular_vehicle';
+            } elseif ($category === 'lowspeedvehicle') {
+                $data['vehicle_category'] = 'low_speed_vehicle';
+            } else {
+                $data['vehicle_category'] = '';
+            }
+            
+            }else{
+                  $data['vehicle_category'] = null;
+             }
+    
+    
+    
+            $roadTaxValue =  strtolower(trim(preg_replace('/[^a-zA-Z0-9\s]/', '', $data['road_tax_applicable'])));
+            
+            if ($roadTaxValue === '') {
+                $data['road_tax_applicable'] = 'no';
+            } else {
+                $data['road_tax_applicable'] = ($roadTaxValue === 'yes') ? 'yes' : 'no';
+            }
+    
+    
+            $hypothecationValue = strtolower(trim(preg_replace('/[^a-zA-Z0-9\s]/', '', $data['hypothecation'])));
+            
+            if ($hypothecationValue === '') {
+                $data['hypothecation'] = 'no';
+            } else {
+                $data['hypothecation'] = ($hypothecationValue === 'yes') ? 'yes' : 'no';
+            }
+            
+    
+            $cleanBatteryType  = preg_replace('/[^a-zA-Z0-9\s]/', '', $data['battery_type']);
+            $cleanBatteryType = trim($cleanBatteryType);
+            
+            if(!empty($cleanBatteryType)){
+            
+            $rawBatteryType = strtolower(trim($data['battery_type']));
+    
+            // Remove unwanted characters like commas, underscores, etc.
+            $normalized = preg_replace('/[^a-z]/', '', $rawBatteryType); // keep only a-z
+            
+            if ($normalized === 'selfcharging') {
+                $data['battery_type'] = '1'; // Self-Charging
+            } elseif ($normalized === 'portable') {
+                $data['battery_type'] = '2'; // Portable
+            } else {
+                $data['battery_type'] = ''; // Invalid or unmatched like 'ifan', 'cams'
+            }
+            }
+            else{
+                $data['battery_type'] = null;
+            }
+    
+    
+            
+            $rowErrors = [];
+    
+            if (!$vehicleType) {
+                $rowErrors[] = 'Vehicle Type';
+            }
+            
+            if (!$vehicleModel) {
+                $rowErrors[] = 'Vehicle Model';
+            }
+            
+            if (!$LocationMaster) {
+                $rowErrors[] = 'City';
+            }
+            
+            if (!$ZoneMaster) {
+                $rowErrors[] = 'Zone';
+            }
+            
+            if (!$AccountabilityTypeMaster) {
+                $rowErrors[] = 'Accountability Type';
+            }
+            
+            if (!empty($qc_data['accountability_type']) && $qc_data['accountability_type'] == 2) {
+                if (empty($data['client'])) {
+                    $rowErrors[] = 'Client (Required when Accountability Type = Fixed)';
                 }
             }
-        }
-
-
-    
-
-
-
-            $vehicle->fill($data)->save();
             
-            $updatedChassisNumbers[] = $vehicle->chassis_number;
-
-            // AssetMasterVehicleLogHistory::create([
-            //     'asset_vehicle_id' => $vehicle->id,
-            //     'user_id' => auth()->id(),
-            //     'remarks' => 'The Asset Master Vehicle Chassis Number ' . $vehicle->chassis_number . ' has been Uploaded',
-            //     'status_type' => 'uploaded',
-            // ]);
-
-            $successCount++;
+            if(!empty($cleanFinancingType)){
+                
+            if (!$FinancingTypeMaster) {
+                $rowErrors[] = 'Financing Type';
+            }
+            
+            }
+            
+            if(!empty($cleanCustomer)){
+                
+                if (!$CustomerMaster) {
+                    $rowErrors[] = 'Customer';
+                }
+            
+            }
+            
+            if (!empty($cleanAssetOwnership)) {
+            if (!$AssetOwnershipMaster) {
+                $rowErrors[] = 'Asset Ownership';
+            }
+            }
+            if (!empty($cleanHypothecation)) {
+            if (!$HypothecationMaster) {
+                $rowErrors[] = 'Hypothecation To';
+            }
+            }
+            
+            if (!empty($cleanInsurer)) {
+            if (!$InsurerNameMaster) {
+                $rowErrors[] = 'Insurer Name';
+            }
+            }
+            if (!empty($cleanInsuranceType)) {
+            if (!$InsuranceTypeMaster) {
+                $rowErrors[] = 'Insurance Type';
+            }
+            
+            }
+            if (!empty($cleanRegistrationType)) {
+            
+            if (!$RegistrationTypeMaster) {
+                $rowErrors[] = 'Registration Type';
+            }
+            }
+            
+            if (!empty($cleanTelematicsOEM)) {
+            if (!$TelemetricOEMMaster) {
+                $rowErrors[] = 'Telematics OEM';
+            }
+            }
+            
+            // if (!empty($cleanVehicleStatus)) {
+            // if (!$InventoryLocationMaster) {
+            //     $rowErrors[] = 'Vehicle Status';
+            // }
+            // }
+            
+            
+            if (!empty($cleanVehicleCategory)) {
+            // Validate vehicle_category hardcoded values
+            if ($data['vehicle_category'] === '') {
+                $rowErrors[] = 'Vehicle Category';
+            }
+            
+            }
+            
+            $permanentReg = preg_replace('/[^A-Za-z0-9]/', '', $data['permanent_reg_number']);
+            
+            if (empty($permanentReg)) {
+                $rowErrors[] = 'Permanent Register Number';
+            }
+    
+            
+            
+            // Validate hypothecation
+            if ($data['hypothecation'] === '') {
+                $rowErrors[] = 'Hypothecation';
+            }
+            
+            // Validate road tax applicable
+            if ($data['road_tax_applicable'] === '') {
+                $rowErrors[] = 'Road Tax Applicable';
+            }
+            
+             if(!empty($cleanBatteryType)){
+            // Validate battery_type
+            if ($data['battery_type'] === '') {
+                $rowErrors[] = 'Battery Type';
+            }
+             }
+    
+            if (!empty($cleanColor)) {
+            
+            if (!$ColorMaster) {
+                $rowErrors[] = 'Color';
+            }
+            
+            }
+    
+            if (!empty($rowErrors)) {
+                $errorRows[] = [
+                    'row' => $index,
+                    'chassis_number' => $row['A'] ?? 'N/A',
+                    'fields' => $rowErrors
+                ];
+           
+            }
+            
+            
+              
+            if (empty($data['chassis_number']) || empty($data['vehicle_type']) || empty($data['model']) || empty($data['motor_number']) || empty($data['telematics_serial_no']) || empty($data['city'])  || empty($qc_data['zone_id']) || empty($data['permanent_reg_number']) || empty($qc_data['accountability_type']) || empty($data['road_tax_applicable']) || empty($data['hypothecation']) || (!empty($cleanBatteryType) && empty($data['battery_type'])) ||  (!empty($cleanVehicleCategory) && empty($data['vehicle_category'])) ||
+                (!empty($cleanFinancingType) && empty($data['financing_type'])) ||
+                (!empty($cleanAssetOwnership) && empty($data['asset_ownership'])) ||
+                (!empty($cleanHypothecation) && empty($data['hypothecation_to'])) ||
+                (!empty($cleanInsurer) && empty($data['insurer_name'])) ||
+                (!empty($cleanInsuranceType) && empty($data['insurance_type'])) ||
+                (!empty($cleanRegistrationType) && empty($data['registration_type'])) ||
+                (!empty($cleanTelematicsOEM) && empty($data['telematics_oem'])) ||
+                (!empty($cleanColor) && empty($data['color'])) || 
+                (!empty($qc_data['accountability_type']) && $qc_data['accountability_type'] == 2 && empty($data['client']))
+            ) {
+                    $skippedCount++;
+                    continue;
+            }
+            
+            
+                
+    
+                
+            $data['make'] = $vehicleModel ? $vehicleModel->make : null;
+            $data['variant'] = $vehicleModel ? $vehicleModel->variant : null;
+            
+                
+    
+            $data['emi_lease_amount'] = !empty($data['emi_lease_amount']) ? floatval(preg_replace('/[^0-9.]/', '', $data['emi_lease_amount'])) : 0;
+            $data['tax_invoice_value'] = !empty($data['tax_invoice_value']) ? floatval(preg_replace('/[^0-9.]/', '', $data['tax_invoice_value'])) : 0;
+            $data['is_status'] = 'uploaded';
+            $data['created_by'] = auth()->id();
+    
+            $vehicle = AssetMasterVehicle::where('chassis_number', $data['chassis_number'])->where('delete_status' , 0)->first();
+    
+            $oldValues = $vehicle->getOriginal(); 
+            
+            if ($vehicle && $vehicle->is_status === 'pending') {
+                $targetRow = null;
+                foreach ($sheet->getRowIterator() as $rowIter) {
+                    $rowIndex = $rowIter->getRowIndex();
+                    $cellValue = $sheet->getCell('A' . $rowIndex)->getValue();
+                    if ($cellValue === $data['chassis_number']) {
+                        $targetRow = $rowIndex;
+                        break;
+                    }
+                }
+    
+                if ($targetRow) {
+                    $imageColumnMap = [
+                        'M'  => ['field' => 'tax_invoice_attachment',      'folder' => 'tax_invoice_attachments'],
+                        'S'  => ['field' => 'master_lease_agreement',      'folder' => 'master_lease_agreements'],
+                        'AE' => ['field' => 'insurance_attachment',        'folder' => 'insurance_attachments'],
+                        'AO' => ['field' => 'reg_certificate_attachment',  'folder' => 'reg_certificate_attachments'],
+                        'AQ' => ['field' => 'fc_attachment',               'folder' => 'fc_attachments'],
+                        'Y' => ['field' => 'hypothecation_document',               'folder' => 'hypothecation_documents'],
+                        'AJ' => ['field' => 'temproary_reg_attachment',               'folder' => 'temporary_certificate_attachments'],
+                        'AN' => ['field' => 'hsrp_copy_attachment',               'folder' => 'hsrp_certificate_attachments'],
+                    ];
+    
+                    $imageData = [];
+    
+                    foreach ($sheet->getDrawingCollection() as $drawing) {
+                        $coords = $drawing->getCoordinates();
+                        preg_match('/([A-Z]+)(\d+)/', $coords, $matches);
+                        $col = $matches[1];
+                        $row = $matches[2];
+    
+                        if ($row != $targetRow || !isset($imageColumnMap[$col])) continue;
+    
+                        $fieldInfo = $imageColumnMap[$col];
+                        $field = $fieldInfo['field'];
+                        $folder = $fieldInfo['folder'];
+    
+                        $storagePath = public_path("EV/asset_master/{$folder}");
+                        if (!file_exists($storagePath)) mkdir($storagePath, 0777, true);
+    
+                        if ($drawing instanceof \PhpOffice\PhpSpreadsheet\Worksheet\MemoryDrawing) {
+                            ob_start();
+                            call_user_func($drawing->getRenderingFunction(), $drawing->getImageResource());
+                            $imageContents = ob_get_clean();
+                            $ext = 'png';
+                        } else {
+                            $path = $drawing->getPath();
+                            $imageContents = file_get_contents($path);
+                            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    
+                            if (!in_array($ext, ['jpg', 'jpeg', 'png'])) {
+                                Log::warning("Unsupported image file for $field in row $row: .$ext");
+                                continue;
+                            }
+                        }
+    
+                        // $fileName = bin2hex(random_bytes(16)) . '.' . $ext;
+                        do {
+                            $fileName = bin2hex(random_bytes(16)) . '.' . $ext;
+                        } while (file_exists("{$storagePath}/{$fileName}"));
+    
+                        file_put_contents("{$storagePath}/{$fileName}", $imageContents);
+    
+                        // $imageData[$field] = "EV/asset_master/{$folder}/{$fileName}";
+                        $imageData[$field] = $fileName;
+                        Log::info("Image uploaded for $field in row $row: $fileName");
+                    }
+    
+                    $data = array_merge($data, $imageData);
+                }
+    
+    
+    
+    
+                $dateFields = [
+                    'tax_invoice_date', 'lease_start_date', 'lease_end_date', 'vehicle_delivery_date',
+                    'insurance_start_date', 'insurance_expiry_date', 'permanent_reg_date',
+                    'reg_certificate_expiry_date', 'fc_expiry_date', 'temproary_reg_date', 'temproary_reg_expiry_date',
+                ];
+                
+    
+                
+                
+            foreach ($dateFields as $field) { //updated by Gowtham.S
+                if (isset($data[$field])) {
+                    $Datavalue = trim($data[$field]);
+            
+                    
+                    if ($Datavalue === '' || $Datavalue === '0' || $Datavalue === '0000-00-00' || strtoupper($Datavalue) === 'N/A') {
+                        $data[$field] = null;
+                        continue;
+                    }
+            
+                    try {
+                        
+                        if (is_numeric($Datavalue)) {
+                            $data[$field] = Carbon::instance(
+                                \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject($Datavalue)
+                            )->format('Y-m-d');
+                            continue;
+                        }
+            
+                        
+                        $dateString = str_replace('/', '-', $Datavalue);
+            
+                        
+                        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateString)) {
+                            try {
+                                $data[$field] = Carbon::parse($dateString)->format('Y-m-d');
+                                continue;
+                            } catch (\Exception $e) {
+                                // If parse fails, move on to the format loop
+                            }
+                        } else {
+                            $data[$field] = $dateString;
+                            continue;
+                        }
+            
+                        
+                        $possibleFormats = [
+                            'd-m-Y', 'm-d-Y', 'Y-m-d',
+                            'd-m-y', 'm-d-y', 'Y/m/d',
+                            'd/m/Y', 'm/d/Y', 'd.m.Y', 'm.d.Y'
+                        ];
+            
+                        $parsed = null;
+                        foreach ($possibleFormats as $format) {
+                            try {
+                                $parsed = Carbon::createFromFormat($format, $dateString);
+                                if ($parsed) {
+                                    $data[$field] = $parsed->format('Y-m-d');
+                                    break;
+                                }
+                            } catch (\Exception $e) {
+                                // Try next format
+                            }
+                        }
+            
+                        
+                        if ($parsed === null) {
+                            try {
+                                $parsed = Carbon::parse($dateString);
+                                $data[$field] = $parsed->format('Y-m-d');
+                            } catch (\Exception $e) {
+                                Log::warning("Invalid date for $field: " . $Datavalue);
+                                $data[$field] = null;
+                            }
+                        }
+            
+                    } catch (\Exception $e) {
+                        Log::warning("Invalid date for $field: " . $Datavalue);
+                        $data[$field] = null;
+                    }
+                }
+            }
+    
+    
+    
+                $uniqueFields = [
+                    'battery_serial_no'   => 'Battery Serial Number',
+                    'motor_number'        => 'Motor Number',
+                    'telematics_serial_no'=> 'Telematics Serial Number',
+                ];
+                
+                foreach ($uniqueFields as $field => $label) {
+                    $value = trim($data[$field] ?? '');
+                    if ($value === '') continue;
+                
+                    $exists = AssetMasterVehicle::where($field, $value)
+                        ->where('chassis_number', '!=', $data['chassis_number'])
+                        ->where('delete_status', 0)
+                        ->first();
+                
+                    if ($exists) {
+                        $errorRows[] = [
+                            'row' => $index,
+                            'chassis_number' => $data['chassis_number'],
+                            'fields' => ["{$label} '{$value}' already exists for chassis: {$exists->chassis_number}"],
+                        ];
+                        $skippedCount++;
+                        continue 2; 
+                    }
+                }
+    
+        
+                 $qc = $vehicle->quality_check;
+    
+     
+    
+                $vehicle->fill($data);
+                
+                $changes = array_diff_assoc($vehicle->getDirty(), $oldValues);
+                
+                
+                $vehicle->save();
+                
+                $updatedChassisNumbers[] = $vehicle->chassis_number;
+    
+                AssetMasterVehicleLogHistory::create([
+                    'asset_vehicle_id' => $vehicle->id,
+                    'user_id' => auth()->id(),
+                    'remarks' => 'The Asset Master Vehicle Chassis Number ' . $vehicle->chassis_number . ' has been Uploaded',
+                    'status_type' => 'uploaded',
+                ]);
+                
+                
+           // === Quality Check Update and Log ===
+            $qc = $vehicle->quality_check;
+            
+            if ($qc) {
+             
+                $qcFields = [
+                    'vehicle_type'      => 'Vehicle Type',
+                    'vehicle_model'     => 'Vehicle Model',
+                    'motor_number'      => 'Motor Number',
+                    'battery_number'    => 'Battery Number',
+                    'telematics_number' => 'Telematics Number',
+                    'location'          => 'City',
+                    'zone_id'           => 'Zone',
+                    // 'customer_id'       => 'Customer',
+                ];
+            
+                
+                $fieldMapping = [
+                    'vehicle_type'      => $data['vehicle_type'] ?? null,
+                    'vehicle_model'     => $data['model'] ?? null,
+                    'motor_number'      => $data['motor_number'] ?? null,
+                    'battery_number'    => $data['battery_serial_no'] ?? null,
+                    'telematics_number' => $data['telematics_serial_no'] ?? null,
+                    'location'          => $data['city_code'] ?? null,
+                    'zone_id'           => $qc_data['zone_id'] ?? null,
+                    // 'customer_id'       => $data['client'] ?? null,
+                ];
+            
+                $qcLogs = [];
+                $updatedFields = [];
+            
+                foreach ($qcFields as $field => $label) {
+                    
+                    if ($field === 'customer_id') {
+                        if (($qc_data['accountability_type'] ?? null) != 2) {
+                            // Skip updating or comparing customer_id for other types
+                            continue;
+                        }
+                    }
+                                    
+                    
+            
+                    $newValue = $fieldMapping[$field] ?? null;
+            
+                    if ($newValue !== null && $qc->$field != $newValue) {
+                        
+                        // Update QC field
+                        $qc->$field = $newValue;
+            
+                        // Track updated field names
+                        $updatedFields[] = $label;
+                    }
+                }
+            
+                // Save and log changes if any
+                if (!empty($updatedFields)) {
+                    $qc->save();
+            
+                    
+                    $defaultRemark = "The following QC details were updated in Asset Master.";
+                    $remarks = $defaultRemark . "\nUpdated Fields: " . implode(', ', $updatedFields);
+            
+                    // Create QC reinitiate log
+                    QualityCheckReinitiate::create([
+                        'qc_id'        => $qc->id,
+                        'status'       => 'updated',
+                        'remarks'      => $remarks,
+                        'initiated_by' => auth()->id(),
+                        'created_at'   => now(),
+                        'updated_at'   => now(),
+                    ]);
+            
+                    // Log::info("QC updated for vehicle {$vehicle->chassis_number}", $qcLogs);
+                }
+            }
+            
+            
+            
+            $this->handleLogsAndUpdate($vehicle, $changes , $request , $qc);
+            
+        
+    
+                $successCount++;
+            }
         }
+        
+    
+        
+        return response()->json([
+        'success' => true,
+        'message' => "Asset Master Vehicles Bulk Uploaded Successfully! Total Updated: " . count($updatedChassisNumbers),
+        'updated_count' => count($updatedChassisNumbers),
+        'updated_chassis_numbers' => $updatedChassisNumbers,
+        'skipped_count' => $skippedCount,
+        'error_rows' => $errorRows,
+    ]);
+    
+    
+    } catch (\Exception $e) {
+        Log::error('Bulk upload error: ' . $e->getMessage());
+    
+        return response()->json([
+            'success' => false,
+            'message' => 'Something went wrong: ' . $e->getMessage()
+        ], 500);
     }
-    
-    // Log::info('Asset all: ' . print_r($data, true));
-
-    // return response()->json([
-    //     'success' => true,
-    //     'message' => "Asset Master Vehicles Bulk Uploaded Successfully!"
-    // ]);
-    
-    return response()->json([
-    'success' => true,
-    'message' => "Asset Master Vehicles Bulk Uploaded Successfully! Total Updated: " . count($updatedChassisNumbers),
-    'updated_count' => count($updatedChassisNumbers),
-    'updated_chassis_numbers' => $updatedChassisNumbers,
-    'skipped_count' => $skippedCount,
-    'error_rows' => $errorRows,
-]);
-
-
-} catch (\Exception $e) {
-    Log::error('Bulk upload error: ' . $e->getMessage());
-
-    return response()->json([
-        'success' => false,
-        'message' => 'Something went wrong: ' . $e->getMessage()
-    ], 500);
-}
 
     
 //     try {
@@ -4720,7 +5376,9 @@ public function vehicle_bulk_upload_form_import(Request $request)
         }
 
         $vehicle_types = VehicleType::where('is_active', 1)->get();
-        $locations = LocationMaster::where('status',1)->get();
+        $locations =  City::where('status', 1)
+        ->select('id', 'city_name')
+        ->get();
         $passed_chassis_numbers = AssetMasterVehicle::where('qc_status','pass')->get();
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         
@@ -4733,10 +5391,173 @@ public function vehicle_bulk_upload_form_import(Request $request)
         $inventory_locations = InventoryLocationMaster::where('status',1)->get();
         $telematics = TelemetricOEMMaster::where('status',1)->get();
         $colors = ColorMaster::where('status',1)->get();
+        $customers = CustomerMaster::where('status',1)->get();
         
-        return view('assetmaster::asset_master.view_asset_master',compact('vehicle_data','vehicle_types','locations','passed_chassis_numbers' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' ,'hypothecations' ,'registration_types' ,'inventory_locations', 'vehicle_models' ,'telematics' ,'colors'));
+        return view('assetmaster::asset_master.view_asset_master',compact('vehicle_data','vehicle_types','locations','passed_chassis_numbers' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' ,'hypothecations' ,'registration_types' ,'inventory_locations', 'vehicle_models' ,'telematics' ,'colors' , 'customers'));
     }
     
+    
+    
+    private function handleLogsAndUpdate($vehicle_update,$changes ,  $request, $quality_check)
+    {
+                
+    if (!empty($changes)) {
+
+        $fieldLabels = [
+            'chassis_number' => 'Chassis Number',
+            'vehicle_category' => 'Vehicle Category',
+            // 'vehicle_type' => 'Vehicle Type',
+            // 'make' => 'Make',
+            // 'model' => 'Model',
+            // 'variant' => 'Variant',
+            'color' => 'Color',
+            // 'client' => 'Client',
+            // 'motor_number' => 'Motor Number',
+            'vehicle_id' => 'Vehicle ID',
+            'tax_invoice_number' => 'Tax Invoice Number',
+            'tax_invoice_date' => 'Tax Invoice Date',
+            'tax_invoice_value' => 'Tax Invoice Value',
+            // 'location' => 'Location',
+            'gd_hub_name' => 'GD Hub Name',
+            'gd_hub_id' => 'GD Hub ID',
+            'financing_type' => 'Financing Type',
+            'asset_ownership' => 'Asset Ownership',
+            'lease_start_date' => 'Lease Start Date',
+            'lease_end_date' => 'Lease End Date',
+            'vehicle_delivery_date' => 'Vehicle Delivery Date',
+            'emi_lease_amount' => 'EMI Lease Amount',
+            'hypothecation' => 'Hypothecation',
+            'hypothecation_to' => 'Hypothecation To',
+            'insurer_name' => 'Insurer Name',
+            'insurance_type' => 'Insurance Type',
+            'insurance_number' => 'Insurance Number',
+            'insurance_start_date' => 'Insurance Start Date',
+            'insurance_expiry_date' => 'Insurance Expiry Date',
+            'registration_type' => 'Registration Type',
+            'registration_status' => 'Registration Status',
+            'permanent_reg_number' => 'Permanent Registration Number',
+            'permanent_reg_date' => 'Permanent Registration Date',
+            'reg_certificate_expiry_date' => 'Registration Certificate Expiry Date',
+            'fc_expiry_date' => 'FC Expiry Date',
+            'battery_type' => 'Battery Type',
+            'battery_variant_name' => 'Battery Variant Name',
+            // 'battery_serial_no' => 'Battery Serial Number',
+            'charger_variant_name' => 'Charger Variant Name',
+            'charger_serial_no' => 'Charger Serial Number',
+            'telematics_variant_name' => 'Telematics Variant Name',
+            // 'telematics_serial_no' => 'Telematics Serial Number',
+            'vehicle_status' => 'Vehicle Status',
+            'temproary_reg_number' => 'Temporary Registration Number',
+            'temproary_reg_date' => 'Temporary Registration Date',
+            'temproary_reg_expiry_date' => 'Temporary Registration Expiry Date',
+            'servicing_dates' => 'Servicing Dates',
+            'road_tax_applicable' => 'Road Tax Applicable',
+            'road_tax_amount' => 'Road Tax Amount',
+            'road_tax_renewal_frequency' => 'Road Tax Renewal Frequency',
+            'road_tax_next_renewal_date' => 'Next Road Tax Renewal Date',
+            'battery_serial_number1' => 'Battery Serial Number 1',
+            'battery_serial_number2' => 'Battery Serial Number 2',
+            'battery_serial_number3' => 'Battery Serial Number 3',
+            'battery_serial_number4' => 'Battery Serial Number 4',
+            'battery_serial_number5' => 'Battery Serial Number 5',
+            'charger_serial_number1' => 'Charger Serial Number 1',
+            'charger_serial_number2' => 'Charger Serial Number 2',
+            'charger_serial_number3' => 'Charger Serial Number 3',
+            'charger_serial_number4' => 'Charger Serial Number 4',
+            'charger_serial_number5' => 'Charger Serial Number 5',
+            'telematics_oem' => 'Telematics OEM',
+            'telematics_imei_number' => 'Telematics IMEI Number',
+            'telematics_serial_number1' => 'Telematics Serial Number 1',
+            'telematics_serial_number2' => 'Telematics Serial Number 2',
+            'telematics_serial_number3' => 'Telematics Serial Number 3',
+            'telematics_serial_number4' => 'Telematics Serial Number 4',
+            'telematics_serial_number5' => 'Telematics Serial Number 5',
+            // 'city_code' => 'City',
+        ];
+    
+    
+        $attachmentFields = [
+            'tax_invoice_attachment'     => 'Tax Invoice Attachment',
+            'master_lease_agreement'     => 'Master Lease Agreement',
+            'insurance_attachment'       => 'Insurance Attachment',
+            'reg_certificate_attachment' => 'Registration Certificate Attachment',
+            'fc_attachment'              => 'FC Attachment',
+            'hypothecation_document'     => 'Hypothecation Document',
+            'temproary_reg_attachment'   => 'Temporary Registration Attachment',
+            'hsrp_copy_attachment'       => 'HSRP Certificate Attachment',
+        ];
+
+
+        // Only include changed fields that exist in label map
+        $updatedReadable = [];
+        foreach ($changes as $key => $value) {
+            if (isset($fieldLabels[$key])) {
+                $updatedReadable[] = $fieldLabels[$key];
+            }
+        }
+        
+        foreach ($attachmentFields as $field => $label) {
+            if ($request->hasFile($field)) {
+                $updatedReadable[] = $label;
+            }
+        }
+    
+    
+    if ($quality_check) {
+            $qcFieldMap = [
+                'vehicle_type' => 'Vehicle Type',
+                'vehicle_model' => 'Model',
+                'motor_number' => 'Motor Number',
+                'battery_number' => 'Battery Number',
+                'telematics_number' => 'Telematics Number',
+                'location' => 'City',
+                // 'customer_id' => 'Customer',
+                'zone_id' => 'Zone',
+            ];
+            
+    
+            foreach ($qcFieldMap as $qcField => $label) {
+                $reqField = match ($qcField) {
+                    'vehicle_model' => 'model',
+                    'battery_number' => 'battery_serial_no',
+                    'telematics_number' => 'telematics_serial_no',
+                    'location' => 'city_code',
+                    // 'customer_id' => 'client',
+                    'zone_id' => 'zone_id', 
+                    default => $qcField,
+                };
+    
+            $newValue = $request->$reqField ?? null;
+            
+            // if ($qcField === 'customer_id' && ($quality_check->accountability_type ?? null) != 2) {
+            //     continue;
+            // }
+
+            if ($qcField === 'zone_id') {
+                if ($quality_check->zone_id != $request->zone_id) {
+                    $updatedReadable[] = $label;
+                }
+            } elseif ($quality_check->$qcField != $newValue) {
+                $updatedReadable[] = $label;
+            }
+            }
+        }
+
+
+        if (!empty($updatedReadable)) {
+            $updatedText = implode(', ', $updatedReadable);
+            $remarks = "The following Asset Master fields have been updated: {$updatedText}. These updates were applied successfully.";
+    
+            AssetMasterVehicleLogHistory::create([
+                'asset_vehicle_id' => $vehicle_update->id,
+                'user_id' => auth()->id(),
+                'remarks' => $remarks,
+                'status_type' => 'updated',
+            ]);
+        }
+    }
+
+    }
     
     public function reupload_vehicle_data(Request $request)
     {
@@ -5356,6 +6177,9 @@ public function logs_history(Request $request)
             $from_date = $request->input('from_date', '');
             $to_date = $request->input('to_date', '');
             $city = $request->input('city', '');
+            $zone_id = $request->input('zone');
+            $customer_id = $request->input('customer');
+            $accountability_type_id = $request->input('accountability_type');
             $searchValue = $request->input('search.value', '');
 
             // Apply timeline filters if specified
@@ -5396,9 +6220,22 @@ public function logs_history(Request $request)
 
             // Apply city filter if specified
             if (!empty($city)) {
-                $vehicle_ids = DB::table('ev_tbl_asset_master_vehicles')
-                    ->where('city_code', $city)
-                    ->pluck('id');
+                 $vehicle_ids = DB::table('ev_tbl_asset_master_vehicles as v')
+                ->join('vehicle_qc_check_lists as qc', 'v.qc_id', '=', 'qc.id')
+                ->when(!empty($city), function ($query) use ($city) {
+                    $query->where('qc.location', $city);
+                })
+                ->when(!empty($zone_id), function ($query) use ($zone_id) {
+                    $query->where('qc.zone_id', $zone_id);
+                })
+                ->when(!empty($customer_id), function ($query) use ($customer_id) {
+                    $query->where('qc.customer_id', $customer_id);
+                })
+                ->when(!empty($accountability_type_id), function ($query) use ($accountability_type_id) {
+                    $query->where('qc.accountability_type', $accountability_type_id);
+                })
+                ->pluck('v.id');
+
 
                 if ($vehicle_ids->isNotEmpty()) {
                     $subquery->whereIn('asset_vehicle_id', $vehicle_ids);
@@ -5418,12 +6255,12 @@ public function logs_history(Request $request)
                     'v.id as vehicle_id',
                     'v.chassis_number',
                     'v.telematics_serial_no',
-                    'l.name as location_name',
+                    'l.city_name as location_name',
                     'vt.name as vehicle_type_name', // from vehicle_types table
                     'vm.vehicle_model as vehicle_model_name' // from vehicle_models table
                 ])
                 ->leftJoin('ev_tbl_asset_master_vehicles as v', 'asset_master_vehicle_log_history.asset_vehicle_id', '=', 'v.id')
-                ->leftJoin('ev_tbl_location_master as l', 'v.city_code', '=', 'l.id')
+                ->leftJoin('ev_tbl_city as l', 'v.city_code', '=', 'l.id')
                 ->leftJoin('ev_tbl_vehicle_models as vm', 'v.model', '=', 'vm.id')
                 ->leftJoin('vehicle_types as vt', 'vm.vehicle_type', '=', 'vt.id'); // NEW join
 
@@ -5436,7 +6273,7 @@ public function logs_history(Request $request)
                       ->orWhere('v.telematics_serial_no', 'like', "%$searchValue%")
                      ->orWhere('vt.name', 'like', "%$searchValue%")
                         ->orWhere('vm.vehicle_model', 'like', "%$searchValue%")
-                      ->orWhere('l.name', 'like', "%$searchValue%");
+                      ->orWhere('l.city_name', 'like', "%$searchValue%");
                 });
 
             }
@@ -5451,7 +6288,7 @@ public function logs_history(Request $request)
             
           $sortableColumns = [
             'vehicle_id' => 'v.id',
-            'location' => 'l.name',
+            'location' => 'l.city_name',
             'chassis_number' => 'v.chassis_number',
             'telematics_serial_no' => 'v.telematics_serial_no',
             'vehicle_type' => 'vt.name',  // from vehicle_types
@@ -5474,7 +6311,7 @@ public function logs_history(Request $request)
 
             // Get the final data
             $data = $query->get();
-
+        
             // Format the response
             $formattedData = $data->map(function($item) {
     try {
@@ -5577,7 +6414,9 @@ public function logs_history(Request $request)
     $from_date = $request->from_date ?? '';
     $to_date = $request->to_date ?? '';
     $city = $request->city ?? '';
-    $locations = LocationMaster::where('status', 1)->get();
+    $locations = City::where('status', 1)->get();
+        $accountablity_types = EvTblAccountabilityType::where('status', 1)->get();
+    $customers = CustomerMaster::where('status',1)->get();
     
     // Get total count for display
     $total_count = AssetMasterVehicleLogHistory::select(DB::raw('COUNT(DISTINCT asset_vehicle_id) as count'))->value('count');
@@ -5588,6 +6427,8 @@ public function logs_history(Request $request)
         'to_date' => $to_date,
         'city' => $city,
         'locations' => $locations,
+        'customers' => $customers ,
+        'accountablity_types' => $accountablity_types ,
         'total_count' => $total_count
     ]);
 }
@@ -5720,6 +6561,11 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
             return !is_null($label) && trim($label) !== '';
         });
 
+
+         $zone = $request->zone;
+         $customer = $request->customer;
+         $accountability_type = $request->accountability_type;
+         
         // $query = AssetMasterVehicle::with('quality_check');
 
         // if (!empty($status) && $status != "all") {
@@ -5783,8 +6629,10 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
             $request->timeline,
             $request->get_export_labels ??[] ,
             $request->get_ids ?? [] ,
-            $city
-            
+            $city ,
+            $zone , 
+            $customer , 
+            $accountability_type
         );
         return Excel::download($export, 'Asset_Master_Vehicles-'.date('d-m-Y').'.xlsx');
 
@@ -5803,7 +6651,10 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
         $get_labels = array_filter($request->get('get_export_labels', []), function ($label) {
             return !is_null($label) && trim($label) !== '';
         });
-
+        
+        $zone = !empty($request->zone) ? $request->zone : '';
+        $customer = !empty($request->customer) ? $request->customer : '';
+        $accountability_type = !empty($request->accountability_type) ? $request->accountability_type : '';
         
         $export = new AssetVehicleLogHistory(
             $to_date,
@@ -5811,9 +6662,14 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
             $timeline,
             $request->get_export_labels ??[] ,
             $request->get_ids ?? [] ,
-            $city
+            $city , 
+            $zone ,
+            $customer , 
+            $accountability_type
             
         );
+        
+        
         return Excel::download($export, 'Asset_Vehicles_Log_&_History-'.date('d-m-Y').'.xlsx');
 
 
@@ -5878,3 +6734,5 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
     }
     
 }
+
+

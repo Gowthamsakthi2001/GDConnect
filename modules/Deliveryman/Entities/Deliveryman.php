@@ -12,6 +12,7 @@ use Modules\City\Entities\City;
 use Modules\City\Entities\Area;
 use Modules\Clients\Entities\Client;
 use Modules\Clients\Entities\ClientHub;
+use Modules\B2B\Entities\B2BRecoveryRequest; //updated by logesh
 use Modules\LeaveManagement\Entities\LeaveType;
 use Modules\LeaveManagement\Entities\LeaveRequest;
 use Modules\Deliveryman\Entities\DeliveryManLogs;
@@ -84,6 +85,16 @@ class Deliveryman extends Authenticatable
     //                 <i class="fas fa-bicycle"></i>
     //             </a>';
     // }
+    
+        public function openedRequest() //updated by logesh
+    {
+        return $this->hasMany(B2BRecoveryRequest::class, 'recovery_agent_id') ->where('agent_status', 'opened');
+    }
+    
+    public function closedRequest() //updated by logesh
+    {
+        return $this->hasMany(B2BRecoveryRequest::class, 'recovery_agent_id') ->where('agent_status', 'closed');
+    }
     
     public function actionBtn($tableId = 'delivery-man-table'): string
     {

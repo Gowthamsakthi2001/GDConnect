@@ -8,6 +8,7 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Modules\B2B\Entities\B2BRecoveryRequest;
 use Modules\MasterManagement\Entities\CustomerLogin;
 use Illuminate\Support\Facades\Auth;
+use Modules\MasterManagement\Entities\RecoveryReasonMaster;//updated by Gowtham.S
 
 class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapping
 {
@@ -18,8 +19,9 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
     protected $city;
     protected $zone;
     protected $status;
+    protected $accountability_type;
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null ,$status = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null ,$status = null , $accountability_type = null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -28,6 +30,7 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
         $this->city           = $city;
         $this->zone           = $zone;
         $this->status           = $status;
+        $this->accountability_type           = $accountability_type;
     }
 
     public function collection()
@@ -62,6 +65,9 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
                         if ($guard === 'zone') {
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
+                        }
+                        if ($this->accountability_type) {
+                            $q->where('account_ability_type', $this->accountability_type);
                         }
                     });
                     
@@ -99,6 +105,14 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
     public function map($row): array
     {
         $mapped = [];
+        
+        if ($row->status === 'closed' && $row->closed_at) {
+        $aging = \Carbon\Carbon::parse($row->created_at)
+                    ->diffForHumans(\Carbon\Carbon::parse($row->closed_at), true);
+        } else {
+            $aging = \Carbon\Carbon::parse($row->created_at)
+                    ->diffForHumans(now(), true);
+        }
 
         foreach ($this->selectedFields as $key) {
             switch ($key) {
@@ -111,6 +125,10 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
                     
                     break;
 
+                case 'accountability_type':
+                        $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
+                        break;
+                        
                 case 'vehicle_no':
                     $mapped[] = $row->assignment->vehicle->permanent_reg_number ?? '-';
                     break;
@@ -121,6 +139,10 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
 
                 case 'mobile_no':
                     $mapped[] = $row->assignment->rider->mobile_no ?? '-';
+                    break;
+                    
+                case 'aging':
+                    $mapped[] = $aging ?? '-';
                     break;
 
                 // case 'poc_name':
@@ -140,14 +162,9 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
                     break;
 
                 case 'reason':
-                    $reasons = [
-                        1 => 'Breakdown',
-                        2 => 'Battery Drain',
-                        3 => 'Accident',
-                        4 => 'Rider Unavailable',
-                        5 => 'Other',
-                    ];
-                    $mapped[] = $reasons[(int)($row->reason ?? 0)] ?? '-';
+                    $reasonData = RecoveryReasonMaster::where('id',$row->reason)->first();
+                    $reason = $reasonData->label_name ?? 'Unknown';
+                    $mapped[] = $reason ?? '-';
                     break;
 
                 case 'description':
@@ -155,11 +172,23 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
                     break;
                 
                 case 'created_by':
-                    $mapped[] = $row->assignment->rider->customerlogin->customer_relation->trade_name ?? '-';
+                    $created_by = $row->created_by_type == 'b2b-web-dashboard' 
+                        ? 'Customer' 
+                        : ($row->created_by_type == 'b2b-admin-dashboard' ? 'GDM' : '-');
+                    $mapped[] = $created_by;
                     break;
 
+                
+                case 'agent_status':
+                    $mapped[] = ucfirst($row->agent_status ?? '-');
+                    break;
+                    
                 case 'status':
                     $mapped[] = ucfirst($row->status ?? '-');
+                    break;
+                
+                case 'agent_status':
+                    $mapped[] = ucfirst($row->agent_status ?? '-');
                     break;
 
                 case 'created_at':
@@ -167,7 +196,41 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
                         ? $row->created_at->format('d M Y h:i A')
                         : '-';
                     break;
-
+                
+                case 'closed_at':
+                    $mapped[] = $row->closed_at
+                        ? \Carbon\Carbon::parse($row->closed_at)->format('d M Y h:i A')
+                        : '-';
+                    break;
+                
+                case 'recovery_images':
+                    $attachments = $row->images ?? [];
+                
+                    // Decode JSON if it's a string
+                    if (is_string($attachments)) {
+                        $attachments = json_decode($attachments, true);
+                    }
+                
+                    if (is_array($attachments) && !empty($attachments)) {
+                        $urls = [];
+                        foreach ($attachments as $file) {
+                            $urls[] = asset('b2b/recovery_comments/' . $file);
+                        }
+                        $mapped[] = implode(", ", $urls);
+                    } else {
+                        $mapped[] = '-';
+                    }
+                    break;
+                
+                case 'recovery_video':
+                    $report = $row->video ?? '';
+                    if (!empty($report)) {
+                        $mapped[] = asset('b2b/recovery_comments/' . $report);
+                    } else {
+                        $mapped[] = '-';
+                    }
+                    break;
+                    
                 default:
                     $mapped[] = $row->$key ?? '-';
             }
@@ -187,6 +250,7 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
             'rider_name'    => 'Rider Name',
             'mobile_no'     => 'Mobile No',
             'city'          => 'City',
+            'accountability_type'     => 'Accountability Type',
             // 'poc_name'      => 'POC Name',
             // 'poc_number'   => 'POC Contact',
             'zone'          => 'Zone',
@@ -194,7 +258,12 @@ class B2BRecoveryRequestExport implements FromCollection, WithHeadings, WithMapp
             'description'   => 'Description',
             'created_by'    => 'Created By',
             'status'        => 'Status',
+            'agent_status'        => 'Agent Status',
+            'recovery_images'=>'Recovery Images',
+            'recovery_video' =>'Recovery Video',
             'created_at'    => 'Created Date & Time',
+            'closed_at'    => 'Closed Date & Time',
+            'aging'    => 'Aging'
         ];
 
         foreach ($this->selectedFields as $key) {

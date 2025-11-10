@@ -1195,6 +1195,9 @@ public function mobitra_tracking(Request $request){
      $api_mode = true;  
   }
     $results = $this->getVehicleStatusData($request);
+    if(!empty($results['data']['vehicles']) || !empty($results['data']['vehicles'])){
+        $api_mode = false;
+    }
    return view('vehiclemanagement::mobitra_api.tracking',compact('results','api_mode'));
 }
 

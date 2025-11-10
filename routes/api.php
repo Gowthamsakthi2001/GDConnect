@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\AssetManagementContoller;
 use App\Http\Controllers\Api\V1\EvLeaveManagementContoller;
 use App\Http\Controllers\Api\V1\LiveOrderController;
 use App\Http\Controllers\Api\V1\VehicleServiceTicketController;
+use App\Http\Controllers\Api\V1\RecoveryAgentContoller; // updated by logesh
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +57,9 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
             Route::get('leave-pending-list/{id}', [EvLeaveManagementContoller::class, 'deliveryman_leave_pending_list']);
             Route::get('get-leave-dates/{id}', [EvLeaveManagementContoller::class, 'filter_leave_present']);
             Route::get('type-list-test', [EvLeaveManagementContoller::class, 'leave_type_list_test']);
+            
+            	
+            Route::post('/fcm-token/update', [EvDeliveryManController::class, 'fcm_token_update'])->name('fcm_token_update');
         });
         
     
@@ -109,6 +113,8 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
             });
         });
         
+        
+        
     });
     
     
@@ -119,161 +125,25 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
         });
     });
     
-});
-
-
-// Route::post('/check-missing-chassis', function (Request $request) {
-//     // Validate input
-//     $validated = $request->validate([
-//         'location' =>'nullable',
-//         'zone_id' =>'nullable',
-//         'chassis_numbers' => 'required|array|min:1',
-//         'chassis_numbers.*' => 'string',
-//     ]);
-
-//     $chassisNumbers = $validated['chassis_numbers'];
-//     $duplicates = array_keys(array_filter(array_count_values($chassisNumbers), fn($count) => $count > 1));
-//     $location = $validated['location'];
-//     // Initialize arrays
-//     $found_location_1 = [];
-//     $found_other_locations = [];
-//     $not_in_db = [];
-//     $zone_id = $request->zone_id ?? '';
+        Route::group(['prefix' => 'recovery-agent', 'as' => 'recovery_agent.'], function () {           // updated by logesh
+                Route::post('dashboard-data', [RecoveryAgentContoller::class, 'getDashboardData']);
+                Route::post('get-request-data', [RecoveryAgentContoller::class, 'getRequestData']);
+                Route::post('get-recovery-data', [RecoveryAgentContoller::class, 'getRecoveryData']);
+                Route::get('get-status-master', [RecoveryAgentContoller::class, 'getStatusMaster']);
+                Route::get('get-faq-master', [RecoveryAgentContoller::class, 'getCallAttemptMessages']);
+                Route::post('get-log', [RecoveryAgentContoller::class, 'getLogData']);
+                Route::post('add-comment', [RecoveryAgentContoller::class, 'addComment']);
+                Route::post('get-live-data', [RecoveryAgentContoller::class, 'getTrackingData']);
+                Route::post('get-history-data', [RecoveryAgentContoller::class, 'getHistoryData']);
+                
+                
+                Route::post('get-notifications', [RecoveryAgentContoller::class, 'get_notification_data'])->name('get_notification_data');// updated by Mugesh.B
+                Route::post('notification/status-update', [RecoveryAgentContoller::class, 'notification_status_update'])->name('notification_status_update');// updated by Mugesh.B
+        });
+        
+    Route::get('close-recovery-request', [RecoveryAgentContoller::class, 'closeRecoveryRequest']);
     
-//     foreach (array_chunk($chassisNumbers, 500) as $chunk) {
-//     // ✅ Base query for location = 1
-//     $query1 = DB::table('vehicle_qc_check_lists')
-//         ->where('location', $location)
-//         ->whereIn('chassis_number', $chunk);
-
-//     if (!empty($zone_id)) {
-//         $query1->where('zone_id', $zone_id);
-//     }
-
-//     $existingLocation1 = $query1->pluck('chassis_number')->toArray();
-//     $found_location_1 = array_merge($found_location_1, $existingLocation1);
-
-//     // ✅ Base query for other locations
-//     $query2 = DB::table('vehicle_qc_check_lists')
-//         ->select('chassis_number', 'location', DB::raw('count(*) as count'))
-//         ->whereIn('chassis_number', $chunk)
-//         ->where('location', '!=', $location);
-
-//     if (!empty($zone_id)) {
-//         $query2->where('zone_id', '!=', $zone_id);
-//     }
-
-//     $otherLocations = $query2
-//         ->groupBy('chassis_number', 'location')
-//         ->get()
-//         ->toArray();
-   
-//     $found_other_locations = array_merge($found_other_locations, $otherLocations);
-// }
-
-
-//     // 3️⃣ Chassis numbers not found in DB at all
-//     $all_found_chassis = array_merge(
-//         $found_location_1,
-//         array_map(fn($row) => $row->chassis_number, $found_other_locations)
-//     );
-
-//     $not_in_db = array_values(array_diff($chassisNumbers, $all_found_chassis));
-
-//     return response()->json([
-//         'total_given' => count($chassisNumbers),
-//         'found_location_count' => count($found_location_1),
-//         'found_location_chassis' => $found_location_1,
-//         'found_other_locations_count' => count($found_other_locations),
-//         'found_other_locations' => $found_other_locations, // array of objects: chassis_number, location, count
-//         'not_in_db_count' => count($not_in_db),
-//         'not_in_db_chassis' => $not_in_db,
-//         'duplicate_chassis' =>$duplicates
-//     ]);
-// });
-
-// Route::post('/check-missing-chassis', function (Request $request) {
-//     // ✅ Validate input
-//     $validated = $request->validate([
-//         'location' => 'nullable',
-//         'zone_id' => 'nullable',
-//         'chassis_numbers' => 'required|array|min:1',
-//         'chassis_numbers.*' => 'string',
-//     ]);
-
-//     $chassisNumbers = $validated['chassis_numbers'];
-//     $location = $validated['location'];
-//     $zone_id = $validated['zone_id'] ?? null;
-
-//     // ✅ Find duplicates in input
-//     $duplicates = array_keys(array_filter(array_count_values($chassisNumbers), fn($count) => $count > 1));
-
-//     // Initialize arrays
-//     $found_location_1 = [];
-//     $found_other_locations = [];
-//     $not_in_db = [];
-
-//     foreach (array_chunk($chassisNumbers, 500) as $chunk) {
-
-//         // 1️⃣ Find chassis matching the given location (+ zone if provided)
-//         $query1 = DB::table('vehicle_qc_check_lists')
-//             ->where('location', $location)
-//             ->whereIn('chassis_number', $chunk);
-
-//         if (!empty($zone_id)) {
-//             $query1->where('zone_id', $zone_id);
-//         }
-
-//         $existingLocation1 = $query1->pluck('chassis_number')->toArray();
-//         $found_location_1 = array_merge($found_location_1, $existingLocation1);
-
-//         // 2️⃣ Find chassis in DB but with different location or zone
-//         $query2 = DB::table('vehicle_qc_check_lists')
-//             ->select('chassis_number', 'location', 'zone_id', DB::raw('count(*) as count'))
-//             ->whereIn('chassis_number', $chunk);
-
-//         // If zone_id provided → exclude same location & zone
-//         // Else → exclude only same location
-//         if (!empty($zone_id)) {
-//             $query2->where(function ($q) use ($location, $zone_id) {
-//                 $q->where('location', '!=', $location)
-//                   ->orWhere('zone_id', '!=', $zone_id);
-//             });
-//         } else {
-//             $query2->where('location', '!=', $location);
-//         }
-
-//         $otherLocations = $query2
-//             ->groupBy('chassis_number', 'location', 'zone_id')
-//             ->get()
-//             ->toArray();
-
-//         $found_other_locations = array_merge($found_other_locations, $otherLocations);
-//     }
-
-//     // 3️⃣ Find chassis not in DB at all
-//     $all_found_chassis = array_merge(
-//         $found_location_1,
-//         array_map(fn($row) => $row->chassis_number, $found_other_locations)
-//     );
-
-//     $not_in_db = array_values(array_diff($chassisNumbers, $all_found_chassis));
-
-//     // ✅ Return response
-//     return response()->json([
-//         'total_given' => count($chassisNumbers),
-//         'duplicate_chassis' => $duplicates,
-
-//         'found_location_count' => count($found_location_1),
-//         'found_location_chassis' => $found_location_1,
-
-//         'found_other_locations_count' => count($found_other_locations),
-//         'found_other_locations' => $found_other_locations, // chassis_number, location, zone_id, count
-
-//         'not_in_db_count' => count($not_in_db),
-//         'not_in_db_chassis' => $not_in_db,
-//     ]);
-// });
+});
 
 
 Route::post('/check-missing-chassis', function (Request $request) {

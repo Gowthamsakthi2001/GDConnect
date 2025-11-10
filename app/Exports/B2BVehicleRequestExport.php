@@ -22,14 +22,16 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
     protected $to_date;
     protected $selectedIds;
     protected $selectedFields;
+    protected $accountability_type;
 
-    public function __construct($status, $from_date, $to_date, $selectedIds = [], $selectedFields = [])
+    public function __construct($status, $from_date, $to_date, $selectedIds = [], $selectedFields = [] , $accountability_type)
     {
         $this->status = $status;
         $this->from_date = $from_date;
         $this->to_date = $to_date;
         $this->selectedIds = $selectedIds;
         $this->selectedFields = $selectedFields;
+        $this->accountability_type = $accountability_type;
     }
 
     public function collection()
@@ -63,6 +65,9 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
                   ->where('zone_id', $user->zone_id);
             }
 
+            if (!empty($this->accountability_type)) {
+                $query->where('account_ability_type', $this->accountability_type);
+            }
             
             if (in_array($this->status, ['pending', 'completed'])) {
                 $query->where('status', $this->status);
@@ -117,6 +122,9 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
                         $mapped[] = $row->rider->llr_image ? asset('b2b/llr_images/' . $row->rider->llr_image) : '-';
                         break;
         
+                    case 'accountability_type':
+                        $mapped[] = $row->accountAbilityRelation->name ?? '-';
+                        break;
                     case 'name':
                         $mapped[] = $row->rider->name ?? '-';
                         break;
@@ -150,9 +158,39 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
                         break;
                         
                     case 'created_at':
-                        $mapped[] = $row->$key ? \Carbon\Carbon::parse($row->rider->$key)->format('d M Y h:i A') : '-';
+                        $mapped[] = $row->$key ? \Carbon\Carbon::parse($row->$key)->format('d M Y h:i A') : '-';
                         break;
         
+                    case 'updated_at':
+                        $mapped[] = $row->$key ? \Carbon\Carbon::parse($row->$key)->format('d M Y h:i A') : '-';
+                        break;
+                        
+                    case 'aging':
+                        if ($row->status === 'completed' && $row->completed_at) {
+                            $created   = \Carbon\Carbon::parse($row->created_at);
+                            $completed = \Carbon\Carbon::parse($row->completed_at);
+                            $diffInDays = $created->diffInDays($completed);
+                            $diffInHours = $created->diffInHours($completed);
+                            $diffInMinutes = $created->diffInMinutes($completed);
+                        } else {
+                            $created   = \Carbon\Carbon::parse($row->created_at);
+                            $now       = now();
+                            $diffInDays = $created->diffInDays($now);
+                            $diffInHours = $created->diffInHours($now);
+                            $diffInMinutes = $created->diffInMinutes($now);
+                        }
+        
+                        if ($diffInDays > 0) {
+                            $aging = $diffInDays . ' days';
+                        } elseif ($diffInHours > 0) {
+                            $aging = $diffInHours . ' hours';
+                        } else {
+                            $aging = $diffInMinutes . ' mins';
+                        }
+        
+                        $mapped[] = $aging;
+                        break;
+                        
                     default:
                         $mapped[] = $row->$key ?? '-';
                 }
@@ -186,7 +224,9 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
             'llr_image'             => 'LLR Image',
             'llr_number'            => 'LLR Number',
             'status'                => 'Status',
-            'created_at'            => 'Created At',
+            'created_at'            => 'Created Date & Time',
+            'updated_at'            => 'Updated Date & Time',
+            'aging'                 => 'Aging'
         ];
 
         foreach ($this->selectedFields as $field) {

@@ -844,6 +844,13 @@ class HRStatusController extends Controller
         ]);
         
         $agent = Deliveryman::where('id',$request->id)->first();
+        
+        if($agent->approved_status != 1){
+           return response()->json([
+            'status' => false,
+            'message' => 'The employee status is not approved. Please approve the employee and try again.'
+        ]); 
+        }
         $agent->team_type = $request->team_type;
         $agent->zone_id = $request->zone_id;
         $agent->save();

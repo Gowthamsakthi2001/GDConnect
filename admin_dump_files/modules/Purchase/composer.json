@@ -1,0 +1,23 @@
+{
+    "name": "bdtask/purchase",
+    "description": "",
+    "authors": [
+        {
+            "name": "Bdtask Limited",
+            "email": "business@bdtask.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Purchase\\": ""
+        }
+    }
+}

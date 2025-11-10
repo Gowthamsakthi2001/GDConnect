@@ -10,7 +10,10 @@ use App\Models\BusinessSetting;
 use Modules\B2B\Entities\B2BServiceRequest;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\B2BAdminServiceRequestExport;
+use Modules\MasterManagement\Entities\RepairTypeMaster;
 use Illuminate\Http\Response;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
+use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
 
 class B2BServiceController extends Controller
 {
@@ -26,7 +29,8 @@ class B2BServiceController extends Controller
             $to     = $request->input('to_date');   
             $zone   = $request->input('zone_id');
             $city   = $request->input('city_id');
-            
+            $status   = $request->input('status');
+             
             $query = B2BServiceRequest::with([
                 'assignment.VehicleRequest.city',
                 'assignment.VehicleRequest.zone',
@@ -57,6 +61,10 @@ class B2BServiceController extends Controller
                     ->orWhereHas('assignment.VehicleRequest.zone', function($qr) use ($search) {
                         $qr->where('name', 'like', "%{$search}%");
                     })
+                     ->orWhereHas('assignment.VehicleRequest.accountAbilityRelation', function($qr) use ($search) {
+                        $qr->where('name', 'like', "%{$search}%");
+                    })
+                    
                     ->orWhere('status', 'like', "%{$search}%")
                     ->orWhere('ticket_id', 'like', "%{$search}%")
                     ->orWhere('type', 'like', "%{$search}%");
@@ -82,7 +90,22 @@ class B2BServiceController extends Controller
                     $q->where('zone_id', $zone); // column inside VehicleRequest table
                 });
             }
-
+            
+            if (!empty($status)) {
+                $query->where('status', $status);
+            }
+            //updated by logesh
+            if ($request->filled('accountability_type')) {
+                        $query->whereHas('assignment.VehicleRequest', function($zn) use ($request) {
+                            $zn->where('account_ability_type', $request->accountability_type);
+                        });
+                    }
+            //updated by logesh
+            if ($request->filled('customer_id')) {
+                        $query->whereHas('assignment.rider.customerlogin.customer_relation', function($zn) use ($request) {
+                            $zn->where('id', $request->customer_id);
+                        });
+                    }
             
             
             $totalRecords = $query->count();
@@ -142,7 +165,37 @@ class B2BServiceController extends Controller
                         </a>
                     </div>
                 ';
-            
+                
+                if ($service->status === 'closed') {
+                    $created   = \Carbon\Carbon::parse($service->created_at);
+                    $completed = \Carbon\Carbon::parse($service->updated_at);
+                    $diffInDays = $created->diffInDays($completed);
+                    $diffInHours = $created->diffInHours($completed);
+                    $diffInMinutes = $created->diffInMinutes($completed);
+                
+                    if ($diffInDays > 0) {
+                        $aging = $diffInDays . ' days';
+                    } elseif ($diffInHours > 0) {
+                        $aging = $diffInHours . ' hours';
+                    } else {
+                        $aging = $diffInMinutes . ' mins';
+                    }
+                } else {
+                    $created   = \Carbon\Carbon::parse($service->created_at);
+                    $now       = now();
+                    $diffInDays = $created->diffInDays($now);
+                    $diffInHours = $created->diffInHours($now);
+                    $diffInMinutes = $created->diffInMinutes($now);
+                
+                    if ($diffInDays > 0) {
+                        $aging = $diffInDays . ' days';
+                    } elseif ($diffInHours > 0) {
+                        $aging = $diffInHours . ' hours';
+                    } else {
+                        $aging = $diffInMinutes . ' mins';
+                    }
+                }
+                
                 return [
                     '<div class="form-check">
                                     <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" 
@@ -154,6 +207,7 @@ class B2BServiceController extends Controller
                     
                     e($service->ticket_id ?? ''),
                     
+                    e($service->assignment->VehicleRequest->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                     // Vehicle No
                     e($service->assignment->vehicle->permanent_reg_number ?? ''),
             
@@ -183,7 +237,8 @@ class B2BServiceController extends Controller
             
                     // Created By (Type - first letter capital)
                     ucfirst($service->type ?? ''),
-            
+                    
+                    $aging,
                     // Status
                     $statusColumn,
             
@@ -213,8 +268,14 @@ class B2BServiceController extends Controller
     }
     
     $cities = City::where('status',1)->get();
-    
-        return view('b2badmin::service.list' ,compact('cities'));
+    $accountability_types = EvTblAccountabilityType::where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+        
+    $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+        return view('b2badmin::service.list' ,compact('cities','accountability_types','customers'));
     }
     
     
@@ -227,21 +288,23 @@ class B2BServiceController extends Controller
         $data = B2BServiceRequest::where('id' ,$service_id)->first();
         
         
-        
+        $repair_types = RepairTypeMaster::where('status',1)->get();
         $apiKey = BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
-        return view('b2badmin::service.view' , compact('apiKey' ,'data'));
+
+        return view('b2badmin::service.view' , compact('apiKey' ,'data' , 'repair_types'));
     }
       
-      public function export(Request $request)
+     public function export(Request $request)
     {
-        
-        
-        
+    
         $fields    = $request->input('fields', []);  
         $from_date = $request->input('from_date');
         $to_date   = $request->input('to_date');
         $zone = $request->input('zone_id')?? null;
         $city = $request->input('city_id')?? null;
+        $status = $request->input('status')?? null;
+         $accountability_type = $request->input('accountability_type')?? null;
+        $customer_id = $request->input('customer_id')?? null;
          $selectedIds = $request->input('selected_ids', []);
 
     
@@ -250,7 +313,7 @@ class B2BServiceController extends Controller
         }
     
         return Excel::download(
-            new B2BAdminServiceRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
+            new B2BAdminServiceRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),
             'service-request-list-' . date('d-m-Y') . '.xlsx'
         );
     }

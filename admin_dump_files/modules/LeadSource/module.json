@@ -1,0 +1,11 @@
+{
+    "name": "LeadSource",
+    "alias": "leadsource",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\LeadSource\\Providers\\LeadSourceServiceProvider"
+    ],
+    "files": []
+}

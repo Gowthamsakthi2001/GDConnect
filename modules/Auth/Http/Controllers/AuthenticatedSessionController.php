@@ -12,13 +12,15 @@ class AuthenticatedSessionController extends FortifyAuthenticatedSessionControll
     /**
      * Show the login view.
      */
+     
     public function index(Request $request)
     {
+       
         cs_set('theme', [
             'title' => 'Login',
             'description' => 'Login',
         ]);
-
+        
         return view('auth::login');
     }
 

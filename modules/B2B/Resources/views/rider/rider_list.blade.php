@@ -154,6 +154,32 @@
 
     <!--NEW VEHICLE REQUEST SECTION-->
 
+        <?php
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }
+            
+            $accountability_Type = in_array(2, $accountability_Types) ? 2 : 1;
+            $ac_types = \Modules\MasterManagement\Entities\EvTblAccountabilityType::where('status',1)
+                ->whereIn('id',$accountability_Types)
+                ->get(); 
+            
+            $client_type = ($accountability_Type == 2) ? 'fixed_client' : 'variable_client';
+            $get_rfd_vehicle_data = [];
+            $get_rfd_vehicle_count = 0;
+            
+            if ($accountability_Type == 2) {
+                $get_rfd_vehicle_data = \App\Helpers\CustomHandler::Get_Customer_rfd_count($customerId, $user, $guard, $accountability_Type);
+                $get_rfd_vehicle_count = $get_rfd_vehicle_data['total_count'] ?? 0;
+            }
+        ?>
+        
+        <input type="hidden" id="get_rfd_data" value='@json($get_rfd_vehicle_data)'>
+        <input type="hidden" id="get_rfd_count" value="{{ $get_rfd_vehicle_count }}">
+        <input type="hidden" id="client_type" value="{{ $client_type }}">
+        <input type="hidden" id="Accountability_type_Default" value="{{ $accountability_Type }}">
+
+
        <div class="modal fade" id="vehicleRequestModal" tabindex="-1" aria-labelledby="vehicleRequestModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content rounded-3 border-0 shadow-sm">
@@ -165,54 +191,78 @@
     
           <!-- Body -->
           <div class="modal-body p-4">
+              <div class="row">
+                  <div class="col-12">
+                    <div id="fixed_customer_rfd_count"></div>
+                  </div>
+                </div>
+
             <form id="vehicleRequestForm">
               <input type="hidden" name="rider_id" id="modalRiderId">
     
              <div class="row g-3 mb-3">
-                    <label class="form-label">Assigned Zone <span style="color:red;">*</span></label>
-                      @if($login_type == 'master')
-                        <select class="form-select custom-select2-field" id="assign_zone" name="assign_zone">
-                            <option value="">Select Zone</option>
-                            @if(isset($zones))
-                                @foreach($zones as $val)
+               
+                <div class="col-md-6">
+                      <div class="mb-3">
+                        <label class="form-label">Accountability Type <span style="color:red;">*</span></label>
+                        
+                        <select class="form-select custom-select2-field" id="Accountability_type" name="account_ability_type" onchange="AccountabilityTypeValidation(this.value)">
+                           @if(isset($ac_types))
+                                @foreach($ac_types as $val)
                                     <option value="{{ $val->id }}">{{ $val->name }}</option>
                                 @endforeach
                             @endif
                         </select>
-                    
-                    @elseif($zone_id && $login_type == 'zone')
-                        <input type="hidden" id="assign_zone_hidden" name="assign_zone" value="{{ $zone_id }}">
-                        <select class="form-select custom-select2-field" id="assign_zone_disabled" disabled>
-                            <option value="">Select Zone</option>
-                            @if(isset($zones))
-                                @foreach($zones as $val)
-                                    <option value="{{ $val->id }}" {{ $val->id == $zone_id ? 'selected' : '' }}>
-                                        {{ $val->name }}
-                                    </option>
-                                @endforeach
-                            @endif
-                        </select>
-                    
-                    @else
-                        <select class="form-select custom-select2-field" id="assign_zone" name="assign_zone">
-                            <option value="">Select Zone</option>
-                        </select>
-                    @endif
-
-            
-                <div class="col-md-6">
-                  <div class="mb-3">
-                    <label for="start_date" class="form-label">Vehicle Duration Start Date <span style="color:red;">*</span></label>
-                    <input type="date" class="form-control" name="start_date" id="start_date" min="{{ date('Y-m-d') }}">
-                  </div>
+                      </div>
                 </div>
+                 
+                 <div class="col-md-6">
+                       <label class="form-label">Assigned Zone <span style="color:red;">*</span></label>
+                          @if($login_type == 'master')
+                            <select class="form-select custom-select2-field" id="assign_zone" name="assign_zone" onchange="ZoneSelectionValidation(this.value)">
+                                <option value="">Select Zone</option>
+                                @if(isset($zones))
+                                    @foreach($zones as $val)
+                                        <option value="{{ $val->id }}" data-get_zone_name="{{ $val->name }}">{{ $val->name }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        
+                        @elseif($zone_id && $login_type == 'zone')
+                            <input type="hidden" id="assign_zone_hidden" name="assign_zone" value="{{ $zone_id }}">
+                            <select class="form-select custom-select2-field" id="assign_zone_disabled" disabled>
+                                <option value="">Select Zone</option>
+                                @if(isset($zones))
+                                    @foreach($zones as $val)
+                                        <option value="{{ $val->id }}" {{ $val->id == $zone_id ? 'selected' : '' }}>
+                                            {{ $val->name }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        
+                        @else
+                            <select class="form-select custom-select2-field" id="assign_zone" name="assign_zone">
+                                <option value="">Select Zone</option>
+                            </select>
+                        @endif
+                 </div>
+                  
+                 
             
-                <div class="col-md-6">
-                  <div class="mb-3">
-                    <label for="end_date" class="form-label">Vehicle Duration End Date <span style="color:red;">*</span></label>
-                    <input type="date" class="form-control" name="end_date" id="end_date" min="{{ date('Y-m-d') }}">
-                  </div>
-                </div>
+                <!--<div class="col-md-6">-->
+                <!--  <div class="mb-3">-->
+                <!--    <label for="start_date" class="form-label">Vehicle Duration Start Date <span style="color:red;">*</span></label>-->
+                <!--    <input type="date" class="form-control" name="start_date" id="start_date" min="{{ date('Y-m-d') }}">-->
+                <!--  </div>-->
+                <!--</div>-->
+            
+                <!--<div class="col-md-6">-->
+                <!--  <div class="mb-3">-->
+                <!--    <label for="end_date" class="form-label">Vehicle Duration End Date <span style="color:red;">*</span></label>-->
+                <!--    <input type="date" class="form-control" name="end_date" id="end_date" min="{{ date('Y-m-d') }}">-->
+                <!--  </div>-->
+                <!--</div>-->
               </div>
     
             <div class="row g-3 mb-3">
@@ -263,7 +313,7 @@
     
           <!-- Footer -->
           <div class="modal-footer border-0 p-4">
-            <button type="button" class="btn btn-primary btn-lg w-100 submit-button">Confirm Request</button>
+            <button type="button" class="btn btn-primary btn-lg w-100 submit-button" id="ConfirmRequestBtn">Confirm Request</button>
           </div>
         </div>
       </div>
@@ -595,6 +645,9 @@
 
 
 <script>
+
+
+
       document.addEventListener('DOMContentLoaded', function () {
         const modal = document.getElementById('export_select_fields_modal');
         const selectAll = modal.querySelector('#field1'); // select-all checkbox inside modal
@@ -810,25 +863,181 @@ function clearRiderFilter() {
 
 document.addEventListener('DOMContentLoaded', function () {
     var vehicleModal = document.getElementById('vehicleRequestModal');
+    var clientType = $("#client_type").val();
+    var rfdData = $("#get_rfd_data").val() ? JSON.parse($("#get_rfd_data").val()) : {};
+    var rfdCount = rfdData.total_count || 0;
+    
+    
+    if (clientType === 'fixed_client') {
+        var alertClass = (rfdCount > 0) ? 'alert-success' : 'alert-danger';
+        var html = `
+            <div class="alert ${alertClass}" style="
+                font-weight: 600;
+                padding: 12px 16px;
+                border-radius: 8px;
+                text-align: start;
+                font-size: 16px;
+            ">
+                <p style="font-weight:600; margin:0;">
+                    Your RFD Vehicles Stock Count: 
+                    <span style="font-weight:700; font-size:17px;">${rfdCount}</span>
+                </p>
+        `;
+        
+        if (rfdData.zone_data && rfdData.zone_data.length > 0) {
+            html += `
+                <ul style="margin-top:8px; padding-left:20px; list-style-type:disc;">
+            `;
+            rfdData.zone_data.forEach(zone => {
+                html += `
+                    <li style="margin-bottom:3px;">
+                        <small style="font-weight:600; font-size:13px;">${zone.zone_name}:</small> 
+                        <span style="font-weight:600;">${zone.total_count}</span>
+                    </li>
+                `;
+            });
+            html += `</ul>`;
+        }
+        
+        html += `</div>`;
+
+    
+        $("#fixed_customer_rfd_count").html(html).show();
+    
+        var ac_default_val = (rfdCount > 0) ? 2 : 1;
+    } else {
+        $("#fixed_customer_rfd_count").hide();
+        var ac_default_val = 1;
+    }
+
+    
     vehicleModal.addEventListener('show.bs.modal', function (event) {
-        var button = event.relatedTarget; // Button/link that triggered modal
-        var riderId = button.getAttribute('data-id'); // Get ID from data-id
+        var button = event.relatedTarget; 
+        var riderId = button.getAttribute('data-id'); 
         var zoneId = button.getAttribute('data-get_zone_id');
         var zoneName = button.getAttribute('data-get_zone_name'); //Updated by Gowtham.s
 
-        document.getElementById('modalRiderId').value = riderId; // Set into hidden input
+        document.getElementById('modalRiderId').value = riderId; 
+        
+        var confirmBtn = $("#ConfirmRequestBtn");
+        confirmBtn.prop('disabled', false);
 
-        // Only initialize if select exists and not disabled
         var ZoneDropdown = $("#assign_zone");
         if (ZoneDropdown.length) {
             ZoneDropdown.select2({
                 dropdownParent: $('#vehicleRequestModal'),
-                width: '100%' // make it fit Bootstrap form
+                width: '100%' 
             });
-            ZoneDropdown.val(zoneId).trigger('change');
+
+            var oldZoneChange = ZoneDropdown[0].onchange;
+            ZoneDropdown[0].onchange = null;
+
+            ZoneDropdown.val(zoneId).trigger('change.select2');
+            
+            setTimeout(() => {
+                ZoneDropdown[0].onchange = oldZoneChange;
+            }, 0);
         }
+
+        var Ac_type = $("#Accountability_type");
+        if (Ac_type.length) {
+            Ac_type.select2({
+                dropdownParent: $('#vehicleRequestModal'),
+                width: '100%'
+            });
+
+            var oldOnchange = Ac_type[0].onchange;
+            Ac_type[0].onchange = null;
+        
+            Ac_type.val(ac_default_val).trigger('change.select2');
+
+            setTimeout(() => {
+                Ac_type[0].onchange = oldOnchange;
+            }, 0);
+        }
+
     });
 });
+
+function AccountabilityTypeValidation(value){
+    console.log('callback function called');
+    console.log(value);
+    var clientType = $("#client_type").val();
+    var rfdData = $("#get_rfd_data").val() ? JSON.parse($("#get_rfd_data").val()) : {};
+    var rfdCount = rfdData.total_count || 0;
+    var confirmBtn = $("#ConfirmRequestBtn");
+
+    confirmBtn.prop('disabled', false);
+
+    if (clientType === 'fixed_client') {
+        if(value == 2 && rfdCount == 0){
+            Swal.fire({
+                icon: 'info',
+                title: 'Invalid Selection!',
+                text: `Your RFD vehicle count is ${rfdCount}. You cannot select Fixed Accountability Type.`,
+                confirmButtonText: 'OK'
+            }); 
+            confirmBtn.prop('disabled', true); // disable button
+        }
+        else if(value == 1 && rfdCount > 0){
+            Swal.fire({
+                icon: 'info',
+                title: 'Invalid Selection!',
+                text: `Your RFD vehicle count is ${rfdCount}. You cannot select Variable Accountability Type.`,
+                confirmButtonText: 'OK'
+            }); 
+            confirmBtn.prop('disabled', true); // disable button
+        }
+    }
+
+}
+
+
+function ZoneSelectionValidation(value){ 
+    var clientType = $("#client_type").val();
+    var rfdData = $("#get_rfd_data").val() ? JSON.parse($("#get_rfd_data").val()) : {};
+    var confirmBtn = $("#ConfirmRequestBtn");
+    var AcType = $("#Accountability_type").val();
+    
+    confirmBtn.prop('disabled', false);
+
+    if(value == ""){
+        Swal.fire({
+            icon: 'info',
+            title: 'Warning!',
+            text: `Please select an zone`,
+            confirmButtonText: 'OK'
+        }); 
+        confirmBtn.prop('disabled', true); // disable button
+        return;
+    }
+
+
+    if (clientType === 'fixed_client' && AcType == 2) {
+        let selectedZoneCount = 0;
+        let selectedZoneName = $("#assign_zone option:selected").data('get_zone_name') || '';
+
+        if (rfdData.zone_data && rfdData.zone_data.length > 0) {
+            // Find the selected zone in the array
+            let zoneFound = rfdData.zone_data.find(z => z.zone_id == value);
+            if(zoneFound) {
+                selectedZoneCount = zoneFound.total_count;
+            }
+        }
+
+        if(selectedZoneCount == 0){
+            Swal.fire({
+                icon: 'info',
+                title: 'Warning!',
+                text: `Your selected zone "${selectedZoneName}" RFD vehicle count is ${selectedZoneCount}. You cannot select this zone.`,
+                confirmButtonText: 'OK'
+            }); 
+            confirmBtn.prop('disabled', true); // disable button
+        }
+    }
+}
+
+
 
 
 $(document).ready(function () {
@@ -850,42 +1059,44 @@ $(document).ready(function () {
         var formData = {
             rider_id: $('#modalRiderId').val(),
             assign_zone: $('[name="assign_zone"]').val(),
-            start_date: $('#start_date').val(),
-            end_date: $('#end_date').val(),
+            // start_date: $('#start_date').val(),
+            // end_date: $('#end_date').val(),
+            // account_ability_type: $('#Accountability_type_Default').val(),
+            account_ability_type: $('#Accountability_type').val(),
             battery_type: $('select[name="battery_type"]').val(),
             vehicle_type: $('select[name="vehicle_type"]').val(),
             terms_agreed: $('#termsCheck').is(':checked') ? 1 : 0,
             _token: '{{ csrf_token() }}'
         };
-
+        
         // === Validation ===
-        if (!formData.start_date) {
-            Toast.fire({ icon: 'warning', title: 'Start date is required.' });
-             $btn.prop('disabled', false).text('Confirm Request');
-            return;
-        }
+        // if (!formData.start_date) {
+        //     Toast.fire({ icon: 'warning', title: 'Start date is required.' });
+        //      $btn.prop('disabled', false).text('Confirm Request');
+        //     return;
+        // }
 
-        let today = new Date();
-        today.setHours(0, 0, 0, 0);
-        let startDate = new Date(formData.start_date);
-        if (startDate < today) {
-            Toast.fire({ icon: 'warning', title: 'Start date must be today or a future date.' });
-             $btn.prop('disabled', false).text('Confirm Request');
-            return;
-        }
+        // let today = new Date();
+        // today.setHours(0, 0, 0, 0);
+        // let startDate = new Date(formData.start_date);
+        // if (startDate < today) {
+        //     Toast.fire({ icon: 'warning', title: 'Start date must be today or a future date.' });
+        //      $btn.prop('disabled', false).text('Confirm Request');
+        //     return;
+        // }
 
-        if (!formData.end_date) {
-            Toast.fire({ icon: 'warning', title: 'End date is required.' });
-             $btn.prop('disabled', false).text('Confirm Request');
-            return;
-        }
+        // if (!formData.end_date) {
+        //     Toast.fire({ icon: 'warning', title: 'End date is required.' });
+        //      $btn.prop('disabled', false).text('Confirm Request');
+        //     return;
+        // }
 
-        let endDate = new Date(formData.end_date);
-        if (endDate < startDate) {
-            Toast.fire({ icon: 'warning', title: 'End date must be the same as or after Start date.' });
-             $btn.prop('disabled', false).text('Confirm Request');
-            return;
-        }
+        // let endDate = new Date(formData.end_date);
+        // if (endDate < startDate) {
+        //     Toast.fire({ icon: 'warning', title: 'End date must be the same as or after Start date.' });
+        //      $btn.prop('disabled', false).text('Confirm Request');
+        //     return;
+        // }
 
         if (!formData.vehicle_type) {
             Toast.fire({ icon: 'warning', title: 'Vehicle type is required.' });
@@ -959,7 +1170,19 @@ $(document).ready(function () {
                         icon: 'warning',
                         title: messages
                     });
-                } else {
+                } 
+                else if (xhr.status === 400) {
+                    // Handle custom terms-condition warning
+                    var data = xhr.responseJSON;
+                    var msg = xhr.responseJSON.message;
+                    Swal.fire({
+                        icon: 'info',
+                        title: data.title || 'Warning',
+                        html: msg, // HTML allowed here
+                        confirmButtonText: 'OK'
+                    });
+                }
+                else {
                     Toast.fire({
                         icon: 'error',
                         title: 'Something went wrong. Please try again.'

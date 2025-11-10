@@ -162,6 +162,8 @@ class RoleTableSeeder extends Seeder
                 'color_master',
                 'state',
                 'customer_type_master',
+                'recovery_reason',
+                'recovery_updates_master',
             ],
             'Zones' => [
                 'zone',
@@ -217,10 +219,15 @@ class RoleTableSeeder extends Seeder
                 'b2b',
                 'b2b_dashboard',
                 'b2b_add_rider',
+                'b2b_rider_list',
                 'b2b_vehicle_request_list',
                 'b2b_vehicle_list',
                 'b2b_live_tracking',
                 'b2b_reports',
+                'b2b_service_list',
+                'b2b_return_list',
+                'b2b_recovery_list',
+                'b2b_accident_list',
             ],
             'B2B Admin' => [
                 'b2b_admin_dashboard',
@@ -236,6 +243,14 @@ class RoleTableSeeder extends Seeder
                 'b2b_admin_report_list',
                 'b2b_admin_zone_list',
             ],
+            'Recovery Manager' => [
+                'recovery_dashboard',
+                'recovery_agent_list',
+                'recovery_request_list'
+            ],
+            'Ticket Management' => [
+                'ticket_management_dashboard',
+            ],
         ];
         
         $roles = [
@@ -245,7 +260,7 @@ class RoleTableSeeder extends Seeder
         // when you add new permissions in table ,you should change firstOrCreate instead of create
         
         // Ensure the 'Administrator' role exists
-        $administrator = Role::firstOrCreate(['name' => 'Administrator']);
+        $administrator = Role::firstOrCreate(['name' => 'Super Admin']);
 
         // Create permissions and assign to Administrator role
         foreach ($permissions as $group => $groupPermissions) {
@@ -261,34 +276,34 @@ class RoleTableSeeder extends Seeder
 
 
         // Seed users
-        $users = [
-            [
-                'name' => 'Admin',
-                'email' => 'admin@gmail.com',
-                'password' => 'admin', 
-                'role' => 'Administrator',
-            ],
-            [
-                'name' => 'User',
-                'email' => 'user@gmail.com',
-                'password' => 'user', 
-                'role' => 'User',
-            ],
-        ];
+        // $users = [
+        //     [
+        //         'name' => 'Admin',
+        //         'email' => 'admin@gmail.com',
+        //         'password' => 'admin', 
+        //         'role' => 'Administrator',
+        //     ],
+        //     [
+        //         'name' => 'User',
+        //         'email' => 'user@gmail.com',
+        //         'password' => 'user', 
+        //         'role' => 'User',
+        //     ],
+        // ];
 
-        foreach ($users as $userData) {
-            $user = User::firstOrCreate(
-                ['email' => $userData['email']], 
-                [
-                    'name' => $userData['name'],
-                    'password' => Hash::make($userData['password']),
-                    'email_verified_at' => now(),
-                    'status' => 'Active',
-                ]
-            );
+        // foreach ($users as $userData) {
+        //     $user = User::firstOrCreate(
+        //         ['email' => $userData['email']], 
+        //         [
+        //             'name' => $userData['name'],
+        //             'password' => Hash::make($userData['password']),
+        //             'email_verified_at' => now(),
+        //             'status' => 'Active',
+        //         ]
+        //     );
 
-            // Assign role to the user
-            $user->assignRole($userData['role']);
-        }
+        //     // Assign role to the user
+        //     $user->assignRole($userData['role']);
+        // }
     }
 }

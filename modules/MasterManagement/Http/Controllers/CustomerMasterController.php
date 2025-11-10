@@ -18,6 +18,8 @@ use Modules\MasterManagement\Entities\CustomerLogin; //updated by Mugesh.B
 use Modules\City\Entities\City;
 use Illuminate\Support\Facades\Hash;//updated by Mugesh.B
 use Modules\MasterManagement\Entities\HypothecationMaster;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; //updateed by Mugesh.B
+use Modules\MasterManagement\Entities\CustomerTypeMaster; //updateed by Mugesh.B
 use Modules\MasterManagement\Entities\CustomerMaster;
 use Modules\MasterManagement\Entities\CustomerPOCDetail;
 use Modules\MasterManagement\Entities\CustomerOperationalHub;
@@ -31,7 +33,7 @@ class CustomerMasterController extends Controller
     
     public function index(Request $request)
     {
-        $query = CustomerMaster::query();
+        $query = CustomerMaster::with('cities');
     
         $status = $request->status ?? 'all';
         $timeline   = $request->timeline ?? '';
@@ -96,8 +98,10 @@ class CustomerMasterController extends Controller
         $constutition_types = BusinessConstitutionType::where('status',1)->get();
         $states = EVState::where('status',1)->get();
         $cities = City::where('status',1)->get();
+        $types = EvTblAccountabilityType::where('status',1)->get();
+        $customer_types = CustomerTypeMaster::where('status',1)->get();
         
-        return view('mastermanagement::customer_master.create',compact('constutition_types','cities','states'));
+        return view('mastermanagement::customer_master.create',compact('constutition_types','cities','states' , 'types' , 'customer_types'));
     }
 
     public function store(Request $request)
@@ -113,7 +117,10 @@ class CustomerMasterController extends Controller
             'customer_type' => 'required|in:1,2',
             'business_type' => 'required|in:1,2',
             'name' => 'required|string|unique:ev_tbl_customer_master,name',
-            'email' => 'required|email|unique:ev_tbl_customer_master,email',
+            // 'email' => 'required|email|unique:ev_tbl_customer_master,email',
+            'email' => 'required|email',
+            'accountability_type' => 'required',
+            'client_type' => 'required',
             'pincode' => 'required',
             'trade_name' => 'required',
             'contact_no' => [
@@ -127,7 +134,7 @@ class CustomerMasterController extends Controller
             'gst_no' => [
                 'required',
                 'string',
-                'unique:ev_tbl_customer_master,gst_no',
+                // 'unique:ev_tbl_customer_master,gst_no',
                 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/'
             ],
         
@@ -262,6 +269,13 @@ class CustomerMasterController extends Controller
             $customer->state_id = $request->state;
              $customer->pincode = $request->pincode;
             $customer->trade_name = $request->trade_name;
+            
+            $customer->accountability_type_id = $request->accountability_type;
+            $customer->start_date = $request->start_date;
+            $customer->end_date = $request->end_date;
+            $customer->client_type = $request->client_type ?? '';
+            
+            
             $customer->save();
     
             // POC details
@@ -292,7 +306,7 @@ class CustomerMasterController extends Controller
             $customer['customer_id'] = $cCode;
             
             
-            $this->CustomerSentEmail($customer,'customer_create_notify'); //sent email
+            // $this->CustomerSentEmail($customer,'customer_create_notify'); //sent email
     
             return response()->json([
                 'success' => true,
@@ -537,8 +551,10 @@ class CustomerMasterController extends Controller
         $constutition_types = BusinessConstitutionType::where('status',1)->get();
         $states = EVState::where('status',1)->get();
         $cities = City::where('status',1)->get();
+                $types = EvTblAccountabilityType::where('status',1)->get();
+        $customer_types = CustomerTypeMaster::where('status',1)->get();
         
-        return view('mastermanagement::customer_master.edit',compact('customer_data','constutition_types','cities','states'));
+        return view('mastermanagement::customer_master.edit',compact('customer_data','constutition_types','cities','states'  ,'types' , 'customer_types'));
     }
     
     public function update(Request $request,$id)
@@ -556,7 +572,8 @@ class CustomerMasterController extends Controller
     $rules = [
         'customer_type' => 'required|in:1,2',
         'business_type' => 'required|in:1,2',
-        'email' => 'required|email|unique:ev_tbl_customer_master,email,' . $id,
+        // 'email' => 'required|email|unique:ev_tbl_customer_master,email,' . $id,
+        'email' => 'required|email',
         'pincode' => 'required',
         'trade_name' => 'required',
         'contact_no' => [
@@ -570,11 +587,13 @@ class CustomerMasterController extends Controller
             'required',
             'string',
             'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/',
-            'unique:ev_tbl_customer_master,gst_no,' . $id,
+            // 'unique:ev_tbl_customer_master,gst_no,' . $id,
         ],
         'city' => 'required',
         'state' => 'required',
         'address' => 'required|string',
+        'accountability_type' => 'required',
+        'client_type' => 'required',
     
         // 'adhaar_front_img' => 'nullable|mimes:png,jpg,jpeg,pdf|max:2048',
         // 'adhaar_back_img' => 'nullable|mimes:png,jpg,jpeg,pdf|max:2048',
@@ -676,6 +695,7 @@ class CustomerMasterController extends Controller
             
             
             if ($request->hasFile('company_logo_img')) {
+               
                 $old_file = $update_customer_data->company_logo;
                 $update_customer_data->company_logo = CustomHandler::uploadFileImage(
                     $request->file('company_logo_img'),
@@ -734,6 +754,11 @@ class CustomerMasterController extends Controller
             $update_customer_data->state_id = $request->state;
             $update_customer_data->pincode = $request->pincode;
             $update_customer_data->trade_name = $request->trade_name;
+                        $update_customer_data->accountability_type_id = $request->accountability_type;
+            $update_customer_data->start_date = $request->start_date;
+            $update_customer_data->end_date = $request->end_date;
+            $update_customer_data->client_type = $request->client_type ?? '';
+            
             $update_customer_data->save();
     
             // POC details
@@ -816,7 +841,7 @@ class CustomerMasterController extends Controller
     {
         $decode_id = decrypt($id);
         $customerData = CustomerMaster::where('id',$decode_id)->first(); //updated by Gowtham.s
-        $cities = City::where('status',1)->get();
+        $cities = City::where('id',$customerData->city_id)->where('status',1)->get();
         
         return view('mastermanagement::customer_master.login_credential',compact('decode_id' ,'cities','customerData'));
         

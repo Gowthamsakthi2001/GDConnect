@@ -156,6 +156,14 @@
                         </div>
                         
                         
+                        <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="make">Make</label>
+                                    <input type="text" class="form-control bg-white" name="make" id="make" value="{{$data->vehicle->vehicle_model_relation->make ?? ''}}" placeholder="Make" readonly>
+                                </div>
+                        </div>
+                        
+                        
                       <div class="col-md-6 mb-3">
                                 <div class="form-group">
                                     <label class="input-label mb-2 ms-1" for="model">Model</label>
@@ -200,11 +208,57 @@
                                                 src="{{ $isRCPDF ? $RCFilePath : '' }}"
                                                 class="preview-pdf {{ !$isRCPDF ? 'd-none' : '' }}"
                                                 frameborder="0"></iframe>
+                                                
+                                                
+                                      @if($isRCPDF)
+                                            <!-- Only for PDF -->
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $RCFilePath }}')">
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
 
                             </div>
                             
+                            
+                            
+                            <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="insurance_type">Insurance Type</label>
+                                    <input type="text" class="form-control bg-white" name="insurance_type" id="insurance_type"  placeholder="Insurance Type" value="{{$data->vehicle->insurer_type_relation->name ?? ''}}" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="insurer_name">Insurer Name</label>
+                                    <input type="text" class="form-control bg-white" name="insurer_name" id="insurer_name"  placeholder="Insurer Name" value="{{$data->vehicle->insurer_name_relation->name ?? ''}}" readonly>
+                                </div>
+                            </div>
+                            
+                            
+                             <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="insurance_number">Insurance Number</label>
+                                    <input type="text" class="form-control bg-white" name="insurance_number" id="insurance_number"  placeholder="Insurance Number" value="{{$data->vehicle->insurance_number ?? ''}}" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="insurance_start_date">Insurance Start Date</label>
+                                    <input type="date" class="form-control bg-white" name="insurance_start_date" id="insurance_start_date"  value="{{$data->vehicle->insurance_start_date ?? ''}}" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <div class="form-group">
+                                    <label class="input-label mb-2 ms-1" for="insurance_end_date">Insurance Expiry Date</label>
+                                    <input type="date" class="form-control bg-white" name="insurance_end_date" id="insurance_end_date"  value="{{$data->vehicle->insurance_expiry_date ?? ''}}" readonly>
+                                </div>
+                            </div>
                             
                         <?php
                         
@@ -235,6 +289,14 @@
                                                 src="{{ $isInsurancePDF ? $insuranceFilePath : '' }}"
                                                 class="preview-pdf {{ !$isInsurancePDF ? 'd-none' : '' }}"
                                                 frameborder="0"></iframe>
+                                                
+                                      @if($isInsurancePDF)
+                                            <!-- Only for PDF -->
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $insuranceFilePath }}')">
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
 
@@ -267,6 +329,14 @@
                                             src="{{ $isHsrpPDF ? $hsrpFilePath : '' }}"
                                             class="preview-pdf {{ !$isHsrpPDF ? 'd-none' : '' }}"
                                             frameborder="0"></iframe>
+                                            
+                                      @if($isHsrpPDF)
+                                            <!-- Only for PDF -->
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $hsrpFilePath }}')">
+                                            </div>
+                                        @endif
                                 </div>
                             </div>
 
@@ -301,6 +371,15 @@
                                                 src="{{ $isFcPDF ? $fcFilePath : '' }}"
                                                 class="preview-pdf {{ !$isFcPDF ? 'd-none' : '' }}"
                                                 frameborder="0"></iframe>
+                                                
+                                                
+                                      @if($isFcPDF)
+                                            <!-- Only for PDF -->
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $fcFilePath }}')">
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -309,7 +388,7 @@
                         <div class="col-md-6 mb-3">
                                 <div class="form-group">
                                     <label class="input-label mb-2 ms-1" for="client_name">Client Name</label>
-                                    <input type="text" class="form-control bg-white" name="client_name" id="client_name"  placeholder="Client Name" readonly>
+                                    <input type="text" class="form-control bg-white" name="client_name" id="client_name" value="{{$data->vehicle->quality_check->customer_relation->trade_name ?? ''}}"  placeholder="Client Name" readonly>
                                 </div>
                         </div>
                         
@@ -345,38 +424,8 @@
             </div>
             </div>
             
-                <!-- Image View Modal -->
+    @include('b2b::action_popup_modal') 
                
-                <!--  Image View Modal -->
-                    <div class="modal fade" id="attachment_view_modal" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-lg modal-dialog-centered">
-                            <div class="modal-content rounded-4" style="overflow:hidden;"> <!-- overflow hidden added -->
-                                <div class="modal-header border-0 d-flex justify-content-end gap-1">
-                                    <button class="btn btn-sm btn-dark" onclick="zoomIn()">
-                                        <i class="bi bi-zoom-in"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-dark" onclick="zoomOut()">
-                                        <i class="bi bi-zoom-out"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-dark" onclick="rotateImage()">
-                                        <i class="bi bi-arrow-repeat"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-dark" onclick="downloadImage()">
-                                        <i class="bi bi-download"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-dark" data-bs-dismiss="modal">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
-                                <div class="modal-body d-flex justify-content-center align-items-center" 
-                                     style="overflow:auto; max-height:80vh; background:#f9f9f9;">
-                                    <img src="" id="modal_preview_image" 
-                                         style="max-width:100%; max-height:75vh; transition:transform 0.3s ease;">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
 
 
 
@@ -390,63 +439,67 @@
 @section('js')
 
     <script>
-    let scale = 1;
-    let rotation = 0;
-    let currentImageUrl = ''; 
-    
-    function OpenImageModal(img_url) {
-        scale = 1;
-        rotation = 0;
-        currentImageUrl = img_url;; 
+let scale = 1;
+let rotation = 0;
+let currentFileUrl = '';
+let currentType = ''; 
+
+function OpenImageModal(fileUrl) {
+    currentFileUrl = fileUrl;
+    const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+
+    scale = 1;
+    rotation = 0;
+    updateImageTransform();
+
+    if (isPDF) {
+        $("#kyc_image").hide();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").hide(); // Hide image tools for PDF
+        $("#kyc_pdf").attr("src", fileUrl).show();
+        currentType = 'pdf';
+    } else {
+        $("#kyc_pdf").hide();
+        $("#kyc_image").attr("src", fileUrl).show();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").show();
+        currentType = 'image';
+    }
+
+    $("#downloadBtn").off("click").on("click", function () {
+        const link = document.createElement("a");
+        link.href = currentFileUrl;
+        link.download = currentFileUrl.split('/').pop();
+        link.click();
+    });
+
+    $("#BKYC_Verify_view_modal").modal("show");
+}
+
+function zoomIn() {
+    if (currentType !== 'image') return;
+    scale += 0.1;
+    updateImageTransform();
+}
+
+function zoomOut() {
+    if (currentType !== 'image') return;
+    if (scale > 0.2) {
+        scale -= 0.1;
         updateImageTransform();
-        document.getElementById("modal_preview_image").src = img_url;
-        $("#attachment_view_modal").modal('show');
     }
-    
-    function zoomIn() {
-        scale += 0.1;
-        updateImageTransform();
-    }
-    
-    function zoomOut() {
-        if (scale > 0.2) {
-            scale -= 0.1;
-            updateImageTransform();
-        }
-    }
-    
-    function rotateImage() {
-        rotation = (rotation + 90) % 360;
-        updateImageTransform();
-    }
-    
-    function updateImageTransform() {
-        const img = document.getElementById("modal_preview_image");
+}
+
+function rotateImage() {
+    if (currentType !== 'image') return;
+    rotation = (rotation + 90) % 360;
+    updateImageTransform();
+}
+
+function updateImageTransform() {
+    const img = document.getElementById("kyc_image");
+    if (img) {
         img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
     }
-    
-    async function downloadImage() {
-        console.log('started');
-    if (!currentImageUrl) return;
-
-        try {
-            const response = await fetch(currentImageUrl, { mode: 'no-cors' });
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-    
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = currentImageUrl.split('/').pop() || 'image.jpg';
-            document.body.appendChild(link);
-            link.click();
-    
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
-        } catch (error) {
-            console.error('Error downloading image:', error);
-            alert('Unable to download image. Please try opening it in a new tab and saving manually.');
-        }
-    }
+}
     </script>
 
 

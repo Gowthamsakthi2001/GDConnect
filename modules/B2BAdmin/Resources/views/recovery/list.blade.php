@@ -1,6 +1,72 @@
 <x-app-layout>
 @section('style_css')
 <style>
+.timeline-wrapper {
+            position: relative;
+            margin-left: 40px;
+            padding-left: 30px;
+        }
+        .timeline-wrapper::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 10px;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, #4cafef, #28a745, #ff9800, #f44336);
+            border-radius: 2px;
+            animation: growLine 1.5s ease-in-out forwards;
+        }
+        
+        .timeline-icon {
+            position: absolute;
+            left: -40px;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            color: #fff;
+            animation: bounceIn 1s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .timeline-content {
+            background: #fff;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .timeline-content:hover {
+            transform: translateX(10px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+            border-left: 4px solid #28a745;
+        }
+        
+        /* Progressive colors */
+        .step-0 { background: #4cafef; }
+        .step-1 { background: #28a745; }
+        .step-2 { background: #ff9800; }
+        .step-3 { background: #f44336; }
+        @keyframes growLine {
+            from { height: 0; }
+            to { height: 100%; }
+        }
+        
+        .timeline-step {
+            position: relative;
+            margin-bottom: 40px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeUp 0.8s forwards;
+        }
+        @keyframes fadeUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        
     .form-check-input:checked {
         background-color: #0f62fe !important;
         border-color: #0f62fe !important;
@@ -144,6 +210,7 @@
                                   </div>
                                 </th>
                                 <th class="custom-dark">Request Id</th>
+                                <th class="custom-dark">Accountablity Type</th>
                                 <th class="custom-dark">Vehicle No</th>
                                 <th class="custom-dark">Chassis No</th>
                                 <th class="custom-dark">Rider Name</th>
@@ -151,9 +218,11 @@
                                 <th class="custom-dark">Client</th>
                                 <th class="custom-dark">City</th>
                                 <th class="custom-dark">Zone</th>
+                                <th class="custom-dark">Created By</th>
                                 <th class="custom-dark">Created Date and Time</th>
-                                <th class="custom-dark">Updated Date and Time</th>
+                                <th class="custom-dark">Closed Date and Time</th>
                                 <th class="custom-dark">Aging</th>
+                                <th class="custom-dark">Agent Status</th>
                                 <th class="custom-dark">Status</th>
                                 <th class="custom-dark">Action</th>
                               </tr>
@@ -204,6 +273,16 @@
                       </div>
                     </div>
                     
+                    <!--updated by logesh-->
+                      <div class="col-md-3 col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <label class="form-check-label mb-0" for="vehicle_id">Accountablity Type</label>
+                          <div class="form-check form-switch m-0">
+                            <input class="form-check-input export-field-checkbox" type="checkbox" name="accountability_type" id="accountability_type">
+                          </div>
+                        </div>
+                      </div>
+                      
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
                         <label class="form-check-label mb-0" for="field4">Vehicle_number</label>
@@ -309,6 +388,24 @@
                       </div>
                     </div>
                     
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">Recovery Images</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="recovery_images" name="recovery_images">
+                        </div>
+                      </div>
+                    </div>
+                    
+                     <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">Recovery Video</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="recovery_video" name="recovery_video">
+                        </div>
+                      </div>
+                    </div>
+                    
                     <!--<div class="col-md-3 col-12 mb-3">-->
                     <!--  <div class="d-flex justify-content-between align-items-center">-->
                     <!--    <label class="form-check-label mb-0" for="field12">Location</label>-->
@@ -336,6 +433,14 @@
                       </div>
                     </div>
                     
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">Agent Status</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="agent_status" name="agent_status">
+                        </div>
+                      </div>
+                    </div>
                     
                     
                         <div class="col-md-3 col-12 mb-3">
@@ -347,6 +452,25 @@
                       </div>
                     </div>
                     
+                    <div class="col-md-3 col-12 mb-3">
+    
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">Closed Date & Time</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="closed_at" name="closed_at">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="aging">Aging</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="aging" name="aging">
+                        </div>
+                      </div>
+                    </div>
     
                 
                   </div>
@@ -365,6 +489,45 @@
           </div>
           <div class="offcanvas-body">
         
+                                 <!--updated by logesh-->
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountability_type_1" class="form-control custom-select2-field">
+                            <option value="">Select Type</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Customer</label>
+                        <select name="customer_master" id="customer_master" class="form-control custom-select2-field">
+                            <option value="">Select Customer</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" >{{$customer->trade_name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
             
             <div class="card mb-3">
                <div class="card-header p-2">
@@ -414,6 +577,7 @@
                         <select name="status_value" id="status_value" class="form-control custom-select2-field">
                             <option value="">Select</option>
                             <option value="opened">Opened</option>
+                            <option value="not_recovered">Not Recovered</option>
                             <option value="closed">Closed</option>
                         </select>
                     </div>
@@ -449,6 +613,24 @@
         </div>
         
 
+<div class="modal fade" id="showLogModal" tabindex="-1" aria-labelledby="showLogModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered custom-modal-height">
+    <div class="modal-content rounded-3 border-0 shadow-sm">
+      
+      <!-- Header -->
+      <div class="modal-header border-0 align-items-center">
+            <h5 class="modal-title me-auto" id="showLogModalLabel">Logs</h5>
+        </div>
+      <!-- Scrollable Body -->
+      <div class="modal-body p-4" id="modalBody" style="max-height: 80vh; overflow-y: auto;scrollbar-width:none; -ms-overflow-style:none;margin-bottom:8px">
+        <div id="logs" style="display:flex; flex-direction:column;">
+          <!-- Comments will be loaded here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 @section('script_js')
 
 <script>
@@ -482,6 +664,8 @@
                 d.status = $('#status_value').val();
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
+                d.accountability_type = $('#accountability_type_1').val(); //updated by logesh
+                d.customer_id = $('#customer_master').val(); //updated by logesh
         },
         beforeSend: function () {
                 $('#recoveryList tbody').html(`
@@ -519,7 +703,10 @@
             { data: 10 }, // Updated Date
             { data: 11 }, // Created By
             { data: 12 }, // Status
-            { data: 13, orderable: false, searchable: false } // Action
+            { data: 13 },
+            { data: 14 },
+            { data: 15 },
+            { data: 16, orderable: false, searchable: false } // Action
             ],
     order:[[1,'desc']],
     lengthMenu:[[25,50,100,-1],[25,50,100,"All"]],
@@ -559,6 +746,9 @@ $('#applyFilterBtn').on('click', function(e){
         $('#ToDate').val('');
         $('#city_id_1').val('').trigger('change');
         $('#zone_id_1').val('').trigger('change');
+        $('#status_value').val('').trigger('change');
+        $('#accountability_type_1').val('').trigger('change'); //updated by logesh
+        $('#customer_master').val('').trigger('change');
         recoveryTable.ajax.reload();
           const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
         if (bsOffcanvas) {
@@ -651,6 +841,9 @@ $('#applyFilterBtn').on('click', function(e){
     
     function RightSideFilerOpen(){
         const bsOffcanvas = new bootstrap.Offcanvas('#offcanvasRightHR01');
+        $('.custom-select2-field').select2({
+              dropdownParent: $('#offcanvasRightHR01') // Fix for offcanvas
+            });
         bsOffcanvas.show();
     }
     
@@ -758,7 +951,10 @@ $('#applyFilterBtn').on('click', function(e){
     const toDate   = document.getElementById('ToDate')?.value || '';
     const city   = document.getElementById('city_id')?.value || '';
     const zone   = document.getElementById('zone_id')?.value || '';
-
+    const status   = document.getElementById('status_value')?.value || '';
+    const customer_id = document.getElementById('customer_master').value;
+    const accountability_type   = document.getElementById('accountability_type_1').value;
+    
     // ✅ Build query params
     const params = new URLSearchParams();
  
@@ -766,6 +962,9 @@ $('#applyFilterBtn').on('click', function(e){
     if (toDate) params.append('to_date', toDate);
     if (zone) params.append('zone_id', zone);
     if (city) params.append('city_id', city);
+    if (status) params.append('status', status);
+    if (customer_id) params.append('customer_id', customer_id);
+    if (accountability_type) params.append('accountability_type', accountability_type);
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
 
@@ -779,6 +978,34 @@ $('#applyFilterBtn').on('click', function(e){
 
 </script>
 
+		
+<script>
+    $(document).on('click', '[data-bs-target="#showLogModal"]', function () {
+    const requestId = $(this).data('id');
+    const agentId = $(this).data('agent_id');
+    
+    $('#logs').html(`
+        <div class="text-center py-4 text-muted">
+            <div class="spinner-border text-primary mb-2" role="status" style="width: 2rem; height: 2rem;"></div>
+            <div>Loading logs...</div>
+        </div>
+    `);
+    
+    // Load existing comments via AJAX
+    $.ajax({
+        url: "{{ url('b2b/admin/recovery-request/get-recovery-logs') }}/" + requestId,
+        method: "GET",
+        success: function(response) {
+            $('#logs').html(response.html);
+            $('#showLogModal').modal('show');
+        },
+        error: function(xhr) {
+            console.error(xhr.responseText);
+            toastr.error('Failed to load logs.');
+        }
+    });
+});
+</script>
 
 
 @endsection

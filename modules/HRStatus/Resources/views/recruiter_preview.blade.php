@@ -9,6 +9,11 @@
                             <ol class="breadcrumb">
                                 <li class="breadcrumb-item"><a href="{{route('admin.Green-Drive-Ev.hr_status.index')}}">Recruiters</a></li>
                                 <li class="breadcrumb-item"><a href="javascript:void(0);">View Documents</a></li>
+                                <?php
+                                //  dd($dm);
+                                 $pan_verify = $dm->pan_verify == 1 ? '2%' : '20%';
+                                ?>
+                                <li class="breadcrumb-item"><a href="javascript:void(0);">PAN: TDS Deduction <span class="badge bg-info">{{$pan_verify}}</span></a></li>
                             </ol>
                         </nav>
                     </div>
@@ -27,10 +32,10 @@
             <?php
              $work_type = $dm->work_type ?? '';
             ?>
-            
+            @if($dm->work_type == "in-house" )
             <div class="card mb-2">
                 <div class="card-body">
-                @if($dm->work_type == "in-house")
+                
                         <div class="row">
                             @if($dm->team_type)
                             <div class="col-md-12 mb-3">
@@ -73,9 +78,10 @@
                                 
                             @endif
                         </div>
-                       @endif
+                      
                 </div>
             </div>
+             @endif
             <div class="card">
                 <div class="card-body">
                     <div class="row">
@@ -529,16 +535,29 @@ $(document).ready(function() {
                         Swal.showLoading();
                     },
                     success: function(response) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Removed!',
-                            text: 'Team removed successfully',
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => {
-                            // Reload the page after the alert closes
-                            location.reload();
-                        });
+                        Swal.close(); // close loading state
+                        console.log(response);
+                        if (response.status === false) {
+                            // Employee not approved → show info alert
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Not Approved',
+                                text: response.message,
+                                timer: 2500,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            // Success → team updated
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Updated!',
+                                text: response.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        }
                     },
                     error: function(xhr) {
                         Swal.fire({

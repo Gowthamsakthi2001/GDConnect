@@ -17,8 +17,9 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
     protected $selectedFields;
     protected $city;
     protected $zone;
+    protected $accountability_type;
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null , $accountability_type = null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -26,6 +27,7 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
         $this->selectedFields = $selectedFields;
         $this->city           = $city;
         $this->zone           = $zone;
+        $this->accountability_type           = $accountability_type;
     }
 
     public function collection()
@@ -45,7 +47,7 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
             'assignment.VehicleRequest',
             'assignment.rider.customerlogin.customer_relation',
             'agent'
-        ])->where('status','closed');
+        ]);
         
         $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
                     // Always filter by created_by if IDs exist
@@ -62,6 +64,11 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
                         }
+                        
+                        if ($this->accountability_type) {
+                            $q->where('account_ability_type', $this->accountability_type);
+                        }
+                    
                     });
                     
         if (!empty($this->selectedIds)) {
@@ -106,6 +113,10 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
                     
                     break;
 
+                case 'accountability_type':
+                    $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
+                    break;
+                    
                 case 'vehicle_no':
                     $mapped[] = $row->assignment->vehicle->permanent_reg_number ?? '-';
                     break;

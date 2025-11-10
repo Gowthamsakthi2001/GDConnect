@@ -558,6 +558,9 @@ $(document).ready(function () {
     
     function RightSideFilerOpen(){
         const bsOffcanvas = new bootstrap.Offcanvas('#offcanvasRightHR01');
+        $('.custom-select2-field').select2({
+            dropdownParent: $('#offcanvasRightHR01') // Fix for offcanvas
+        });
         bsOffcanvas.show();
     }
     
