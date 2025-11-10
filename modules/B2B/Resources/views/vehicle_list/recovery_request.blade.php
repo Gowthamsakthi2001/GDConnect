@@ -41,6 +41,7 @@
 .d-none {
     display: none !important;
 }
+
 </style>
 @endsection
 
@@ -71,29 +72,57 @@
             <div class="card">
                 <div class="card-body">
                     
+                    @if(!empty($reason))
+                        <marquee behavior="scroll" direction="left" scrollamount="6"
+                                 onmouseover="this.stop()" onmouseout="this.start()"
+                                 style="
+                                    background: {{ $create ? '#e6ffed' : '#fff6f6' }};
+                                    color: {{ $create ? '#0f5132' : '#b30000' }};
+                                    padding: 10px;
+                                    border-radius: 8px;
+                                    font-weight: 600;
+                                    height: 60px;
+                                    font-size: 22px;
+                                    display: flex;
+                                    align-items: center;
+                                 ">
+                            @if($create)
+                                <i class="bi bi-check-circle-fill me-2" style="color:#198754;font-size:26px;"></i>
+                            @else
+                                <i class="bi bi-exclamation-triangle-fill me-2" style="color:#dc3545;font-size:26px;"></i>
+                            @endif
+                            {{ $reason }}
+                        </marquee>
+                    @endif
+
                     <form id="recoveryRequestForm" enctype="multipart/form-data">
                         @csrf
-                    <div class="row">
+                    <div class="row mt-3">
                         
                         
-                        <div class="col-md-6 mb-3">
-                            <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="client_business_name">Date and Time of the Request</label>
-                                <input type="datetime-local" class="form-control bg-white" name="datetime" id="datetime" style="padding:12px 20px;" >
-                            </div>
-                        </div>
+                        <!--<div class="col-md-6 mb-3">-->
+                        <!--    <div class="form-group">-->
+                        <!--        <label class="input-label mb-2 ms-1" for="client_business_name">Date and Time of the Request</label>-->
+                        <!--        <input type="datetime-local" class="form-control bg-white" name="datetime" id="datetime" style="padding:12px 20px;" >-->
+                        <!--    </div>-->
+                        <!--</div>-->
                         
+                        <?php
+                          $recovery_reasons = \Modules\MasterManagement\Entities\RecoveryReasonMaster::where('status',1)->get();
+                        ?>
                         
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="reason_for_recovery">Reason For Recovery</label>
                                 <select class="form-select custom-select2-field" name="reason_for_recovery" id="reason_for_recovery">
                                     <option value="">Select</option>
-                                    <option value="1">Breakdown</option>
-                                    <option value="2">Battery Drain</option>
-                                    <option value="3">Accident</option>
-                                    <option value="4">Rider Unavailable</option>
-                                    <option value="5">Other</option>
+                                    @if(isset($recovery_reasons) && count($recovery_reasons) > 0)
+                                        @foreach($recovery_reasons as $val)
+                                        <option value="{{$val->id}}">{{$val->label_name}}</option>
+                                        @endforeach
+                                    @else
+                                       <option value="">No Data</option>
+                                    @endif
                                 </select>
                             </div>
                         </div>
@@ -126,6 +155,8 @@
                          <input type="hidden" class="form-control bg-white" name="id" value="{{ $data['id']}}">
                          <input type="hidden" class="form-control bg-white" name="rider_id" id="rider_id" value="{{ $data['rider']['id']}}">
                          <input type="hidden" class="form-control bg-white" name="rider_mobile_no" value="{{ $data['rider']['mobile_no']}}">
+                         <input type="hidden" class="form-control bg-white" name="zone_id" value="{{ $data['vehicleRequest']['zone_id']}}">
+                         <input type="hidden" class="form-control bg-white" name="city_id" value="{{ $data['vehicleRequest']['city_id']}}">
                         
                         
                         <div class="col-md-6 mb-3">
@@ -219,12 +250,16 @@
                                         
                                                                     
                         <!-- Button -->
-                    <div class="row">
-                        <div class="col-12 d-flex justify-content-end">
-                                <button type="button" class="btn btn-danger btn-back me-2 ">Reset</button>
-                                <button type="submit" class="btn btn-primary btn-submit ">Submit</button> 
-                        </div>
-                    </div>
+                    @if($create) 
+                <div class="row"> 
+                    <div class="col-12 d-flex justify-content-end"> 
+                        <button type="button" class="btn btn-danger btn-back me-2 ">Reset</button> 
+                    
+                        <button type="submit" class="btn btn-primary btn-submit ">Submit</button>
+                   
+                    </div> 
+                </div>
+                 @endif
             </form>        
                     
             </div>
@@ -350,8 +385,17 @@ $(document).ready(function() {
         // Show loading state
         $('.btn-submit').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...');
         
+        var get_recovery_reason = $("#reason_for_recovery"); //updated by Gowtham.S
+        var get_recovery_reason_val = get_recovery_reason.val();
+        var reason_for_recovery_txt = 'N/A';
+        
+        if (get_recovery_reason_val !== "") {
+            reason_for_recovery_txt = get_recovery_reason.find("option:selected").text();
+        }
+        
         // Create FormData object to handle file uploads
         let formData = new FormData(this);
+        formData.append('reason_for_recovery_txt', reason_for_recovery_txt); // Updated by Gowtham.S
         
         // Append all file inputs
         $('.file-input').each(function(index) {

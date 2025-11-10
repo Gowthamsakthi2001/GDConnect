@@ -30,12 +30,14 @@ class B2BAdminDeployedAssetExport implements FromCollection, WithHeadings, WithM
         $this->city           = $city;
         $this->zone           = $zone;
         $this->status         = $status;
+        
     }
 
 public function collection()
 {
     // Base query using VehicleAssignment
-    $query = B2BVehicleAssignment::where('status','!=','returned')->with([
+    // $query = B2BVehicleAssignment::where('status','!=','returned')->with([
+    $query = B2BVehicleAssignment::with([ // updated by Gowtham.S
         'rider',
         'vehicle.vehicle_type_relation',
         'vehicle.vehicle_model_relation',
@@ -43,12 +45,13 @@ public function collection()
         'VehicleRequest.city', 
         'VehicleRequest.zone',// eager load city through request
         'VehicleRequest.rider.customerLogin.customer_relation',
+        'agent_relation',
     ]);
 
     if (!empty($this->selectedIds)) {
         $query->whereIn('id', $this->selectedIds);
     } else {
-        // Filter through VehicleRequest relation
+        
         $query->whereHas('VehicleRequest', function ($q) {
 
             if ($this->city) {
@@ -63,20 +66,28 @@ public function collection()
                 $q->where('status', $this->status);
             }
 
-            if ($this->from_date) {
-                $q->whereDate('created_at', '>=', $this->from_date);
-            }
+            // if ($this->from_date) {
+            //     $q->whereDate('created_at', '>=', $this->from_date);
+            // }
 
-            if ($this->to_date) {
-                $q->whereDate('created_at', '<=', $this->to_date);
-            }
+            // if ($this->to_date) {
+            //     $q->whereDate('created_at', '<=', $this->to_date);
+            // }
 
             // $q->whereNotIn('status', ['return_request', 'returned']);
         });
     }
+    // Filter through VehicleRequest relation
+     if ($this->from_date != "" && $this->to_date != "") {
+        $query->whereDate('created_at', '>=', $this->from_date)
+              ->whereDate('created_at', '<=', $this->to_date);
+    }
     // $data = $query->orderBy('id', 'desc')->get();
- 
-    return $query->orderBy('id', 'desc')->get();
+      $data = $query->orderBy('id', 'desc')
+                      ->get()
+                      ->unique('asset_vehicle_id')
+                      ->values(); // reset array keys
+    return $data;
     
 }
 
@@ -108,11 +119,27 @@ public function collection()
                     break;
                     
                 case 'contract_start_date':
-                    $mapped[] = $row->VehicleRequest->start_date ? Carbon::parse($row->VehicleRequest->start_date)->format('d M Y, h:i A') : '-';
+                    
+                    $contract_start_date = $row->VehicleRequest->rider->customerlogin->customer_relation->start_date ?? '';
+                    $contract_start_date_format = 'N/A';
+                    
+                    if (!empty($contract_start_date)) {
+                        $contract_start_date_format = \Carbon\Carbon::parse($contract_start_date)->format('d M Y');
+                    }
+                    
+                    $mapped[] = $contract_start_date_format; //updated by Gowtham.S
                     break;
                 
                 case 'contract_expiry_date':
-                    $mapped[] = $row->VehicleRequest->end_date ? Carbon::parse($row->VehicleRequest->end_date)->format('d M Y, h:i A') : '-';
+                    
+                    $contract_end_date = $row->VehicleRequest->rider->customerlogin->customer_relation->end_date ?? '';
+                    $contract_end_date_format = 'N/A';
+                    
+                    if (!empty($contract_end_date)) {
+                        $contract_end_date_format = \Carbon\Carbon::parse($contract_end_date)->format('d M Y');
+                    }
+                    
+                    $mapped[] = $contract_end_date_format;
                     break;
                     
 
@@ -128,6 +155,19 @@ public function collection()
                     $mapped[] = $row->VehicleRequest->city->city_name ?? '-';
                     break;
 
+                case 'agent_name':
+                    $mapped[] = $row->agent_relation->name ?? '-';
+                    break;
+                    
+                case 'agent_email':
+                    $mapped[] = $row->agent_relation->email ?? '-';
+                    break;
+                    
+                case 'agent_address':
+                    $mapped[] = $row->agent_relation->address ?? '-';
+                    break;    
+                    
+                    
                 case 'zone':
                     $mapped[] = $row->VehicleRequest->zone->name ?? '-';
                     break;
@@ -256,6 +296,9 @@ public function collection()
             'driving_license_number' => 'Driving License Number',
             'llr_image'              => 'LLR Image',
             'llr_number'             => 'LLR Number',
+            'agent_name'             => 'Agent Name' ,
+            'agent_email'            => 'Agent Email' ,
+            'agent_address'          => 'Agent Address'
         ];
 
         foreach ($this->selectedFields as $key) {

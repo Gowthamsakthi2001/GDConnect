@@ -30,5 +30,12 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
+    
+    'audit' => [
+        'base_url'   => env('SERVICES_AUDIT_BASE_URL'),
+        'shared_key' => env('SERVICES_AUDIT_SHARED_KEY'),
+        'issuer'     => env('SERVICES_AUDIT_ISSUER', 'my-main-app'),
+    ],
+
 
 ];

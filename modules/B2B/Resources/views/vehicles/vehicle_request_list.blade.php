@@ -135,10 +135,13 @@
                                     </div>
                                 </th>
                               <th scope="col" class="custom-dark">Request ID</th>
+                              <th scope="col" class="custom-dark">Accountability Type</th>
                               <th scope="col" class="custom-dark">Rider Name</th>
                               <th scope="col" class="custom-dark">Contact Details</th>
                               <th scope="col" class="custom-dark">Zone Name</th>
-                              <th scope="col" class="custom-dark">Created At</th>
+                              <th scope="col" class="custom-dark">Created Date & Time</th>
+                              <th scope="col" class="custom-dark">Updated Date & Time</th>
+                              <th scope="col" class="custom-dark">Aging</th>
                               <th scope="col" class="custom-dark">Status</th>
                               <th scope="col" class="custom-dark">Action</th>
                             </tr>
@@ -226,26 +229,33 @@
                     <!--</div>-->
                     
                     
-                    <div class="col-md-3 col-12 mb-3">
+                    <!--<div class="col-md-3 col-12 mb-3">-->
+                    <!--  <div class="d-flex justify-content-between align-items-center">-->
+                    <!--    <label class="form-check-label mb-0" for="field5">Start Date</label>-->
+                    <!--    <div class="form-check form-switch m-0">-->
+                    <!--      <input class="form-check-input export-field-checkbox" type="checkbox" id="start_date" name="start_date">-->
+                    <!--    </div>-->
+                    <!--  </div>-->
+                    <!--</div>-->
+                    
+                    
+                    <!--<div class="col-md-3 col-12 mb-3">-->
+                    <!--  <div class="d-flex justify-content-between align-items-center">-->
+                    <!--    <label class="form-check-label mb-0" for="field5">End Date</label>-->
+                    <!--    <div class="form-check form-switch m-0">-->
+                    <!--      <input class="form-check-input export-field-checkbox" type="checkbox" id="end_date" name="end_date">-->
+                    <!--    </div>-->
+                    <!--  </div>-->
+                    <!--</div>-->
+                    
+                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field5">Start Date</label>
+                        <label class="form-check-label mb-0" for="field5">Accountability Type</label>
                         <div class="form-check form-switch m-0">
-                          <input class="form-check-input export-field-checkbox" type="checkbox" id="start_date" name="start_date">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="accountability_type" name="accountability_type">
                         </div>
                       </div>
                     </div>
-                    
-                    
-                    <div class="col-md-3 col-12 mb-3">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field5">End Date</label>
-                        <div class="form-check form-switch m-0">
-                          <input class="form-check-input export-field-checkbox" type="checkbox" id="end_date" name="end_date">
-                        </div>
-                      </div>
-                    </div>
-                    
-                    
                     
                      <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -377,6 +387,24 @@
                       </div>
                     </div>
                     
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="updated_at">Updated Date & Time</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="updated_at" name="updated_at">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="aging">Aging</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="aging" name="aging">
+                        </div>
+                      </div>
+                    </div>
+                    
     
                 
                   </div>
@@ -401,6 +429,28 @@
             <!--    <button class="btn btn-outline-secondary w-50" onclick="clearRequestFilter()">Clear All</button>-->
             <!--    <button class="btn btn-success w-50" onclick="applyRequestFilter()">Apply</button>-->
             <!--</div>-->
+            
+            
+           <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field">
+                            <option value="">All</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+               </div>
+            </div>
          
            <div class="card mb-3">
                <div class="card-header p-2">
@@ -579,6 +629,7 @@ function clearRequestFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
     $('input[name="status_value"][value="all"]').prop('checked', true);
+    $('#accountabilitytype').val('').trigger('change');
     table.ajax.reload();
     
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
@@ -604,6 +655,7 @@ function clearRequestFilter() {
             d.status = $('input[name="status_value"]:checked').val();
             d.from_date = $('#FromDate').val();
             d.to_date = $('#ToDate').val();
+            d.accountability_type = $('#accountabilitytype').val();
             },
         
             beforeSend: function () {
@@ -625,7 +677,10 @@ function clearRequestFilter() {
             { data: 4 },
             { data: 5 },
             { data: 6 },
-            { data: 7, orderable: false, searchable: false },
+            { data: 7 },
+            { data: 8 }, // Aging
+            { data: 9 },
+            { data: 10, orderable: false, searchable: false },
         ],
         lengthMenu: [[25, 50, 100, 250, -1], [25, 50, 100, 250, "All"]],
         scrollX: true,
@@ -692,13 +747,15 @@ function clearRequestFilter() {
     const status = document.querySelector('input[name="status_value"]:checked')?.value || 'all';
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
+    const accountability_type   = document.getElementById('accountabilitytype').value;
 
     // ✅ Build query params
     const params = new URLSearchParams();
     params.append('status', status);
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
-
+    if (accountability_type) params.append('accountability_type', accountability_type);
+    
     if (selected.length > 0) {
         params.append('selected_ids', JSON.stringify(selected));
     }

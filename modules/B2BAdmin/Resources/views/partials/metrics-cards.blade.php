@@ -42,7 +42,7 @@
         @endphp
 
         <div class="col-md-6 col-lg-3 col-sm-6">
-            <div class="metric-card bg-white" style="border-top:6px solid {{ $metric['top-border'] }};">
+            <div class="metric-card bg-white hover-card" style="border-top:6px solid {{ $metric['top-border'] }};">
                 <div class="metric-header">
                     <span >{{ $metric['title'] }}</span>
                 </div>

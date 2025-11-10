@@ -10,6 +10,7 @@ use Modules\B2B\Entities\B2BVehicleAssignment;
 use Modules\MasterManagement\Entities\CustomerLogin;
 use Modules\VehicleManagement\Entities\VehicleType;
 use Modules\Zones\Entities\Zones; //updated by Gowtham.s
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; //updated by Gowtham.s
 use Modules\City\Entities\City; //updated by Gowtham.s
 class B2BVehicleRequests extends Model
 {
@@ -30,6 +31,7 @@ public $timestamps = true;
         'terms_condition',
         'city_id',
         'zone_id',
+         'account_ability_type',
         'updated_at',
         'created_by',
     ];
@@ -69,5 +71,9 @@ public $timestamps = true;
     public function vehicle_type_relation()
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type','id');
+    }
+        public function accountAbilityRelation()
+    {
+        return $this->belongsTo(EvTblAccountabilityType::class, 'account_ability_type','id');
     }
 }

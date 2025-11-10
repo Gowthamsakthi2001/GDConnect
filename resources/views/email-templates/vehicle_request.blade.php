@@ -36,29 +36,25 @@
                         <td><strong>Request ID:</strong></td>
                         <td>{{ $vehicleRequest->req_id }}</td>
                     </tr>
-                    <tr>
+                    <tr >
                         <td><strong>Rider Name:</strong></td>
                         <td>{{ $rider->name ?? 'N/A' }}</td>
                     </tr>
                     <tr style="background:#f1f1f1;">
-                        <td><strong>Start Date:</strong></td>
-                        <td>{{ $vehicleRequest->start_date }}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>End Date:</strong></td>
-                        <td>{{ $vehicleRequest->end_date }}</td>
+                        <td><strong>Rider Mobile Number:</strong></td>
+                        <td>{{ $rider->mobile_no ?? 'N/A' }}</td>
                     </tr>
                      <tr>
                         <td><strong>City:</strong></td>
-                        <td>{{ $user->city->city_name ?? '' }}</td>
-                    </tr>
-                    
-                    <tr>
-                        <td><strong>Zone:</strong></td>
-                        <td>{{ $user->zone->name ?? '' }}</td>
+                        <td>{{ $rider->city->city_name ?? '' }}</td>
                     </tr>
                     
                     <tr style="background:#f1f1f1;">
+                        <td><strong>Zone:</strong></td>
+                        <td>{{ $rider->zone->name ?? '' }}</td>
+                    </tr>
+                    
+                    <tr>
                         <td><strong>Customer:</strong></td>
                         <td>{{ $user->customer_relation->trade_name ?? '' }} ({{ $user->customer_relation->email ?? '' }})</td>
                     </tr>

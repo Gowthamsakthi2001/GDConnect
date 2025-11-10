@@ -11,8 +11,9 @@ use Modules\AssetMaster\Entities\AssetVehicleInventory;
 use Modules\MasterManagement\Entities\InventoryLocationMaster;//updated by Mugesh.B
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\FromQuery;
 
-class AssetMasterInventoryExport implements FromCollection, WithHeadings, WithMapping, WithChunkReading
+class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping, WithChunkReading
 {
     use Exportable;
     
@@ -23,9 +24,11 @@ class AssetMasterInventoryExport implements FromCollection, WithHeadings, WithMa
     protected $selectedFields;
     protected $selectedIds;
     protected $city;
-    protected $customer_id;
+    protected $customer;
+    protected $zone;
+    protected $accountability_type;
 
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city,$customer_id)
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city,$customer , $zone , $accountability_type)
     {
         $this->status = $status;
         $this->from_date = $from_date;
@@ -34,23 +37,38 @@ class AssetMasterInventoryExport implements FromCollection, WithHeadings, WithMa
         $this->selectedFields = array_filter($selectedFields); // removes null/empty
         $this->selectedIds = array_filter($selectedIds ?? []);
         $this->city = $city;
-        $this->customer_id = $customer_id;
+        $this->customer = $customer;
+        $this->zone = $zone;
+        $this->accountability_type = $accountability_type;
         
     }
 
-
-    public function collection()
+    public function query()
     {
         
         $inventory_locations = InventoryLocationMaster::where('status',1)->get();
          $valid_location_ids = $inventory_locations->pluck('id')->toArray();
-          $query = AssetVehicleInventory::with('assetVehicle' ,'inventory_location');
-           // Filter by Customer
-            if (!empty($this->customer_id) && $this->customer_id !== "all") {
-                $query->whereHas('assetVehicle', function ($q) {
-                    $q->where('client', $this->customer_id);
-                });
-            }
+         
+            $query = AssetVehicleInventory::query()
+            ->with([
+                'assetVehicle',
+                'inventory_location',
+                'assetVehicle.quality_check.zone',
+                'assetVehicle.quality_check.accountability_type_relation',
+                'assetVehicle.vehicle_model_relation',
+                'assetVehicle.color_relation',
+                'assetVehicle.customer_relation',
+                'assetVehicle.vehicle_type_relation',
+                'assetVehicle.location_relation',
+                'assetVehicle.financing_type_relation',
+                'assetVehicle.asset_ownership_relation',
+                'assetVehicle.hypothecation_relation',
+                'assetVehicle.insurer_name_relation',
+                'assetVehicle.insurer_type_relation',
+                'assetVehicle.registration_type_relation',
+                'assetVehicle.telematics_oem_relation',
+            ]);
+
            if (!empty($this->selectedIds)) {
                 $query->whereIn('id', $this->selectedIds);
             }else{
@@ -67,10 +85,41 @@ class AssetMasterInventoryExport implements FromCollection, WithHeadings, WithMa
                 
                 // Filter by city
                 if (!empty($this->city)) {
-                    $query->whereHas('assetVehicle', function ($q) {
-                        $q->where('city_code', $this->city);
+                    $query->whereHas('assetVehicle.quality_check', function ($q) {
+                        $q->where('location', $this->city);
                     });
                 }
+                
+                if (!empty($this->zone)) {
+                    $query->whereHas('assetVehicle.quality_check', function ($q) {
+                        $q->where('zone_id', $this->zone);
+                    });
+                }
+                
+                if (!empty($this->customer)) {
+                    $query->whereHas('assetVehicle.quality_check', function ($q) {
+                        $q->where('customer_id', $this->customer);
+                    });
+                }
+                
+                //     if (!empty($this->accountability_type)) {
+                //     $query->whereHas('assetVehicle.quality_check', function ($q) {
+                //         $q->where('accountability_type', $this->accountability_type);
+                //     });
+                // }
+                
+                if (!empty($this->customer) && $this->accountability_type == 2) { // Type 2: Customer Accountability
+                    $query->whereHas('assetVehicle.quality_check', function ($q) {
+                        $q->where('customer_id', $this->customer);
+                    });
+                }
+        
+                if (!empty($this->customer) && $this->accountability_type == 1) { // Type 1: Client Accountability
+                    $query->whereHas('assetVehicle', function ($q) {
+                        $q->where('client', $this->customer);
+                    });
+                }
+                
                 
                 // Timeline filter
                 if ($this->timeline) {
@@ -115,7 +164,7 @@ class AssetMasterInventoryExport implements FromCollection, WithHeadings, WithMa
         }
         
     
-        return $query->latest()->get();
+         return $query->latest('id');
     }
 
     public function map($row): array
@@ -160,8 +209,12 @@ class AssetMasterInventoryExport implements FromCollection, WithHeadings, WithMa
                 case 'gd_hub_id_existing':
                     $mapped[] = $row->assetVehicle->gd_hub_id ?? '-';
                 break;
-                case 'city_code':
-                    $mapped[] = $row->assetVehicle->location_relation->city_code ?? '-';
+                case 'city':
+                    $mapped[] = $row->assetVehicle->quality_check->location_relation->city_name ?? '-';
+                    // $mapped[] = $row->assetVehicle->location ?? '-';
+                    break;
+                case 'accountability_type':
+                    $mapped[] = $row->assetVehicle->quality_check->accountability_type_relation->name ?? '-';
                     // $mapped[] = $row->assetVehicle->location ?? '-';
                     break;
                 case 'road_tax_next_renewal_date':

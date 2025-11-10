@@ -18,8 +18,9 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
     protected $city;
     protected $zone;
     protected $status;
+    protected $accountability_type;
     
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null,$status=null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null,$status=null , $accountability_type = null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -28,6 +29,7 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
         $this->city           = $city;
         $this->zone           = $zone;
         $this->status           = $status;
+        $this->accountability_type           = $accountability_type;
     }
 
     public function collection()
@@ -62,6 +64,11 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
                         }
+                        
+                        if ($this->accountability_type) {
+                            $q->where('account_ability_type', $this->accountability_type);
+                        }
+                        
                     });
                     
         if (!empty($this->selectedIds)) {
@@ -98,6 +105,36 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
     public function map($row): array
     {
         $mapped = [];
+        
+        if ($row->status === 'closed') {
+            $created   = \Carbon\Carbon::parse($row->created_at);
+            $completed = \Carbon\Carbon::parse($row->updated_at);
+            $diffInDays = $created->diffInDays($completed);
+            $diffInHours = $created->diffInHours($completed);
+            $diffInMinutes = $created->diffInMinutes($completed);
+        
+            if ($diffInDays > 0) {
+                $aging = $diffInDays . ' days';
+            } elseif ($diffInHours > 0) {
+                $aging = $diffInHours . ' hours';
+            } else {
+                $aging = $diffInMinutes . ' mins';
+            }
+        } else {
+            $created   = \Carbon\Carbon::parse($row->created_at);
+            $now       = now();
+            $diffInDays = $created->diffInDays($now);
+            $diffInHours = $created->diffInHours($now);
+            $diffInMinutes = $created->diffInMinutes($now);
+        
+            if ($diffInDays > 0) {
+                $aging = $diffInDays . ' days';
+            } elseif ($diffInHours > 0) {
+                $aging = $diffInHours . ' hours';
+            } else {
+                $aging = $diffInMinutes . ' mins';
+            }
+        }
 
         foreach ($this->selectedFields as $key) {
             switch ($key) {
@@ -112,6 +149,10 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
                 case 'rider_name':
                     $mapped[] = $row->assignment->rider->name ?? '-';
                     break;
+                    
+                case 'accountability_type':
+                        $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
+                        break;
 
                 case 'vehicle_no':
                     $mapped[] = $row->assignment->vehicle->permanent_reg_number ?? '-';
@@ -137,6 +178,10 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
                     $mapped[] = $row->assignment->VehicleRequest->zone->name ?? '-';
                     break;
 
+                case 'aging':
+                    $mapped[] = $aging ?? '-';
+                    break;
+                    
                 case 'repair_type':
                     $mapped[] = $row->repair_type == 1
                         ? 'Breakdown Repair'
@@ -160,6 +205,12 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
                         ? $row->created_at->format('d M Y h:i A')
                         : '-';
                     break;
+                    
+                case 'updated_at':
+                    $mapped[] = $row->updated_at
+                        ? $row->updated_at->format('d M Y h:i A')
+                        : '-';
+                    break;
 
                 default:
                     $mapped[] = $row->$key ?? '-';
@@ -180,6 +231,7 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
             'chassis_number'=> 'Chassis Number',
             'rider_name'    => 'Rider Name',
             'mobile_no'     => 'Mobile No',
+            'accountability_type'     => 'Accountability Type',
             // 'client'        => 'Client Name',
             'city'          => 'City',
             'zone'          => 'Zone',
@@ -191,6 +243,8 @@ class B2BServiceRequestExport implements FromCollection, WithHeadings, WithMappi
             'created_by'    => 'Created By',
             'status'        => 'Status',
             'created_at'    => 'Created Date & Time',
+            'updated_at'    => 'Updated Date & Time',
+            'aging'         => 'Aging'
         ];
 
         foreach ($this->selectedFields as $key) {

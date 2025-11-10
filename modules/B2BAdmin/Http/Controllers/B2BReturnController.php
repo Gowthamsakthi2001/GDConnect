@@ -10,6 +10,8 @@ use Modules\B2B\Entities\B2BReturnRequest;
 use Modules\City\Entities\City;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\B2BAdminReturnRequestExport;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
+use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
 
 class B2BReturnController extends Controller
 {
@@ -58,6 +60,18 @@ class B2BReturnController extends Controller
                         });
                     }
                     
+                    if ($request->filled('accountability_type')) {
+                        $query->whereHas('assignment.VehicleRequest', function($zn) use ($request) {
+                            $zn->where('account_ability_type', $request->accountability_type);
+                        });
+                    }
+                    //updated by logesh
+                    if ($request->filled('customer_id')) {
+                                $query->whereHas('assignment.rider.customerlogin.customer_relation', function($zn) use ($request) {
+                                    $zn->where('id', $request->customer_id);
+                                });
+                            }
+                            
 
                     // Search filters
                     if (!empty($search)) {
@@ -92,7 +106,11 @@ class B2BReturnController extends Controller
                             $q->orWhereHas('assignment.VehicleRequest.city', function($ct) use ($search) {
                                 $ct->where('city_name', 'like', "%{$search}%");
                             });
-                    
+                            
+                             $q->orWhereHas('assignment.VehicleRequest.accountAbilityRelation', function($qr) use ($search) {
+                                $qr->where('name', 'like', "%{$search}%");
+                            });
+                            
                             // Zone
                             $q->orWhereHas('assignment.VehicleRequest.zone', function($zn) use ($search) {
                                 $zn->where('name', 'like', "%{$search}%");
@@ -156,6 +174,7 @@ class B2BReturnController extends Controller
                                     name="is_select[]" type="checkbox" value="'.$item->id.'">
                             </div>',
                             e($requestId),
+                            e($item->assignment->VehicleRequest->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                             e($regNumber),
                             e($chassis),
                             e($riderName),
@@ -197,8 +216,14 @@ class B2BReturnController extends Controller
             }
             
              $cities = City::where('status',1)->get();
-        
-            return view('b2badmin::return.list' , compact('cities'));
+            $accountability_types = EvTblAccountabilityType::where('status', 1) //updated by logesh
+                ->orderBy('id', 'desc')
+                ->get();
+                
+            $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+                ->orderBy('id', 'desc')
+                ->get();
+            return view('b2badmin::return.list' , compact('cities','accountability_types','customers'));
         }
 
     
@@ -222,6 +247,9 @@ class B2BReturnController extends Controller
             $to_date   = $request->input('to_date');
             $zone = $request->input('zone_id')?? null;
             $city = $request->input('city_id')?? null;
+            $status = $request->input('status')?? null;
+            $accountability_type = $request->input('accountability_type')?? null;
+            $customer_id = $request->input('customer_id')?? null;
              $selectedIds = $request->input('selected_ids', []);
     
         
@@ -230,7 +258,7 @@ class B2BReturnController extends Controller
             }
         
             return Excel::download(
-                new B2BAdminReturnRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
+                new B2BAdminReturnRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),
                 'return-request-list-' . date('d-m-Y') . '.xlsx'
             );
         }

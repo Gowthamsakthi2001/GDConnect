@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\B2B\Entities\B2BRider;
 use Modules\AssetMaster\Entities\AssetMasterVehicle;
 use Modules\AssetMaster\Entities\LocationMaster;
+use App\Models\User; //updated by Mugesh.B
 use Modules\B2B\Entities\B2BVehicleRequests;
 use Modules\B2B\Entities\B2BServiceRequest;
 use Modules\B2B\Entities\B2BVehicleAssignmentLog;
+use Modules\B2B\Entities\B2BRecoveryRequest;//updated by Mugesh.B
 
 class B2BVehicleAssignment extends Model
 
@@ -62,11 +64,21 @@ class B2BVehicleAssignment extends Model
     {
         return $this->belongsTo(B2BVehicleRequests::class, 'req_id', 'req_id');
     }
+            public function agent_relation()
+    {
+        return $this->belongsTo(User::class, 'assigned_agent_id' , 'id');
+    }
+    
     
     
     public function serviceRequest()
     {
         return $this->belongsTo(B2BServiceRequest::class, 'assign_id');
+    }
+    
+    public function recovery_Request()
+    {
+        return $this->hasOne(B2BRecoveryRequest::class, 'assign_id');
     }
     
     

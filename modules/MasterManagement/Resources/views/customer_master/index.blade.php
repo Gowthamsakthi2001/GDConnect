@@ -77,6 +77,7 @@ body {
                                  <th scope="col" class="custom-dark text-center">Trade Name</th>
                                 <th scope="col" class="custom-dark text-center">Customer Type</th>
                                 <th scope="col" class="custom-dark text-center">Business Type</th>
+                                <th scope="col" class="custom-dark text-center">City</th>
                                 <th scope="col" class="custom-dark text-center">Created At</th>
                                 <th scope="col" class="custom-dark text-center">Status</th>
                                 <th scope="col" class="custom-dark text-center">Active/In Active</th>
@@ -131,7 +132,9 @@ body {
                                     <td>
                                        {{$val->constitution_type->name ?? '-'}}
                                    </td>
-                                    
+                                    <td>
+                                       {{$val->cities->city_name ?? '-'}}
+                                   </td>
                                     <td >{{ date('d M Y h:i:s A',strtotime($val->created_at)) }}</td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2 justify-content-center">

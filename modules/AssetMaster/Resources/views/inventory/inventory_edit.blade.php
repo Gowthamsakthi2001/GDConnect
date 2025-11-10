@@ -73,7 +73,7 @@
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="vehicle_type">Vehicle Type</label>
-                                <select class="form-select custom-select2-field form-control-sm"  disabled>
+                                <select class="form-select custom-select2-field form-control-sm"  id="vehicle_type" name="vehicle_type">
                                     <option value="">Select</option>
                                     @if(isset($vehicle_types))
                                        @foreach($vehicle_types as $type)
@@ -83,13 +83,12 @@
                                 </select>
                             </div>
                         </div>
-                        <input type="hidden" id="vehicle_type" name="vehicle_type" value="{{$data->assetVehicle->vehicle_type}}">
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="model">Model</label>
                                 <!--<input type="text" class="form-control bg-white" name="model" id="model"  value="{{$data->assetVehicle->model ?? ''}}" placeholder="Enter Model" >-->
                                 
-                                   <select class="form-select custom-select2-field form-control-sm"  disabled>
+                                   <select class="form-select custom-select2-field form-control-sm"  id="model" name="model">
                                         <option value="">Select</option>
                                         @if(isset($vehicle_models))
                                            @foreach($vehicle_models as $type)
@@ -99,7 +98,6 @@
                                     </select>
                             </div>
                         </div>
-                         <input type="hidden" id="model" name="model" value="{{$data->assetVehicle->model}}">
                          
                     @php
                         $model_data = \Modules\AssetMaster\Entities\VehicleModelMaster::where('id', $data->assetVehicle->model)->first();
@@ -110,7 +108,7 @@
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="make">Make</label>
                                 <!--<input type="text" class="form-control bg-white" style="padding: 12px 20px;" name="make" id="make"  value="{{$data->assetVehicle->make ?? ''}}" placeholder="Enter Make" >-->
-                                <select class="form-select custom-select2-field form-control-sm"  disabled>
+                                <select class="form-select custom-select2-field form-control-sm"  name="make" id="make">
                                        @if($model_data)
                                             <option value="{{ $model_data->id }}" selected>{{ $model_data->make }}</option>
                                         @else
@@ -119,14 +117,12 @@
                                 </select>
                             </div>
                         </div>
-                         <input type="hidden" name="make" id="make" value="{{$data->assetVehicle->make}}">
-
 
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="variant">Variant</label>
                                 <!--<input type="text" class="form-control bg-white" name="variant" id="variant"  value="{{$data->assetVehicle->variant ?? ''}}" placeholder="Enter Variant" >-->
-                             <select class="form-select custom-select2-field form-control-sm"  disabled>
+                             <select class="form-select custom-select2-field form-control-sm"  name="variant" id="variant">
                                        @if($model_data)
                                             <option value="{{ $model_data->id }}" selected>{{ $model_data->variant }}</option>
                                         @else
@@ -135,7 +131,6 @@
                                 </select>
                             </div>
                         </div>
-                        <input type="hidden" name="variant" id="variant" value="{{$data->assetVehicle->variant}}">
                         
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
@@ -155,7 +150,7 @@
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="motor_number">Engine Number/Motor Number</label>
-                                <input type="text" class="form-control bg-white" name="motor_number" id="motor_number"  value="{{$data->assetVehicle->motor_number ?? ''}}" placeholder="Enter Engine Number/Motor Number" readonly>
+                                <input type="text" class="form-control bg-white" name="motor_number" id="motor_number"  value="{{$data->assetVehicle->motor_number ?? ''}}" placeholder="Enter Engine Number/Motor Number">
                             </div>
                         </div>
                          <div class="col-md-6 mb-3">
@@ -218,12 +213,27 @@
                                      class="img-fluid rounded shadow border"
                                       style="max-height: 300px; object-fit: cover; {{ $isTaxInvoicePDF ? 'display: none;' : '' }}" onclick="OpenImageModal('{{$TaxInvoiceimageSrc}}')">
                                      
-                                     
-                                                                              
-                                <iframe id="tax_invoice_PDF"
-                                         src="{{ $isTaxInvoicePDF ? $TaxInvoicefilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isTaxInvoicePDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                @if($isTaxInvoicePDF)
+                                    <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                        <iframe id="tax_invoice_PDF"
+                                                src="{{ $TaxInvoicefilePath }}"
+                                                class="w-100 h-100 border-0"
+                                                style="pointer-events: none; border-radius: 0.5rem;">
+                                        </iframe>
+                        
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $TaxInvoicefilePath }}')">
+                                        </div>
+                                    </div>
+                                @endif
+
+                                @if(!$isTaxInvoicePDF)
+                                    <div class="position-absolute top-0 start-0 w-100 h-100"
+                                         style="cursor: pointer; background: transparent;"
+                                         onclick="OpenImageModal('{{ $TaxInvoiceimageSrc }}')">
+                                    </div>
+                                @endif
                             </div>
                         </div>
 
@@ -244,14 +254,28 @@
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="city_code">City Code</label>
-                                <select class="form-select custom-select2-field form-control-sm" id="city_code" name="city_code">
+                                <select class="form-select custom-select2-field form-control-sm" id="city_code" name="city_code" onchange="getZones(this.value)">
                                     <option value="">Select</option>
                                     @if(isset($locations))
                                        @foreach($locations as $val)
-                                          <option value="{{$val->id}}" {{$data->assetVehicle->location == $val->id ? 'selected' : ''}}>{{$val->name . ' - ' . $val->city_code}}</option>
+                                          <option value="{{$val->id}}" {{$data->assetVehicle->location == $val->id ? 'selected' : ''}}>{{$val->city_name}}</option>
                                        @endforeach
                                     @endif
                                 </select>
+                            </div>
+                        </div>
+                        
+                        
+                        
+                       <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label class="input-label mb-2 ms-1" for="zone_id">Zone <span class="text-danger fw-bold">*</span></label>
+                                
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="zone_id" name="zone_id">
+                                        <option value="">Select a city first</option>
+                                      
+                                    </select>
+                              
                             </div>
                         </div>
                         
@@ -339,11 +363,27 @@
                                      class="img-fluid rounded shadow border"
                                      style="max-height: 300px; object-fit: cover; {{ $isMasterLeasePDF ? 'display: none;' : '' }}" onclick="OpenImageModal('{{$MasterLeaseimageSrc}}')">
                                      
-                                                                                                              
-                                <iframe id="master_lease_PDF"
-                                         src="{{ $isMasterLeasePDF ? $MasterLeasefilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isMasterLeasePDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                    @if($isMasterLeasePDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="master_lease_PDF"
+                                                    src="{{ $MasterLeasefilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $MasterLeasefilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isMasterLeasePDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $MasterLeaseimageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -433,10 +473,28 @@
                                      class="img-fluid rounded shadow border"
                                      style="max-height: 300px; object-fit: cover; {{ $isHypothecationPDF ? 'display: none;' : '' }}" onclick="OpenImageModal('{{$HypothecationimageSrc}}')">
                                      
-                                    <iframe id="hypothecation_PDF"
-                                         src="{{ $isHypothecationPDF ? $HypothecationfilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isHypothecationPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                  
+                                     @if($isHypothecationPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="hypothecation_PDF"
+                                                    src="{{ $HypothecationfilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $HypothecationfilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isHypothecationPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $HypothecationimageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -528,10 +586,27 @@
                                  class="img-fluid rounded shadow border"
                                  style="max-height: 300px; object-fit: cover; {{ $isInsurancePDF ? 'display: none;' : '' }}">
                     
-                            <iframe id="insurance_PDF"
-                                    src="{{ $isInsurancePDF ? $insuranceFilePath : '' }}"
-                                    style="width: 100%; height: 100%; {{ !$isInsurancePDF ? 'display: none;' : '' }} border: none;"
-                                    frameborder="0"></iframe>
+                            @if($isInsurancePDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="master_lease_PDF"
+                                                    src="{{ $insuranceFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $insuranceFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isInsurancePDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $insuranceImageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -617,10 +692,27 @@
                                      style="max-height: 300px; object-fit: cover; {{ $isTemporaryPDF ? 'display: none;' : '' }}"
                                      onclick="OpenImageModal('{{ $temporaryImageSrc }}')">
                         
-                                <iframe id="temporary_certificate_PDF"
-                                        src="{{ $isTemporaryPDF ? $temporaryFilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isTemporaryPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                @if($isTemporaryPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="temporary_certificate_PDF"
+                                                    src="{{ $temporaryFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $temporaryFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isTemporaryPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $temporaryImageSrc }}')">
+                                        </div>
+                                    @endif
                                                              
                                      
                             </div>
@@ -682,10 +774,27 @@
                                      style="max-height: 300px; object-fit: cover; {{ $isHsrpPDF ? 'display: none;' : '' }}"
                                      onclick="OpenImageModal('{{ $hsrpImageSrc }}')">
                         
-                                <iframe id="hsrp_certificate_PDF"
-                                        src="{{ $isHsrpPDF ? $hsrpFilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isHsrpPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                @if($isHsrpPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="hsrp_certificate_PDF"
+                                                    src="{{ $hsrpFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $hsrpFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isHsrpPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $hsrpImageSrc }}')">
+                                        </div>
+                                    @endif
 
                             </div>
                         </div>
@@ -725,10 +834,27 @@
                                      style="max-height: 300px; object-fit: cover; {{ $isRegPDF ? 'display: none;' : '' }}"
                                      onclick="OpenImageModal('{{ $regImageSrc }}')">
                         
-                                <iframe id="reg_certificate_PDF"
-                                        src="{{ $isRegPDF ? $regFilePath : '' }}"
-                                        style="width: 100%; height: 100%; {{ !$isRegPDF ? 'display: none;' : '' }} border: none;"
-                                        frameborder="0"></iframe>
+                                @if($isRegPDF)
+                                        <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                            <iframe id="reg_certificate_PDF"
+                                                    src="{{ $regFilePath }}"
+                                                    class="w-100 h-100 border-0"
+                                                    style="pointer-events: none; border-radius: 0.5rem;">
+                                            </iframe>
+                            
+                                            <div class="position-absolute top-0 start-0 w-100 h-100"
+                                                 style="cursor: pointer; background: transparent;"
+                                                 onclick="OpenImageModal('{{ $regFilePath }}')">
+                                            </div>
+                                        </div>
+                                    @endif
+    
+                                    @if(!$isRegPDF)
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $regImageSrc }}')">
+                                        </div>
+                                    @endif
                             </div>
                         </div>
                         
@@ -777,11 +903,28 @@
                          style="max-height: 300px; object-fit: cover; {{ $isFcPDF ? 'display: none;' : '' }}"
                          onclick="OpenImageModal('{{ $fcImageSrc }}')">
             
-                    <iframe id="fc_attachment_PDF"
-                            src="{{ $isFcPDF ? $fcFilePath : '' }}"
-                            style="width: 100%; height: 100%; {{ !$isFcPDF ? 'display: none;' : '' }} border: none;"
-                            frameborder="0"></iframe>
+                                @if($isFcPDF)
+                                    <div class="pdf-preview-wrapper position-relative w-100 h-100">
+                                        <iframe id="fc_attachment_PDF"
+                                                src="{{ $fcFilePath }}"
+                                                class="w-100 h-100 border-0"
+                                                style="pointer-events: none; border-radius: 0.5rem;">
+                                        </iframe>
+                        
+                                        <div class="position-absolute top-0 start-0 w-100 h-100"
+                                             style="cursor: pointer; background: transparent;"
+                                             onclick="OpenImageModal('{{ $fcFilePath }}')">
                                         </div>
+                                    </div>
+                                @endif
+        
+                                @if(!$isFcPDF)
+                                    <div class="position-absolute top-0 start-0 w-100 h-100"
+                                         style="cursor: pointer; background: transparent;"
+                                         onclick="OpenImageModal('{{ $fcImageSrc }}')">
+                                    </div>
+                                @endif
+                            </div>
                         </div>
                         
                         
@@ -848,7 +991,7 @@
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="battery_serial_no">Battery Serial Number - Original</label>
-                                <input type="text" class="form-control bg-white" name="battery_serial_no" id="battery_serial_no"  value="{{$data->assetVehicle->battery_serial_no ?? ''}}" placeholder="Enter Battery Serial Number - Original" readonly>
+                                <input type="text" class="form-control bg-white" name="battery_serial_no" id="battery_serial_no"  value="{{$data->assetVehicle->battery_serial_no ?? ''}}" placeholder="Enter Battery Serial Number - Original">
                             </div>
                         </div>
                         
@@ -975,7 +1118,7 @@
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="telematics_serial_no"> Telematics Serial Number - Original</label>
-                                <input type="text" class="form-control bg-white" name="telematics_serial_no" id="telematics_serial_no"  value="{{$data->assetVehicle->telematics_serial_no ?? ''}}" placeholder="Enter Telematics Serial Number - Original" readonly>
+                                <input type="text" class="form-control bg-white" name="telematics_serial_no" id="telematics_serial_no"  value="{{$data->assetVehicle->telematics_serial_no ?? ''}}" placeholder="Enter Telematics Serial Number - Original" >
                             </div>
                         </div>
                         
@@ -1027,7 +1170,17 @@
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="client">Client Name</label>
-                                <input type="text" class="form-control bg-white" name="client" id="client"    value="{{ optional($data->assetVehicle->customer_relation)->name ?? $data->assetVehicle->client ?? '' }}"placeholder="Enter Client" >
+                                <!--<input type="text" class="form-control bg-white" name="client" id="client"    value="{{ optional($data->assetVehicle->customer_relation)->name ?? $data->assetVehicle->client ?? '' }}"placeholder="Enter Client" >-->
+                            
+                                    <select class="form-select custom-select2-field form-control-sm" name="client" id="client">
+                                    <option value="">Select Client</option>
+                                    @if(isset($customers))
+                                       @foreach($customers as $customer)
+                                         
+                                          <option value="{{$customer->id}}" {{ (isset($data->assetVehicle->client) && $data->assetVehicle->client == $val->id) ? 'selected' : '' }} >{{$customer->trade_name}}</option>
+                                       @endforeach
+                                    @endif
+                                </select>
                             </div>
                         </div>
                         
@@ -1048,11 +1201,10 @@
                                 <label class="input-label mb-2 ms-1" for="vehicle_status">Vehicle Status</label>
                                 <!--<input type="text" class="form-control bg-white" name="vehicle_status" id="vehicle_status"  value="{{$data->assetVehicle->vehicle_status ?? ''}}" placeholder="Enter Vehicle Status" >-->
                                 
-                                <select class="form-select custom-select2-field form-control-sm" name="vehicle_status" id="vehicle_status">
+                                <select class="form-select custom-select2-field form-control-sm" name="vehicle_status" id="vehicle_status" required>
                                     <option value="">Select</option>
                                     @if(isset($inventory_locations))
                                        @foreach($inventory_locations as $val)
-                                         
                                           <option value="{{$val->id}}" {{ (isset($data->transfer_status) && $data->transfer_status == $val->id) ? 'selected' : '' }} >{{$val->name}}</option>
                                        @endforeach
                                     @endif
@@ -1086,37 +1238,9 @@
      </div>  
     </div>
     
-    <!--Image Preview Section-->
-    
-    
-    <div class="modal fade" id="BKYC_Verify_view_modal" tabindex="-1" aria-labelledby="BKYC_Verify_viewLabel" aria-hidden="true">
-  <div class="modal-dialog modal-md">
-    <div class="modal-content rounded-4">
+<!--Image Preview Section-->
 
-      <!-- Header with fixed control buttons -->
-      <div class="modal-header border-0 d-flex justify-content-end gap-1">
-        <button class="btn btn-sm btn-dark" onclick="zoomIn()">
-          <i class="bi bi-zoom-in"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" onclick="zoomOut()">
-          <i class="bi bi-zoom-out"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" onclick="rotateImage()">
-          <i class="bi bi-arrow-repeat"></i>
-        </button>
-        <button class="btn btn-sm btn-dark" data-bs-dismiss="modal">
-          <i class="bi bi-x-lg"></i>
-        </button>
-      </div>
-
-      <!-- Scrollable modal body -->
-      <div class="modal-body text-center py-6" style="overflow: auto; max-height: 80vh;">
-        <img src="" id="kyc_image" style="max-width: 100%; transition: transform 0.3s ease;">
-      </div>
-
-    </div>
-  </div>
-</div>
+@include('assetmaster::asset_master.action_popup_modal') 
     
    
 @section('script_js')
@@ -1181,30 +1305,50 @@
         
         
         
-        
-function OpenImageModal(img_url) {
-    $("#kyc_image").attr("src", ""); // Clear image first
-    $("#BKYC_Verify_view_modal").modal('show'); // Corrected selector
-    $("#kyc_image").attr("src", img_url); // Load new image
-}
 
 let scale = 1;
 let rotation = 0;
+let currentFileUrl = '';
+let currentType = ''; 
 
-function OpenImageModal(img_url) {
+function OpenImageModal(fileUrl) {
+    currentFileUrl = fileUrl;
+    const isPDF = fileUrl.toLowerCase().endsWith('.pdf');
+
     scale = 1;
     rotation = 0;
     updateImageTransform();
-    $("#kyc_image").attr("src", img_url);
-    $("#BKYC_Verify_view_modal").modal('show');
+
+    if (isPDF) {
+        $("#kyc_image").hide();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").hide(); // Hide image tools for PDF
+        $("#kyc_pdf").attr("src", fileUrl).show();
+        currentType = 'pdf';
+    } else {
+        $("#kyc_pdf").hide();
+        $("#kyc_image").attr("src", fileUrl).show();
+        $("#rotateBtn, #zoomInBtn, #zoomOutBtn").show();
+        currentType = 'image';
+    }
+
+    $("#downloadBtn").off("click").on("click", function () {
+        const link = document.createElement("a");
+        link.href = currentFileUrl;
+        link.download = currentFileUrl.split('/').pop();
+        link.click();
+    });
+
+    $("#BKYC_Verify_view_modal").modal("show");
 }
 
 function zoomIn() {
+    if (currentType !== 'image') return;
     scale += 0.1;
     updateImageTransform();
 }
 
 function zoomOut() {
+    if (currentType !== 'image') return;
     if (scale > 0.2) {
         scale -= 0.1;
         updateImageTransform();
@@ -1212,14 +1356,51 @@ function zoomOut() {
 }
 
 function rotateImage() {
+    if (currentType !== 'image') return;
     rotation = (rotation + 90) % 360;
     updateImageTransform();
 }
 
 function updateImageTransform() {
     const img = document.getElementById("kyc_image");
-    img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    if (img) {
+        img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    }
 }
+
+   function getZones(CityID, selectedZoneID = null) {
+        let ZoneDropdown = $('#zone_id');
+        ZoneDropdown.empty().append('<option value="">Loading...</option>');
+    
+        if (CityID) {
+            $.ajax({
+                url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+                type: "GET",
+                success: function (response) {
+                    ZoneDropdown.empty().append('<option value="">--Select Zone--</option>');
+    
+                    if (response.data && response.data.length > 0) {
+                        $.each(response.data, function (key, zone) {
+                            ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                        });
+    
+                        // 🔹 If a zone_id is provided, select it AFTER loading options
+                        if (selectedZoneID) {
+                            ZoneDropdown.val(selectedZoneID).trigger('change');
+                        }
+                    } else {
+                        ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                    }
+                },
+                error: function () {
+                    ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+                }
+            });
+        } else {
+            ZoneDropdown.empty().append('<option value="">Select a city first</option>');
+        }
+    }
+    getZones({{ $data->assetVehicle->quality_check->location ?? 'null' }}, {{ $data->assetVehicle->quality_check->zone_id ?? 'null' }});
 
 
 
@@ -1280,6 +1461,22 @@ $("#UpdateVehicle").on("click", function(e) {
     });
 });
 
+
+$(document).ready(function() {
+    $('#model').on('change', function() {
+        var selectedOption = $(this).find('option:selected');
+
+        var make = selectedOption.data('make') || '';
+        var variant = selectedOption.data('variant') || '';
+        // var color = selectedOption.data('color') || '';
+        var Id = selectedOption.data('id') || '';
+
+        // Set dropdowns dynamically
+        $('#make').html('<option value="' + Id + '" selected>' + make + '</option>');
+        $('#variant').html('<option value="' + Id + '" selected>' + variant + '</option>');
+        // $('#color').html('<option value="' + Id + '" selected>' + color + '</option>');
+    });
+});
     </script>
 
 

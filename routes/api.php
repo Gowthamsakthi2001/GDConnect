@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\AssetManagementContoller;
 use App\Http\Controllers\Api\V1\EvLeaveManagementContoller;
 use App\Http\Controllers\Api\V1\LiveOrderController;
 use App\Http\Controllers\Api\V1\VehicleServiceTicketController;
+use App\Http\Controllers\Api\V1\RecoveryAgentContoller; // updated by logesh
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +57,9 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
             Route::get('leave-pending-list/{id}', [EvLeaveManagementContoller::class, 'deliveryman_leave_pending_list']);
             Route::get('get-leave-dates/{id}', [EvLeaveManagementContoller::class, 'filter_leave_present']);
             Route::get('type-list-test', [EvLeaveManagementContoller::class, 'leave_type_list_test']);
+            
+            	
+            Route::post('/fcm-token/update', [EvDeliveryManController::class, 'fcm_token_update'])->name('fcm_token_update');
         });
         
     
@@ -120,6 +124,24 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
             Route::post('create', [LiveOrderController::class, 'live_order_create']);
         });
     });
+    
+        Route::group(['prefix' => 'recovery-agent', 'as' => 'recovery_agent.'], function () {           // updated by logesh
+                Route::post('dashboard-data', [RecoveryAgentContoller::class, 'getDashboardData']);
+                Route::post('get-request-data', [RecoveryAgentContoller::class, 'getRequestData']);
+                Route::post('get-recovery-data', [RecoveryAgentContoller::class, 'getRecoveryData']);
+                Route::get('get-status-master', [RecoveryAgentContoller::class, 'getStatusMaster']);
+                Route::get('get-faq-master', [RecoveryAgentContoller::class, 'getCallAttemptMessages']);
+                Route::post('get-log', [RecoveryAgentContoller::class, 'getLogData']);
+                Route::post('add-comment', [RecoveryAgentContoller::class, 'addComment']);
+                Route::post('get-live-data', [RecoveryAgentContoller::class, 'getTrackingData']);
+                Route::post('get-history-data', [RecoveryAgentContoller::class, 'getHistoryData']);
+                
+                
+                Route::post('get-notifications', [RecoveryAgentContoller::class, 'get_notification_data'])->name('get_notification_data');// updated by Mugesh.B
+                Route::post('notification/status-update', [RecoveryAgentContoller::class, 'notification_status_update'])->name('notification_status_update');// updated by Mugesh.B
+        });
+        
+    Route::get('close-recovery-request', [RecoveryAgentContoller::class, 'closeRecoveryRequest']);
     
 });
 

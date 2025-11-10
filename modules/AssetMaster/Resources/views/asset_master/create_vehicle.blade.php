@@ -56,7 +56,7 @@
                         </div>
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="vehicle_type">Vehicle Type</label>
+                                <label class="input-label mb-2 ms-1" for="vehicle_type">Vehicle Type<span class="text-danger fw-bold">*</span></label>
                                 <select class="form-select custom-select2-field form-control-sm" id="vehicle_type" name="vehicle_type">
                                     <option value="">Select</option>
                                     @if(isset($vehicle_types))
@@ -69,7 +69,7 @@
                         </div>
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="model">Model</label>
+                                <label class="input-label mb-2 ms-1" for="model">Model<span class="text-danger fw-bold">*</span></label>
                                 <!--<input type="text" class="form-control bg-white" name="model" id="model"  value="" placeholder="Enter Model">-->
                                 <select class="form-select custom-select2-field form-control-sm" id="model" name="model">
                                     <option value="">Select</option>
@@ -117,7 +117,7 @@
                         </div>
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="motor_number">Engine Number/Motor Number</label>
+                                <label class="input-label mb-2 ms-1" for="motor_number">Engine Number/Motor Number<span class="text-danger fw-bold">*</span></label>
                                 <input type="text" class="form-control bg-white" name="motor_number" id="motor_number"  value="" placeholder="Enter Engine Number/Motor Number">
                             </div>
                         </div>
@@ -189,15 +189,27 @@
                         </div>
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="city_code">City Code</label>
-                                <select class="form-select custom-select2-field form-control-sm" id="city_code" name="city_code">
+                                <label class="input-label mb-2 ms-1" for="city_code">City<span class="text-danger fw-bold">*</span></label>
+                                <select class="form-select custom-select2-field form-control-sm" id="city_code" name="city_code" onchange="getZones(this.value)">
                                     <option value="">Select</option>
                                     @if(isset($locations))
                                        @foreach($locations as $val)
-                                          <option value="{{$val->id}}">{{$val->name . ' - ' . $val->city_code}}</option>
+                                          <option value="{{$val->id}}">{{$val->city_name}}</option>
                                        @endforeach
                                     @endif
                                 </select>
+                            </div>
+                        </div>
+                        
+                       <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label class="input-label mb-2 ms-1" for="zone_id">Zone <span class="text-danger fw-bold">*</span></label>
+                                
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="zone_id" name="zone_id">
+                                        <option value="">Select a city first</option>
+                                      
+                                    </select>
+                              
                             </div>
                         </div>
                         
@@ -845,8 +857,16 @@
                         
                           <div class="col-md-6 mb-3" >
                             <div class="form-group">
-                                <label class="input-label mb-2 ms-1" for="client">Client Name</label>
-                                <input type="text" class="form-control bg-white" name="client" id="client"  value="" placeholder="Enter Client Name">
+                                <label class="input-label mb-2 ms-1" for="client">Client</label>
+                                <!--<input type="text" class="form-control bg-white" name="client" id="client"  value="" placeholder="Enter Client Name">-->
+                                <select class="form-select custom-select2-field form-control-sm" name="client" id="client">
+                                    <option value="">Select Client</option>
+                                    @if(isset($customers))
+                                       @foreach($customers as $customer)
+                                          <option value="{{$customer->id}}">{{$customer->trade_name ?? '-'}}</option>
+                                       @endforeach
+                                    @endif
+                                </select>
                             </div>
                         </div>
                         
@@ -979,6 +999,10 @@
     </script>
 
 <script>
+
+    
+    
+    
     $("#StoreAssetMasterVehicleForm").submit(function(e) {
     e.preventDefault();
 
@@ -1051,6 +1075,12 @@ function Get_QcData(id){
                     $("#battery_serial_no").val(res_data.quality_check.battery_number);
                     $("#telematics_serial_no").val(res_data.quality_check.telematics_number);
                     
+                    let cityID = res_data.quality_check.location;
+                    $("#city_code").val(cityID).trigger("change");
+
+                    // 🔹 Pass zone_id so getZones can select it once loaded
+                    getZones(cityID, res_data.quality_check.zone_id);
+                    
                     
                 } else {
                     toastr.warning("No data found.");
@@ -1067,6 +1097,41 @@ function Get_QcData(id){
                 }
             }
         });
+    }
+}
+
+
+    
+function getZones(CityID, selectedZoneID = null) {
+    let ZoneDropdown = $('#zone_id');
+    ZoneDropdown.empty().append('<option value="">Loading...</option>');
+
+    if (CityID) {
+        $.ajax({
+            url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+            type: "GET",
+            success: function (response) {
+                ZoneDropdown.empty().append('<option value="">--Select Zone--</option>');
+
+                if (response.data && response.data.length > 0) {
+                    $.each(response.data, function (key, zone) {
+                        ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                    });
+
+                    // 🔹 If a zone_id is provided, select it AFTER loading options
+                    if (selectedZoneID) {
+                        ZoneDropdown.val(selectedZoneID).trigger('change');
+                    }
+                } else {
+                    ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                }
+            },
+            error: function () {
+                ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+            }
+        });
+    } else {
+        ZoneDropdown.empty().append('<option value="">Select a city first</option>');
     }
 }
 

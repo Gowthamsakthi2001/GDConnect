@@ -128,6 +128,8 @@
                                     <label class="form-check-label" for="CSelectAllBtn"></label>
                                 </div>
                             </th>
+                            <th scope="col" class="custom-dark">Request ID</th>
+                            <th scope="col" class="custom-dark">Accountablity Type</th>
                               <th scope="col" class="custom-dark">Vehicle No</th>
                               <th scope="col" class="custom-dark">Chassis No</th>
                               <th scope="col" class="custom-dark">vehicle Type</th>
@@ -185,6 +187,17 @@
                         </div>
                       </div>
                       
+                      <!--updated by logesh-->
+                      <div class="col-md-3 col-12 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <label class="form-check-label mb-0" for="vehicle_id">Accountablity Type</label>
+                          <div class="form-check form-switch m-0">
+                            <input class="form-check-input export-field-checkbox" type="checkbox" name="accountability_type" id="accountability_type">
+                          </div>
+                          </div>
+                        </div>
+                        
+                      
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
                           <label class="form-check-label mb-0" for="vehicle_id">Vehicle ID</label>
@@ -211,7 +224,7 @@
                       </div>
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
-                          <label class="form-check-label mb-0" for="vehicle_type">Vehicle Model</label>
+                          <label class="form-check-label mb-0" for="vehicle_model">Vehicle Model</label>
                           <div class="form-check form-switch m-0">
                             <input class="form-check-input export-field-checkbox" type="checkbox" name="vehicle_model" id="vehicle_model">
                           </div>
@@ -220,7 +233,7 @@
                       
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
-                          <label class="form-check-label mb-0" for="vehicle_type">Contract Start Date</label>
+                          <label class="form-check-label mb-0" for="contract_start_date">Contract Start Date</label>
                           <div class="form-check form-switch m-0">
                             <input class="form-check-input export-field-checkbox" type="checkbox" name="contract_start_date" id="contract_start_date">
                           </div>
@@ -229,7 +242,7 @@
                       
                       <div class="col-md-3 col-12 mb-3">
                         <div class="d-flex justify-content-between align-items-center">
-                          <label class="form-check-label mb-0" for="vehicle_type">Contract Expiry Date</label>
+                          <label class="form-check-label mb-0" for="contract_expiry_date">Contract Expiry Date</label>
                           <div class="form-check form-switch m-0">
                             <input class="form-check-input export-field-checkbox" type="checkbox" name="contract_expiry_date" id="contract_expiry_date">
                           </div>
@@ -278,7 +291,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field3">Client Name</label>
+                        <label class="form-check-label mb-0" for="client_name">Client Name</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="client_name" name="client_name">
                         </div>
@@ -287,7 +300,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field3">Client Contact</label>
+                        <label class="form-check-label mb-0" for="client_contact">Client Contact</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="client_contact" name="client_contact">
                         </div>
@@ -296,7 +309,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field3">Client Email</label>
+                        <label class="form-check-label mb-0" for="client_contact">Client Email</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="client_email" name="client_email">
                         </div>
@@ -305,7 +318,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field3">Rider Name</label>
+                        <label class="form-check-label mb-0" for="name">Rider Name</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="name" name="name">
                         </div>
@@ -314,7 +327,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field4">Mobile Number</label>
+                        <label class="form-check-label mb-0" for="mobile_no">RiderMobile Number</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="mobile_no" name="mobile_no">
                         </div>
@@ -323,7 +336,7 @@
                                         
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field5">Email ID</label>
+                        <label class="form-check-label mb-0" for="email">Rider Email ID</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="email" name="email">
                         </div>
@@ -335,7 +348,7 @@
                     
                      <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field5">DOB</label>
+                        <label class="form-check-label mb-0" for="dob">DOB</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="dob" name="dob">
                         </div>
@@ -345,7 +358,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field6">Adhar Card Front Img</label>
+                        <label class="form-check-label mb-0" for="adhar_front">Adhar Card Front Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="adhar_front" name="adhar_front">
                         </div>
@@ -354,7 +367,7 @@
                        
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field7">Adhar Card Back Img</label>
+                        <label class="form-check-label mb-0" for="adhar_back">Adhar Card Back Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="adhar_back" name="adhar_back">
                         </div>
@@ -363,7 +376,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field8">Adhar Card Number</label>
+                        <label class="form-check-label mb-0" for="adhar_number">Adhar Card Number</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="adhar_number" name="adhar_number">
                         </div>
@@ -372,7 +385,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field9">Pan Card Front Img</label>
+                        <label class="form-check-label mb-0" for="pan_front">Pan Card Front Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="pan_front" name="pan_front">
                         </div>
@@ -382,7 +395,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field11">Pan Card Back Img</label>
+                        <label class="form-check-label mb-0" for="pan_back">Pan Card Back Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="pan_back" name="pan_back">
                         </div>
@@ -391,7 +404,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">Pan Card Number</label>
+                        <label class="form-check-label mb-0" for="pan_number">Pan Card Number</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="pan_number" name="pan_number">
                         </div>
@@ -400,7 +413,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">Driving License Front Img</label>
+                        <label class="form-check-label mb-0" for="driving_license_front">Driving License Front Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="driving_license_front" name="driving_license_front">
                         </div>
@@ -410,7 +423,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">Driving License Back Img</label>
+                        <label class="form-check-label mb-0" for="driving_license_back">Driving License Back Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="driving_license_back" name="driving_license_back">
                         </div>
@@ -419,7 +432,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">Driving License Number</label>
+                        <label class="form-check-label mb-0" for="driving_license_number">Driving License Number</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="driving_license_number" name="driving_license_number">
                         </div>
@@ -428,7 +441,7 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">LLR Img</label>
+                        <label class="form-check-label mb-0" for="llr_image">LLR Img</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="llr_image" name="llr_image">
                         </div>
@@ -437,9 +450,37 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field12">LLR Number</label>
+                        <label class="form-check-label mb-0" for="llr_number">LLR Number</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="llr_number" name="llr_number">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="agent_name">Agent Name</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="agent_name" name="agent_name">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="agent_email">Agent Email</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="agent_email" name="agent_email">
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="agent_address">Agent Address</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="agent_address" name="agent_address">
                         </div>
                       </div>
                     </div>
@@ -453,11 +494,51 @@
         
        <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRightHR01" aria-labelledby="offcanvasRightHR01Label">
           <div class="offcanvas-header">
-            <h5 class="custom-dark" id="offcanvasRightHR01Label">Return List</h5>
+            <h5 class="custom-dark" id="offcanvasRightHR01Label">Asset List Filter</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
           </div>
           <div class="offcanvas-body">
         
+            <!--updated by logesh-->
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountability_type_1" class="form-control custom-select2-field">
+                            <option value="">Select Type</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Customer</label>
+                        <select name="customer_master" id="customer_master" class="form-control custom-select2-field">
+                            <option value="">Select Customer</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" >{{$customer->trade_name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
             
             <div class="card mb-3">
                <div class="card-header p-2">
@@ -576,6 +657,8 @@
                 d.status = $('#status_value').val();
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
+                d.accountability_type = $('#accountability_type_1').val(); //updated by logesh
+                d.customer_id = $('#customer_master').val(); //updated by logesh
         },
         beforeSend: function () {
                 $('#Asset_List tbody').html(`
@@ -612,7 +695,9 @@
             { data: 9 }, // City
             { data: 10 }, // Zone
             { data: 11 }, // Created Date
-            { data: 12, orderable: false, searchable: false } // Action
+            { data: 12 }, // updated by logesh
+            { data: 13 }, // updated by logesh
+            { data: 14, orderable: false, searchable: false } // Action
             ],
     order:[[1,'desc']],
     lengthMenu:[[25,50,100,-1],[25,50,100,"All"]],
@@ -651,6 +736,9 @@
         $('#ToDate').val('');
         $('#city_id_1').val('').trigger('change');
         $('#zone_id_1').val('').trigger('change');
+         $('#status_value').val('').trigger('change');
+        $('#accountability_type_1').val('').trigger('change'); //updated by logesh
+        $('#customer_master').val('').trigger('change');
         assetTable.ajax.reload();
           const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
         if (bsOffcanvas) {
@@ -745,6 +833,10 @@
     
     function RightSideFilerOpen(){
         const bsOffcanvas = new bootstrap.Offcanvas('#offcanvasRightHR01');
+        //updated by logesh
+        $('.custom-select2-field').select2({
+            dropdownParent: $('#offcanvasRightHR01') // Fix for offcanvas
+        });
         bsOffcanvas.show();
     }
     
@@ -879,13 +971,22 @@
    
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
-
+    const customer_id = document.getElementById('customer_master').value;
+    const status = document.getElementById('status_value').value;
+    const accountability_type   = document.getElementById('accountability_type_1').value;
+    const zone_id = document.getElementById('zone_id_1').value;
+    const city_id   = document.getElementById('city_id_1').value;
+    
     // ✅ Build query params
     const params = new URLSearchParams();
  
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
-
+    if (customer_id) params.append('customer_id', customer_id);
+    if (accountability_type) params.append('accountability_type', accountability_type);
+    if (status) params.append('status', status);
+    if (zone_id) params.append('zone_id', zone_id);
+    if (city_id) params.append('city_id', city_id);
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
 

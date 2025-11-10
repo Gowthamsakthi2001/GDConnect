@@ -138,7 +138,17 @@ Route::prefix('admin/master-management/color-master') //updated by Mugesh.B
     Route::get('/export', 'export_color_master')->name('export');
 });
 
-
+Route::prefix('admin/master-management/recovery-updates-master') //updated by Logesh
+->as('admin.Green-Drive-Ev.master_management.recovery_updates_master.')
+->controller(RecoveryUpdatesMasterController::class)
+->middleware('auth')
+->group(function () {
+    Route::get('/', 'index')->name('index');
+     Route::post('/store', 'store')->name('store');
+    Route::post('/update', 'update')->name('update');
+    Route::post('/update-status', 'update_status')->name('status_update');
+    Route::get('/export', 'export')->name('export');
+});
 
 
 Route::prefix('admin/master-management/customer-type-master') //updated by Mugesh.B
@@ -189,5 +199,19 @@ Route::prefix('admin/master-management/sidebar-modules') //created by Gowtham.S
         Route::get('/edit/{id}', 'edit')->name('edit');
         Route::post('/status-update', 'status_update')->name('status_update');
         // Route::post('/delete', 'destroy')->name('destroy');
+});
+
+Route::prefix('admin/master-management/recovery-reasons') //created by Gowtham.S
+    ->as('admin.Green-Drive-Ev.master_management.recovery_reason.')
+    ->controller(RecoveryReasonMasterController::class)
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/render-data', 'module_render_data')->name('render.data');
+        Route::get('/create', 'create')->name('create');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/update/{id}', 'update')->name('data.update');
+        Route::get('/edit/{id}', 'edit')->name('edit');
+        Route::post('/status-update', 'status_update')->name('status_update');
+        Route::get('/export', 'export')->name('export');
 });
     

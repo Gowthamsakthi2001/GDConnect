@@ -17,8 +17,10 @@ class B2BAdminDeploymentRequestExport implements FromCollection, WithHeadings, W
     protected $city;
     protected $zone;
     protected $status;
+    protected $accountability_type; //updated by logesh
+    protected $customer_id; //updated by logesh
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status = null,$accountability_type = null,$customer_id=null) //updated by logesh
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -27,6 +29,8 @@ class B2BAdminDeploymentRequestExport implements FromCollection, WithHeadings, W
         $this->city           = $city;
         $this->zone           = $zone;
         $this->status         = $status;
+        $this->accountability_type = $accountability_type; //updated by logesh
+        $this->customer_id = $customer_id; //updated by logesh
     }
 
     public function collection()
@@ -55,6 +59,16 @@ class B2BAdminDeploymentRequestExport implements FromCollection, WithHeadings, W
             if ($this->to_date) {
                 $query->whereDate('created_at', '<=', $this->to_date);
             }
+            //updated by logesh
+            if ($this->accountability_type) {
+                $query->where('account_ability_type', $this->accountability_type);
+            }
+            //updated by logesh
+            if ($this->customer_id) {
+                $query->wherehas('rider.customerLogin.customer_relation', function ($p) {
+                     $p->where('id', $this->customer_id);
+                });
+            }
         }
 
         return $query->orderBy('id', 'desc')->get();
@@ -69,7 +83,12 @@ class B2BAdminDeploymentRequestExport implements FromCollection, WithHeadings, W
                 case 'req_id':
                     $mapped[] = $row->req_id ?? '-';
                     break;
-
+                
+                //updated by logesh
+                case 'accountability_type':
+                    $mapped[] = $row->accountAbilityRelation->name ?? '-';
+                    break;
+                    
                 case 'rider_name':
                     $mapped[] = $row->rider->name ?? '-';
                     break;
@@ -153,6 +172,7 @@ class B2BAdminDeploymentRequestExport implements FromCollection, WithHeadings, W
 
         $customHeadings = [
             'req_id'        => 'Request ID',
+            'accountability_type'    => 'Accountablity Type', //updated by logesh
             'rider_name'    => 'Rider Name',
             'mobile_no'     => 'Contact Details',
             'client'        => 'Client Name',

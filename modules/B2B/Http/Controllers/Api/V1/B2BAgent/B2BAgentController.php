@@ -31,7 +31,7 @@ use Modules\B2B\Entities\B2BAgentsNotification;
 use Carbon\Carbon;
 use App\Helpers\CustomHandler;//updated by Gowtham.s
 use App\Services\FirebaseNotificationService; //updated by Gowtham.s
-
+use App\Jobs\SendVehicleAllNotificationsJob; //updated by Gowtham.S
 use Modules\B2B\Entities\B2BRidersNotification;
 
 class B2BAgentController extends Controller
@@ -45,7 +45,8 @@ class B2BAgentController extends Controller
         
         // Start from vehicle requests
         $query = B2BVehicleRequests::with([
-            'rider.customerLogin.customer_relation'
+            'rider.customerLogin.customer_relation',
+             'accountAbilityRelation'
         ]);
         
         if ($user->login_type == 1) { //updated by Gowtham.S
@@ -82,6 +83,7 @@ class B2BAgentController extends Controller
                     'status'     => $req->status,
                     'city_name' => $req->city->city_name ?? 'N/A',
                     'zone_name' => $req->zone->name ?? 'N/A',
+                   'account_ability_name'=>$req->accountAbilityRelation->name ?? 'N/A',
                     'created_at' => $req->created_at
                         ? $req->created_at->format('d M Y h:i A')
                         : null,
@@ -125,113 +127,6 @@ class B2BAgentController extends Controller
         ], 500);
     }
 }
-    
-//     public function request_view(Request $request, $id)
-// {
-//     try {
-        
-//         $user = $request->user('agent');
-        
-//         // Load vehicle request with rider + customer
-//         $req = B2BVehicleRequests::with(['rider.customerLogin.customer_relation'])->where('req_id' ,$id)->first();
-        
-//         if ($user->login_type == 1) {
-//             // Only city check
-//             $query->whereHas('rider.customerLogin', function ($q) use ($user) {
-//                 $q->where('city_id', $user->city_id);
-//             });
-//             } elseif ($user->login_type == 2) {
-//                     // City + Zone check
-//                     $query->whereHas('rider.customerLogin', function ($q) use ($user) {
-//                         $q->where('city_id', $user->city_id)
-//                           ->where('zone_id', $user->zone_id);
-//                 });
-//             }
-    
-//         if (!$req) {
-//             return response()->json([
-//                 'status'  => false,
-//                 'message' => 'Request not found',
-//                 'data'    => null,
-//             ], 404);
-//         }
-//                 $imageUrl = function ($folder, $file) {
-//                 return !empty($file) ? "/b2b/{$folder}/{$file}" : null;
-//                 };
-//         // Format into clean structure
-//         $data = [
-//             'request_details' => [
-//                 'id'                    => $req->id,
-//                 'req_id'                => $req->req_id,
-                
-//                 'start_date'            => $req->start_date,
-//                 'end_date'              => $req->end_date,
-//                 'vehicle_type'          => $req->vehicle_type,
-//                 'battery_type'          => $req->battery_type,
-//                 'status'                => $req->status,
-//                 'qrcode_image'          => $req->qrcode_image
-//                     ? asset("b2b/qrcodes/{$req->qrcode_image}")
-//                     : null,
-//                 'created_at'            => $req->created_at
-//                     ? $req->created_at->format('d M Y h:i A')
-//                     : null,
-//                 'updated_at'            => $req->updated_at
-//                     ? $req->updated_at->format('d M Y h:i A')
-//                     : null,
-               
-//             ],
-//             'rider' => $req->rider ? [
-//                 'id'        => $req->rider->id,
-//                 'name'      => $req->rider->name,
-//                 'mobile_no' => $req->rider->mobile_no,
-//                 'email'     => $req->rider->email,
-//                 'dob'                   => $req->rider->dob,
-//                 'adhar_front'           => $imageUrl('aadhar_images', $req->rider->adhar_front),
-//                 'adhar_back'            => $imageUrl('aadhar_images', $req->rider->adhar_back),
-//                 'adhar_number'          => $req->rider->adhar_number,
-//                 'pan_front'             => $imageUrl('pan_images', $req->rider->pan_front),
-//                 'pan_back'              => $imageUrl('pan_images', $req->rider->pan_back),
-//                 'pan_number'            => $req->rider->pan_number,
-//                 'driving_license_front' => $imageUrl('driving_license_images', $req->rider->driving_license_front),
-//                 'driving_license_back'  => $imageUrl('driving_license_images', $req->rider->driving_license_back),
-//                 'driving_license_number'=> $req->rider->driving_license_number,
-//                 'llr_image'             => $imageUrl('llr_images', $req->rider->llr_image),
-//                 'llr_number'            => $req->rider->llr_number,
-//                 'terms_condition'       => $req->rider->terms_condition,
-//                 'status'                => $req->rider->status,
-//                 'adhar_verified'          => $req->rider->adhar_verified,
-//                 'pan_verified'          => $req->rider->pan_verified,
-//                 'dl_verified'          => $req->rider->dl_verified,
-//                 'llr_verified'          => $req->rider->llr_verified,
-//                 'created_by'            => $req->rider->created_by,
-//                 'created_at'            => $req->rider->created_at->format('d M Y h:i A'),
-//                 'updated_at'            => $req->rider->updated_at->format('d M Y h:i A'),
-//             ] : null,
-//             'customer' => $req->rider &&
-//                           $req->rider->customerLogin &&
-//                           $req->rider->customerLogin->customer_relation
-//                 ? [
-//                     'id'         => $req->rider->customerLogin->customer_relation->id,
-//                     'name'       => $req->rider->customerLogin->customer_relation->name,
-//                     'trade_name' => $req->rider->customerLogin->customer_relation->trade_name,
-//                 ]
-//                 : null,
-//         ];
-
-//         return response()->json([
-//             'status'  => true,
-//             'message' => 'Request details fetched successfully',
-//             'data'    => $data,
-//         ], 200);
-
-//     } catch (\Exception $e) {
-//         return response()->json([
-//             'status'  => false,
-//             'message' => 'Something went wrong',
-//             'error'   => $e->getMessage(),
-//         ], 500);
-//     }
-// }
 
 public function fcm_token_update(Request $request){
     $user = $request->user('agent');
@@ -264,7 +159,7 @@ public function fcm_token_update(Request $request){
         $user = $request->user('agent');
 
         // Start building query
-        $query = B2BVehicleRequests::with(['rider.customerLogin.customer_relation'])
+        $query = B2BVehicleRequests::with(['rider.customerLogin.customer_relation' , 'accountAbilityRelation'])
             ->where('req_id', $id);
 
         if ($user->login_type == 1) { //updated by Gowtham.S
@@ -296,6 +191,7 @@ public function fcm_token_update(Request $request){
             'request_details' => [
                 'id'           => $req->id,
                 'req_id'       => $req->req_id,
+                'account_ability_name'=>$req->accountAbilityRelation->name ?? 'N/A',
                 'start_date'   => $req->start_date,
                 'end_date'     => $req->end_date,
                 'vehicle_type' => $req->vehicle_type,
@@ -522,10 +418,27 @@ public function update_request(Request $request)
     public function get_vehicle_list(Request $request)
     {
         $user = $request->user('agent');
+        
+        $RequestId = $request->dep_req_id ?? '';
+        $reqData = B2BVehicleRequests::with(['rider.customerLogin.customer_relation'])
+            ->where('req_id', $RequestId)->first();
+            
+        if(!$reqData){
+             return response()->json([
+            'status'   => false,
+            'message'  => "Deployment Request Not Found!"
+        ],404);
+        }
+// dd($reqData);
+        $vehicleType = $reqData->vehicle_type; //updated by Gowtham.s
+        
+        $acType = $reqData->account_ability_type ?? ''; //updated by Gowtham.s
+        $customer_id = $reqData->customerLogin->customer_id ?? ''; //updated by Gowtham.s
 
         $query = AssetVehicleInventory::where('asset_vehicle_inventories.transfer_status', 3)
             ->join('ev_tbl_asset_master_vehicles as amv', 'asset_vehicle_inventories.asset_vehicle_id', '=', 'amv.id')
             ->leftJoin('vehicle_qc_check_lists as qc', 'amv.qc_id', '=', 'qc.id')
+            ->leftJoin('ev_tbl_accountability_types as act', 'act.id', '=', 'qc.accountability_type')
             ->leftJoin('vehicle_types as vt', 'amv.vehicle_type', '=', 'vt.id')
             ->leftJoin('ev_tbl_vehicle_models as vm', 'amv.model', '=', 'vm.id')
             ->leftJoin('ev_tbl_brands as vb', 'vm.brand', '=', 'vb.id')
@@ -539,8 +452,10 @@ public function update_request(Request $request)
             ->leftJoin('zones as zones', 'qc.zone_id', '=', 'zones.id')
             ->select(
                 'amv.*',
+                'act.name as account_ability_name',
                 'vt.name as vehicle_type_name',
                 'vm.vehicle_model',
+                 'vm.make as vehicle_make',
                 'vc.name as vehicle_color',
                 'vb.brand_name as vehicle_brand',
                 'ftm.name as financing_type_name',
@@ -554,7 +469,12 @@ public function update_request(Request $request)
                 WHEN amv.battery_type = 1 THEN 'Self-Charging' 
                 WHEN amv.battery_type = 2 THEN 'Portable' 
                 ELSE 'Unknown' 
-            END as battery_type_name")
+            END as battery_type_name"),
+                DB::raw("CASE
+                    WHEN qc.is_recoverable = 1 THEN 'YES'
+                    WHEN qc.is_recoverable = 0 THEN 'NO'
+                    ELSE 'Unknown'
+                END as recovery_status")
             );
             
         // Apply login_type conditions
@@ -565,6 +485,19 @@ public function update_request(Request $request)
                   ->where('qc.zone_id', $user->zone_id);
         }
     
+        if(!empty($vehicleType)){
+            $query->where('qc.vehicle_type', $vehicleType);
+        }
+        if(!empty($acType)){ //updated by Gowtham.s
+            if($acType == 2){
+                $query->where('qc.accountability_type', $acType);
+            }
+            else if($acType == 1){
+                $query->where('qc.accountability_type', $acType);
+            }
+            
+        }
+        
         if ($request->filled('search')) {
             $s = mb_strtolower(trim($request->search), 'UTF-8');
     
@@ -582,8 +515,8 @@ public function update_request(Request $request)
             });
         }
     
+        // $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
         $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
-    
         return response()->json([
             'status'   => true,
             'message'  => "Vehicle List Fetched Successfully",
@@ -594,8 +527,9 @@ public function update_request(Request $request)
     
     public function assign_vehicle(Request $request)
     {
-    
+        Log::info('Vehicle Assign Function Start'. now());
         try {
+           
            
             $user = $request->user('agent');
             // Find Rider
@@ -607,6 +541,8 @@ public function update_request(Request $request)
                 ], 404);
             }
             
+            DB::beginTransaction();
+
          
             // Define file upload helper
             $uploadFile = function ($file, $folder, $oldFile = null) {
@@ -679,6 +615,11 @@ public function update_request(Request $request)
             ]);
             
             
+            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $request->asset_vehicle_id)->first();
+
+            // Store current (old) location before update
+            $from_location_source = $inventory ? $inventory->transfer_status : null; 
+            
             AssetVehicleInventory::where('asset_vehicle_id', $request->asset_vehicle_id)
                         ->update(['transfer_status' => 1]);
                 
@@ -702,6 +643,8 @@ public function update_request(Request $request)
             // Log this inventory action
             VehicleTransferChassisLog::create([
                     'chassis_number' => $vehicle->chassis_number,
+                    'from_location_source' => $from_location_source,
+                    'to_location_destination' => 1,
                     'vehicle_id'     => $vehicle->id,
                     'status'         => 'updated',
                     'remarks'        => $remarks,
@@ -721,11 +664,24 @@ public function update_request(Request $request)
                 
             $vehicle_no = $vehicle_number->permanent_reg_number; //updated by Gowtham
             $rider_name = $rider->name ?? 'Rider';
-            $this->pushRiderVehicleStatusNotification($rider, $request->request_id,$vehicle_no,'rider_vehicle_assign_notify');
-            $this->pushAgentVehicleStatusNotification($user,$request->request_id,$vehicle_no,'agent_vehicle_assign_notify',$rider_name);
-            $this->AutoSendAssignVehicleEmail($user, $request->request_id, $request->rider_id, $request->asset_vehicle_id, 'agent_vehicle_assign_email_notify');
-            $this->AutoSendAssignVehicleWhatsApp($user,$request->request_id,$request->rider_id,$request->asset_vehicle_id,'agent_vehicle_assign_notify');
-                
+            
+            // $this->pushRiderVehicleStatusNotification($rider, $request->request_id,$vehicle_no,'rider_vehicle_assign_notify');
+            // $this->pushAgentVehicleStatusNotification($user,$request->request_id,$vehicle_no,'agent_vehicle_assign_notify',$rider_name);
+            // $this->AutoSendAssignVehicleEmail($user, $request->request_id, $request->rider_id, $request->asset_vehicle_id, 'agent_vehicle_assign_email_notify');
+            // $this->AutoSendAssignVehicleWhatsApp($user,$request->request_id,$request->rider_id,$request->asset_vehicle_id,'agent_vehicle_assign_notify');
+            
+            dispatch(new SendVehicleAllNotificationsJob(
+                $rider,
+                $user,
+                $request->request_id,
+                $vehicle_no,
+                $rider_name,
+                $request->rider_id,
+                $request->asset_vehicle_id
+            ));
+            
+            DB::commit();
+
             return response()->json([
                 'status'  => true,
                 'message' => 'Vehicle assigned successfully',
@@ -734,6 +690,8 @@ public function update_request(Request $request)
     
         } catch (\Exception $e) {
             Log::info("catch error for Assign Vehicle".$e->getMessage());
+            DB::rollBack();
+
             return response()->json([
                 'status'  => false,
                 'message' => 'Vehicle Assign Failed',
@@ -744,7 +702,7 @@ public function update_request(Request $request)
     
     public function AutoSendAssignVehicleEmail($agent, $vehicleRequestId, $rider_id, $vehicle_id, $forward_type)
     {
-        
+        Log::info('Global JoB Function three is working '.now());
         $rider = B2BRider::with('customerLogin.customer_relation')
             ->where('id', $rider_id)
             ->first();
@@ -1510,6 +1468,7 @@ public function update_request(Request $request)
     
     public function pushRiderVehicleStatusNotification($rider, $requestId, $vehicle_no, $forward_type)
     {
+        Log::info('Global JoB Function is working' .now());
         $svc   = new FirebaseNotificationService();
         $image = null;
         $icon  = null;
@@ -1570,6 +1529,7 @@ public function update_request(Request $request)
 
     public function AutoSendAssignVehicleWhatsApp($agent,$vehicleRequestId,$rider_id,$vehicle_id,$forward_type)
     {
+        Log::info('Global JoB Function fourth is working '.now());
 
             $rider = B2BRider::with('customerLogin.customer_relation')
                 ->where('id', $rider_id)
@@ -1841,6 +1801,7 @@ public function update_request(Request $request)
     
     public function pushAgentVehicleStatusNotification($user, $requestId, $vehicle_no, $forward_type, $rider_name)
     {
+        Log::info('Global JoB Function two is working '.now());
         $agent_Arr = User::where('role', 17)
             ->where('city_id', $user->city_id)
             ->where('zone_id', $user->zone_id)
@@ -1898,80 +1859,83 @@ public function update_request(Request $request)
 
 
 
-public function get_return_request_list(Request $request)
-{
-    $user = $request->user('agent');
+    public function get_return_request_list(Request $request)
+    {
+        $user = $request->user('agent');
+        
+        $search = $request->input('search');
+        $status = $request->input('filter', 'opened');
+        $sort = $request->input('sort', 'newest');
     
-    $search = $request->input('search');
-    $status = $request->input('filter', 'opened');
-    $sort = $request->input('sort', 'newest');
-
-    $query = B2BReturnRequest::with([
-            'rider.customerLogin.customer_relation',
-            'assignment'
-    ])->where('status', $status);
-    
-    if ($user->login_type == 1) {
-            // Only city check
-            $query->whereHas('assignment.VehicleRequest', function ($q) use ($user) {
-                $q->where('city_id', $user->city_id);
+        $query = B2BReturnRequest::with([
+                'rider.customerLogin.customer_relation',
+                'assignment',
+                'assignment.VehicleRequest',
+                'assignment.VehicleRequest.accountAbilityRelation'
+        ])->where('status', $status);
+        
+        if ($user->login_type == 1) {
+                // Only city check
+                $query->whereHas('assignment.VehicleRequest', function ($q) use ($user) {
+                    $q->where('city_id', $user->city_id);
+                });
+        } elseif ($user->login_type == 2) {
+                // City + Zone check
+                $query->whereHas('assignment.VehicleRequest', function ($q) use ($user) {
+                    $q->where('city_id', $user->city_id)
+                      ->where('zone_id', $user->zone_id);
             });
-    } elseif ($user->login_type == 2) {
-            // City + Zone check
-            $query->whereHas('assignment.VehicleRequest', function ($q) use ($user) {
-                $q->where('city_id', $user->city_id)
-                  ->where('zone_id', $user->zone_id);
-        });
-    }   
-  
-    // if ($user->login_type == 1) {
-    //         // Only city check
-    //         $query->whereHas('rider.customerLogin', function ($q) use ($user) {
-    //             $q->where('city_id', $user->city_id);
-    //         });
-    // } elseif ($user->login_type == 2) {
-    //         // City + Zone check
-    //         $query->whereHas('rider.customerLogin', function ($q) use ($user) {
-    //             $q->where('city_id', $user->city_id)
-    //               ->where('zone_id', $user->zone_id);
-    //     });
-    // }
+        }   
+      
+        // if ($user->login_type == 1) {
+        //         // Only city check
+        //         $query->whereHas('rider.customerLogin', function ($q) use ($user) {
+        //             $q->where('city_id', $user->city_id);
+        //         });
+        // } elseif ($user->login_type == 2) {
+        //         // City + Zone check
+        //         $query->whereHas('rider.customerLogin', function ($q) use ($user) {
+        //             $q->where('city_id', $user->city_id)
+        //               ->where('zone_id', $user->zone_id);
+        //     });
+        // }
+        
+            
+            
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('return_reason', 'like', "%{$search}%")
+                  ->orWhere('register_number', 'like', "%{$search}%")
+                  ->orWhere('chassis_number', 'like', "%{$search}%")
+                  ->orWhere('rider_name', 'like', "%{$search}%")
+                  ->orWhere('rider_mobile_no', 'like', "%{$search}%")
+                  ->orWhere('client_business_name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+        
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at', 'asc');
+        } else {
+            $query->orderBy('created_at', 'desc'); // default newest
+        }
+        $requests = $query->paginate(10);
     
+        // Format created_at & add aging field
+        $requests->getCollection()->transform(function ($item) {
+            $item->rider->city_name = $item->rider->city->city_name ?? 'N/A';
+            $item->rider->zone_name = $item->rider->zone->name ?? 'N/A';
+            $item->assignment->VehicleRequest->accountAbilityRelation->name = $item->assignment->VehicleRequest->accountAbilityRelation->name ?? 'N/A';
+            return $item;
+        });
         
         
-    if (!empty($search)) {
-        $query->where(function ($q) use ($search) {
-            $q->where('return_reason', 'like', "%{$search}%")
-              ->orWhere('register_number', 'like', "%{$search}%")
-              ->orWhere('chassis_number', 'like', "%{$search}%")
-              ->orWhere('rider_name', 'like', "%{$search}%")
-              ->orWhere('rider_mobile_no', 'like', "%{$search}%")
-              ->orWhere('client_business_name', 'like', "%{$search}%")
-              ->orWhere('description', 'like', "%{$search}%");
-        });
+        return response()->json([
+            'status'  => true,
+            'message' => 'Return requests fetched successfully.',
+            'data'    => $requests,
+        ]);
     }
-    
-    if ($sort === 'oldest') {
-        $query->orderBy('created_at', 'asc');
-    } else {
-        $query->orderBy('created_at', 'desc'); // default newest
-    }
-    $requests = $query->paginate(10);
-
-    // Format created_at & add aging field
-    $requests->getCollection()->transform(function ($item) {
-        $item->rider->city_name = $item->rider->city->city_name ?? 'N/A';
-        $item->rider->zone_name = $item->rider->zone->name ?? 'N/A';
-        return $item;
-    });
-    
-    
-    return response()->json([
-        'status'  => true,
-        'message' => 'Return requests fetched successfully.',
-        'data'    => $requests,
-    ]);
-}
 
 public function update_return_request(Request $request)
 {
@@ -1993,6 +1957,7 @@ public function update_return_request(Request $request)
             'vehicle_right'   => 'nullable|mimes:jpg,jpeg,png,pdf',
             'vehicle_battery' => 'nullable|mimes:jpg,jpeg,png,pdf',
             'vehicle_charger' => 'nullable|mimes:jpg,jpeg,png,pdf',
+            'agent_remarks' => 'nullable|max:255',
         ]);
         
 
@@ -2053,6 +2018,7 @@ public function update_return_request(Request $request)
         }
         $returnRequest->kilometer_value =  0;
         $returnRequest->odometer_value  = $request->kilometer_value ?? 0;
+        $returnRequest->agent_remarks  = $request->remarks ?? '';
         $returnRequest->status          = 'closed'; 
         $returnRequest->closed_by       = $user->id??null;
         $returnRequest->closed_at       = now();
@@ -2089,6 +2055,10 @@ public function update_return_request(Request $request)
 
         if ($service) {
         
+            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $vehicle->id)->first();
+            
+            $from_location_source = $inventory ? $inventory->transfer_status : null; 
+        
             AssetVehicleInventory::where('asset_vehicle_id', $vehicle->id)
                 ->update(['transfer_status' => 2]);
     
@@ -2096,6 +2066,8 @@ public function update_return_request(Request $request)
             
             VehicleTransferChassisLog::create([
                 'chassis_number' => $vehicle->chassis_number,
+                'from_location_source' => $from_location_source,
+                'to_location_destination' => 2,
                 'vehicle_id'     => $vehicle->id,
                 'status'         => 'updated',
                 'remarks'        => $remarks,
@@ -2105,6 +2077,11 @@ public function update_return_request(Request $request)
             
         } else {
             
+            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $vehicle->id)->first();
+            
+            $from_location_source = $inventory ? $inventory->transfer_status : null; 
+            
+            
             AssetVehicleInventory::where('asset_vehicle_id', $vehicle->id)
                 ->update(['transfer_status' => 5]);
         
@@ -2112,6 +2089,8 @@ public function update_return_request(Request $request)
             
             VehicleTransferChassisLog::create([
                 'chassis_number' => $vehicle->chassis_number,
+                'from_location_source' => $from_location_source,
+                'to_location_destination' => 5,
                 'vehicle_id'     => $vehicle->id,
                 'status'         => 'updated',
                 'remarks'        => $remarks,

@@ -1,18 +1,24 @@
 
 <?php
+
  $city_table_data = \DB::table('vehicle_qc_check_lists as qc')
             ->select(
                 'qc.location',
-                'lo.name as city',
+                'lo.city_name as city',
                 'qc.vehicle_type',
                 DB::raw("SUM(CASE WHEN inv.transfer_status = 1 THEN 1 ELSE 0 END) as onroad_count"),
                 DB::raw("SUM(CASE WHEN inv.transfer_status = 6 THEN 1 ELSE 0 END) as accident_case_count"),
                 DB::raw("SUM(CASE WHEN inv.transfer_status = 2 THEN 1 ELSE 0 END) as undermaintanance_count"),
-                DB::raw("SUM(CASE WHEN inv.transfer_status <> 1 OR inv.transfer_status IS NULL THEN 1 ELSE 0 END) as offroad_count")
+                DB::raw("SUM(CASE WHEN inv.transfer_status != 1 THEN 1 ELSE 0 END) as offroad_count")
             )
-            ->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-            ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
-            ->leftJoin('ev_tbl_location_master as lo', 'lo.id', '=', 'qc.location')
+             ->when($accountability_type_id === 'all', function ($query) {
+                $query->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                      ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+            }, function ($query) {
+                $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                      ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+            })
+            ->leftJoin('ev_tbl_city as lo', 'lo.id', '=', 'qc.location')
             ->where('vh.delete_status', 0)
             ->when($location_id != "", function ($query) use ($location_id) {
                 return $query->where('qc.location', $location_id);
@@ -58,9 +64,19 @@
             ->when(!$timeline && $to_date, function ($query) use ($to_date) {
                 $query->whereDate('qc.created_at', '<=', $to_date);
             })
-            ->groupBy('qc.location', 'lo.name', 'qc.vehicle_type')
+            ->when($accountability_type_id !== 'all', function ($query) use ($accountability_type_id) {
+                $query->where('qc.accountability_type', $accountability_type_id);
+            })
+            ->when($customer_id !== 'all' && $accountability_type_id == 2, function ($query) use ($customer_id) {
+                $query->where('qc.customer_id', $customer_id);
+            })
+             ->when($customer_id !== 'all' && $accountability_type_id == 1, function ($query) use ($customer_id) {
+                $query->where('vh.client', $customer_id);
+            })
+            
+            ->groupBy('qc.location', 'lo.city_name', 'qc.vehicle_type')
             ->get();
-    
+            
 ?>
 
 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
@@ -132,26 +148,30 @@
                                             <td><small>{{ $totalAssets }}</small></td>
                                         </tr>
                                 @endforeach
-                                @php
-                                    $fmt = new \NumberFormatter('en_IN', \NumberFormatter::DECIMAL);
-                                @endphp
-                                <!-- Grand Total Row -->
                                 <tr style="font-weight:bold;">
                                     <td style="background-color:#f0f0f0 !important;"><small>Total</small></td>
-                            
+                                
                                     <!-- On Road Totals -->
                                     @foreach($vehicle_types as $type)
-                                        <td style="background-color:#f0f0f0 !important;"><small>{{ $fmt->format($grandOnRoad[$type->id] ?? 0) }}</small></td>
+                                        <td style="background-color:#f0f0f0 !important;">
+                                            <small>{{ number_format($grandOnRoad[$type->id] ?? 0, 0, '.', ',') }}</small>
+                                        </td>
                                     @endforeach
-                            
+                                
                                     <!-- Off Road Totals -->
                                     @foreach($vehicle_types as $type)
-                                        <td style="background-color:#f0f0f0 !important;"><small>{{ $fmt->format($grandOffRoad[$type->id] ?? 0) }}</small></td>
+                                        <td style="background-color:#f0f0f0 !important;">
+                                            <small>{{ number_format($grandOffRoad[$type->id] ?? 0, 0, '.', ',') }}</small>
+                                        </td>
                                     @endforeach
-                            
+                                
                                     <!-- Grand Total Assets -->
-                                    <td style="background-color:#f0f0f0 !important;"><small>{{ $fmt->format($grandTotal) }}</small></td>
+                                    <td style="background-color:#f0f0f0 !important;">
+                                        <small>{{ number_format($grandTotal, 0, '.', ',') }}</small>
+                                    </td>
                                 </tr>
+
+
                             </tbody>
                         </table>
                     </div>

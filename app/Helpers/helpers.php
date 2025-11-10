@@ -4,7 +4,8 @@ use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\DB;
+use App\Jobs\SendAuditLog;
 
 /**
  * get setting value
@@ -591,3 +592,33 @@ function b2bCan(string $permission): bool
         ->first()
         ?->hasPermissionTo($permission) ?? false;
 }
+
+if (! function_exists('audit_log')) {
+    /**
+     * Dispatch audit log to queue.
+     *
+     * @param array<string,mixed> $data
+     */
+    function audit_log(array $data): void
+    {
+        SendAuditLog::dispatch($data);
+    }
+}
+
+if (! function_exists('audit_log_after_commit')) {
+    /**
+     * Dispatch the audit job only AFTER the current DB transaction commits.
+     * If no transaction is active, it behaves like an immediate dispatch.
+     *
+     * @param array<string,mixed> $data
+     */
+    function audit_log_after_commit(array $data): void
+    {
+        if (DB::transactionLevel() > 0) {
+            SendAuditLog::dispatch($data)->afterCommit();
+        } else {
+            // No active transaction → fall back to immediate
+            SendAuditLog::dispatch($data);
+        }
+    }
+} 

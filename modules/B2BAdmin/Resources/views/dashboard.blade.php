@@ -418,6 +418,10 @@
         color: rgba(26, 26, 26, 0.52);
     }
     
+    .hover-card:hover {
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        transform: translateY(-4px);
+    }
     @media (min-width: 992px) and (max-width: 1220px) {
        
     .metric-header {
@@ -533,7 +537,7 @@
         <!-- Row of Metric Cards -->
         <div class="row g-3 mb-3 card-row"> <!-- g-3 adds gap between columns -->
         <div class="col-md-6">
-            <div class="card-purple ">
+            <div class="card-purple hover-card">
                 <h6>Total No of Clients</h6>
                 <h2 id="total-clients">{{ $client_count }}</h2>
                 <p class="m-0" id="current-month-client"></p>
@@ -541,7 +545,7 @@
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card-blue ">
+            <div class="card-blue hover-card">
                 <h6>Total No of Agents</h6>
                 <h2 id="total-agents">{{ $agent_count }}</h2>
                 <p class="m-0" id="current-month-agent"></p>
@@ -551,7 +555,7 @@
         </div>
     
         <!-- Chart Card -->
-        <div class="card p-3 flex-grow-1">
+        <div class="card p-3 flex-grow-1 hover-card">
             <h6>Client Wise Deployment</h6>
             <canvas id="deploymentChart" class="w-100 h-100"></canvas>
         </div>
@@ -559,7 +563,7 @@
     
     <!-- Heatmap -->
     <div class="col-md-5 d-flex mb-2" style="padding-left:4px;">
-      <div class="card p-3 w-100 h-100">
+      <div class="card p-3 w-100 h-100 hover-card">
         
         <div class="d-flex justify-content-between mb-2">
         <h6 class="d-flex align-items-center m-0">Client Tickets</h6>
@@ -596,7 +600,7 @@
     <div class="row g-3">
     <!-- Service Request -->
     <div class="col-md-6 col-sm-12">
-        <div class="card-metric bg-white">
+        <div class="card-metric bg-white hover-card">
             <div class="d-flex justify-content-between align-items-center">
                 <h6>Service Request</h6>
                 <div class="d-flex align-items-center gap-2">
@@ -631,7 +635,7 @@
 
     <!-- Return Request -->
     <div class="col-md-6 col-sm-12">
-        <div class="card-metric bg-white">
+        <div class="card-metric bg-white hover-card">
             <div class="d-flex justify-content-between align-items-center">
                 <h6>Return Request</h6>
                 <div class="d-flex align-items-center gap-2">
@@ -667,7 +671,7 @@
 
     <!-- Accident Request -->
     <div class="col-md-6 col-sm-12">
-        <div class="card-metric bg-white">
+        <div class="card-metric bg-white hover-card">
             <div class="d-flex justify-content-between align-items-center">
                 <h6>Accident Request</h6>
                 <div class="d-flex align-items-center gap-2">
@@ -710,7 +714,7 @@
 
     <!-- Recovery Request -->
     <div class="col-md-6 col-sm-12">
-        <div class="card-metric bg-white">
+        <div class="card-metric bg-white hover-card">
             <div class="d-flex justify-content-between align-items-center">
                 <h6 style="color:black">Recovery Request</h6>
                 <div class="d-flex align-items-center gap-2">

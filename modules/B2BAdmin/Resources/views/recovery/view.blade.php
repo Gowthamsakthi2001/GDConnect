@@ -308,6 +308,43 @@
     <div class="card">
         <div class="card-body">
            <div class="row mb-4 g-2">
+                <?php
+                //updated by Gowtham.S
+                $Request_User = null;
+                $createdByName = 'N/A';
+                $roleName = 'N/A';
+                $clientName = 'N/A';
+            
+                if ($data->created_by_type === 'b2b-admin-dashboard') {
+                    // Admin user
+                    $Request_User = \App\Models\User::find($data->created_by);
+            
+                    if ($Request_User) {
+                        $createdByName = $Request_User->name ?? 'N/A';
+                        $roleName = $Request_User->get_role->name ?? 'N/A';
+                    }
+                } elseif ($data->created_by_type === 'b2b-web-dashboard') {
+                    // Client user
+                    $Request_User = \Modules\MasterManagement\Entities\CustomerLogin::find($data->created_by);
+                    if ($Request_User) {
+                        $createdByName = $Request_User->email ?? 'N/A';
+                        $clientName = $Request_User->customer_relation->trade_name ?? 'N/A';
+                    }
+                }
+            ?>
+               <div class="col-12 mb-3"> <!-- updated by Gowtham.S -->
+                    <div class="alert alert-info" role="alert">
+                        @if($data->created_by_type === 'b2b-admin-dashboard')
+                            Requested By:  {{ $createdByName }} ({{ $roleName }})
+                        @elseif($data->created_by_type === 'b2b-web-dashboard')
+                            Requested By:  {{ $createdByName }} <br>
+                            Client Name: {{ $clientName }}
+                        @else
+                            <strong>Requested By:</strong> Unknown
+                        @endif
+                    </div>
+                </div>
+                
                 <div class="col-md-6">
                     <div class="card shadow-sm border-0">
                         <div class="p-3" style="border-radius:8px;border:#A61D1D 1px solid ">
@@ -355,19 +392,24 @@
                         <input type="text" class="form-control bg-white" name="chassis_no" id="chassis_no" value="{{$data->chassis_number??''}}" placeholder="Enter Chassis Number" readonly>
                     </div>
                 </div>
+                  <?php
+                     $recovery_reasons = \Modules\MasterManagement\Entities\RecoveryReasonMaster::where('status',1)->get();
+                  ?>
                 
                 <div class="col-md-6 mb-3">
                     <div class="form-group">
                         <label class="input-label mb-2 ms-1" for="reason">Reason For Recovery </label>
                         <!--<input type="text" class="form-control bg-white" name="reason" id="reason" value="{{$data->reason??''}}" placeholder="Enter Chassis Number" readonly>-->
                         <select class="form-select " name="reason_for_recovery" id="reason_for_recovery" disabled>
-                                    <option value="">Select</option>
-                                    <option value="1" {{ $data->reason == 1 ? 'selected' : '' }}>Breakdown</option>
-                                    <option value="2" {{ $data->reason == 2 ? 'selected' : '' }}>Battery Drain</option>
-                                    <option value="3" {{ $data->reason == 3 ? 'selected' : '' }}>Accident</option>
-                                    <option value="4" {{ $data->reason == 4 ? 'selected' : '' }}>Rider Unavailable</option>
-                                    <option value="5" {{ $data->reason == 5 ? 'selected' : '' }}>Other</option>
-                                </select>
+                            <option value="">Select</option>
+                             @if(isset($recovery_reasons) && count($recovery_reasons) > 0)
+                                @foreach($recovery_reasons as $val)
+                                <option value="{{$val->id}}" {{ $data->reason == $val->id ? 'selected' : '' }}>{{$val->label_name}}</option>
+                                @endforeach
+                            @else
+                               <option value="">No Data</option>
+                            @endif
+                        </select>
                     </div>
                 </div>
                 
@@ -418,6 +460,100 @@
                         >{{ $data->description ?? '' }}</textarea>
                     </div>
                 </div>
+                 @if($data->is_agent_assigned)
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-group">
+                                        <label class="input-label mb-2 ms-1" for="assigned_agent">Assigned Agent</label>
+                                        <input type="text" class="form-control bg-white" name="assigned_agent" id="assigned_agent" value="{{ ($data->recovery_agent->first_name .' '. $data->recovery_agent->last_name) ?? 'N/A'}}"  readonly>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-group">
+                                        <label class="input-label mb-2 ms-1" for="contact">Agent Contact</label>
+                                        <input type="text" class="form-control bg-white" name="agent_contact" id="agent_contact" value="{{$data->recovery_agent->mobile_number ?? 'N/A'}}"  readonly>
+                                    </div>
+                                </div>
+                                
+                                  <div class="col-md-6 mb-3">
+                                    <div class="form-group">
+                                        <label class="input-label mb-2 ms-1" for="vehicle_number">Agent Status </label>
+                                        <input type="text" class="form-control bg-white" name="status" id="status" value="{{ ucfirst($data->agent_status)?? 'N/A'}}"  placeholder="Vehicle NO" readonly>
+                                    </div>
+                                </div>                                
+                @endif
+            @if($data->status == 'closed')
+                <!-- Recovery Photos -->
+                <div class="col-md-12 mb-3">
+                    <label class="input-label mb-2 ms-1">Recovery Photos</label>
+                
+                    @if(!empty($data->images))
+                        @php
+                            $attachments = is_array($data->images)
+                                ? $data->images
+                                : json_decode($data->images, true);
+                
+                            if (!is_array($attachments)) {
+                                $attachments = [$data->images];
+                            }
+                        @endphp
+                
+                        <div class="row g-3">
+                            @foreach($attachments as $file)
+                                @if(!empty($file))
+                                    <div class="col-12 col-sm-6 col-md-3">
+                                        <div
+                                            style="width:100%; height:200px; border:2px solid #ccc;
+                                                   background-size:cover; background-position:center;
+                                                   background-image:url('{{ asset('b2b/recovery_comments/'.$file) }}'); cursor:pointer;"
+                                            onclick="OpenImageModal('{{ asset('b2b/recovery_comments/'.$file) }}')">
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+                    @else
+                        <p>No recovery photos uploaded.</p>
+                    @endif
+                </div>
+                
+                <!-- Recovery Video / Document -->
+                <div class="col-md-12 mb-3">
+                    <label class="form-label">Recovery Video</label>
+                
+                    @if(!empty($data->video))
+                        @php
+                            $fileName = $data->video;
+                            $filePath = asset('b2b/recovery_comments/' . $fileName);
+                            $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                        @endphp
+                
+                        @if($extension === 'pdf')
+                            <!-- Show PDF -->
+                            <iframe src="{{ $filePath }}" style="width:100%; height:400px;" frameborder="0"></iframe>
+                
+                        @elseif(in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp']))
+                            <!-- Show Image -->
+                            <img src="{{ $filePath }}" alt="Police Report"
+                                 style="width:100%; height:400px; object-fit:contain; border:1px solid #ccc; cursor:pointer;"
+                                 onclick="OpenImageModal('{{ $filePath }}')">
+                
+                        @elseif(in_array($extension, ['mp4', 'mov', 'avi', 'mkv', 'webm']))
+                            <!-- Show Video -->
+                            <video controls style="width:100%; height:400px; border:1px solid #ccc; border-radius:6px;">
+                                <source src="{{ $filePath }}" type="video/{{ $extension }}">
+                                Your browser does not support the video tag.
+                            </video>
+                
+                        @else
+                            <p>Unsupported file type: {{ $extension }}</p>
+                        @endif
+                    @else
+                        <p>No Recovery Video uploaded.</p>
+                    @endif
+                
+            </div>
+            @endif
             </div>
 
 
@@ -428,12 +564,98 @@
             
         </div>
         
-
+<!--  Image View Modal -->
+                    <div class="modal fade" id="attachment_view_modal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-centered">
+                            <div class="modal-content rounded-4" style="overflow:hidden;"> <!-- overflow hidden added -->
+                                <div class="modal-header border-0 d-flex justify-content-end gap-1">
+                                    <button class="btn btn-sm btn-dark" onclick="zoomIn()">
+                                        <i class="bi bi-zoom-in"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-dark" onclick="zoomOut()">
+                                        <i class="bi bi-zoom-out"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-dark" onclick="rotateImage()">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-dark" onclick="downloadImage()">
+                                        <i class="bi bi-download"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-dark" data-bs-dismiss="modal">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                                <div class="modal-body d-flex justify-content-center align-items-center" 
+                                     style="overflow:auto; max-height:80vh; background:#f9f9f9;">
+                                    <img src="" id="modal_preview_image" 
+                                         style="max-width:100%; max-height:75vh; transition:transform 0.3s ease;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>  
     
     
              
    
 @section('script_js')
+<script>
+    let scale = 1;
+    let rotation = 0;
+    let currentImageUrl = ''; 
+    
+    function OpenImageModal(img_url) {
+        scale = 1;
+        rotation = 0;
+        currentImageUrl = img_url;; 
+        updateImageTransform();
+        document.getElementById("modal_preview_image").src = img_url;
+        $("#attachment_view_modal").modal('show');
+    }
+    
+    function zoomIn() {
+        scale += 0.1;
+        updateImageTransform();
+    }
+    
+    function zoomOut() {
+        if (scale > 0.2) {
+            scale -= 0.1;
+            updateImageTransform();
+        }
+    }
+    
+    function rotateImage() {
+        rotation = (rotation + 90) % 360;
+        updateImageTransform();
+    }
+    
+    function updateImageTransform() {
+        const img = document.getElementById("modal_preview_image");
+        img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+    }
+    
+    async function downloadImage() {
+        console.log('started');
+    if (!currentImageUrl) return;
 
+        try {
+            const response = await fetch(currentImageUrl, { mode: 'no-cors' });
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+    
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = currentImageUrl.split('/').pop() || 'image.jpg';
+            document.body.appendChild(link);
+            link.click();
+    
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Error downloading image:', error);
+            alert('Unable to download image. Please try opening it in a new tab and saving manually.');
+        }
+    }
+    </script>
 @endsection
 </x-app-layout>

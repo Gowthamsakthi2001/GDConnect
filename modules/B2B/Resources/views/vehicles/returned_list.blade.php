@@ -137,6 +137,7 @@
                                   </div>
                                 </th>
                                 <th class="custom-dark">Request ID</th>
+                                <th class="custom-dark">Accountability Type</th>
                                 <th class="custom-dark">Vehicle No</th>
                                 <th class="custom-dark">Chassis No</th>
                                 <th class="custom-dark">Rider Name</th>
@@ -194,6 +195,14 @@
                         <label class="form-check-label mb-0" for="field3">Request ID</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="req_id" name="req_id">
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Accountability Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="accountability_type" name="accountability_type">
                         </div>
                       </div>
                     </div>
@@ -470,26 +479,26 @@
           <div class="offcanvas-body">
         
             
-            <!--<div class="card mb-3">-->
-            <!--   <div class="card-header p-2">-->
-            <!--       <div><h6 class="custom-dark">Select City</h6></div>-->
-            <!--   </div>-->
-            <!--   <div class="card-body">-->
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
  
-            <!--        <div class="mb-3">-->
-            <!--            <label class="form-label" for="FromDate">City</label>-->
-            <!--            <select name="city_id" id="city_id" class="form-control custom-select2-field" onchange="getZones(this.value)">-->
-            <!--                <option value="">Select City</option>-->
-            <!--                @if(isset($cities))-->
-            <!--                @foreach($cities as $city)-->
-            <!--                <option value="{{$city->id}}" >{{$city->city_name}}</option>-->
-            <!--                @endforeach-->
-            <!--                @endif-->
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field">
+                            <option value="">Select Type</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
 
-            <!--            </select>-->
-            <!--        </div>-->
-            <!--   </div>-->
-            <!--</div>-->
+                        </select>
+                    </div>
+               </div>
+            </div>
             
             @if($guard == 'master')
             <div class="card mb-3">
@@ -670,6 +679,7 @@
         $('#FromDate').val('');
         $('#ToDate').val('');
     $('#city_id').val('').trigger('change'); // 🔹 reset city + trigger change
+    $('#accountabilitytype').val('').trigger('change');
      $('#status_value').val('').trigger('change');
     $('#zone_id').html('<option value="">Select Zone</option>').trigger('change'); // 🔹 reset zones + trigger change
         table.ajax.reload();
@@ -699,6 +709,7 @@
                 d.status = $('#status_value').val();
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
+                d.accountability_type = $('#accountabilitytype').val();
                 },
             
                 beforeSend: function () {
@@ -737,7 +748,8 @@
             { data: 9 }, // Updated Date
             { data: 10 }, // Created By
             { data: 11 }, // Status
-            { data: 12, orderable: false, searchable: false } // Action
+            { data: 12 }, // Status
+            { data: 13, orderable: false, searchable: false } // Action
             ],
             lengthMenu: [[25, 50, 100, 250, -1], [25, 50, 100, 250, "All"]],
             scrollX: true,
@@ -831,12 +843,14 @@
    
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
+     const accountability_type   = document.getElementById('accountabilitytype').value;
 
     // ✅ Build query params
     const params = new URLSearchParams();
  
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
+  if (accountability_type) params.append('accountability_type', accountability_type);
 
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));

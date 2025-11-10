@@ -1,0 +1,31 @@
+{
+    "name": "bdtask/vehicletype",
+    "description": "",
+    "authors": [
+        {
+            "name": "Bdtask Limited",
+            "email": "business@bdtask.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\VehicleType\\": "",
+            "Modules\\VehicleType\\App\\": "app/",
+            "Modules\\VehicleType\\Database\\Factories\\": "database/factories/",
+            "Modules\\VehicleType\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\VehicleType\\Tests\\": "tests/"
+        }
+    }
+}

@@ -18,8 +18,8 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
     protected $city;
     protected $zone;
     protected $status;
-
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null,$status=null)
+    protected $accountability_type;
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null,$status=null , $accountability_type=null)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
@@ -27,6 +27,7 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
         $this->selectedFields = $selectedFields;
         $this->city           = $city;
         $this->status           = $status;
+        $this->accountability_type           = $accountability_type;
     }
 
     public function collection()
@@ -61,6 +62,11 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
                         }
+                        
+                        if ($this->accountability_type) {
+                            $q->where('account_ability_type', $this->accountability_type);
+                        }
+                        
                     });
                     
         if (!empty($this->selectedIds)) {
@@ -97,6 +103,14 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
     public function map($row): array
     {
         $mapped = [];
+        
+        if ($row->status === 'claim_closed') {
+            $aging = \Carbon\Carbon::parse($row->created_at)
+                        ->diffForHumans(\Carbon\Carbon::parse($row->updated_at), true);
+        } else {
+            $aging = \Carbon\Carbon::parse($row->created_at)
+                        ->diffForHumans(now(), true);
+        }
 
         foreach ($this->selectedFields as $key) {
             switch ($key) {
@@ -109,6 +123,10 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
                     
                     break;
 
+                case 'accountability_type':
+                        $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
+                        break;
+                        
                 case 'vehicle_no':
                     $mapped[] = $row->assignment->vehicle->permanent_reg_number ?? '-';
                     break;
@@ -120,7 +138,9 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
                 case 'mobile_no':
                     $mapped[] = $row->assignment->rider->mobile_no ?? '-';
                     break;
-
+                case 'aging':
+                    $mapped[] = $aging ?? '-';
+                    break;
                 // case 'poc_name':
                 //     $mapped[] = $row->assignment->rider->customerlogin->customer_relation->trade_name ?? '-';
                 //     break;
@@ -203,6 +223,12 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
                         ? $row->created_at->format('d M Y h:i A')
                         : '-';
                     break;
+                    
+                case 'updated_at':
+                    $mapped[] = $row->updated_at
+                        ? $row->updated_at->format('d M Y h:i A')
+                        : '-';
+                    break;
 
                 default:
                     $mapped[] = $row->$key ?? '-';
@@ -225,6 +251,7 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
             'city'          => 'City',
             // 'poc_name'      => 'POC Name',
             // 'poc_number'   => 'POC Contact',
+            'accountability_type'     => 'Accountability Type',
             'zone'          => 'Zone',
             'accident_type' => 'Accident Type',
             'location'      => 'Location',
@@ -239,6 +266,8 @@ class B2BAccidentReportExport implements FromCollection, WithHeadings, WithMappi
             'created_by'    => 'Created By',
             'status'        => 'Status',
             'created_at'    => 'Created Date & Time',
+            'updated_at'    => 'Updated Date & Time',
+            'aging'         => 'aging'
         ];
 
         foreach ($this->selectedFields as $key) {

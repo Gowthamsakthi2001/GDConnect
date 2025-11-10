@@ -10,6 +10,8 @@ use Modules\City\Entities\City;
 use Modules\B2B\Entities\B2BReportAccident;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\B2BAdminAccidentReportExport;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
+use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
 
 class B2BAccidentController extends Controller
 {
@@ -58,6 +60,11 @@ class B2BAccidentController extends Controller
                         });
                     }
                     
+                    if ($request->filled('accountability_type')) {
+                        $query->whereHas('assignment.VehicleRequest', function($zn) use ($request) {
+                            $zn->where('account_ability_type', $request->accountability_type);
+                        });
+                    }
 
                     // Search filters
                     if (!empty($search)) {
@@ -163,8 +170,13 @@ class B2BAccidentController extends Controller
                 // Values
                 
                 
+                 if ($item->status === 'claim_closed') {
+                    $aging = \Carbon\Carbon::parse($item->created_at)
+                                ->diffForHumans(\Carbon\Carbon::parse($item->updated_at), true);
+                    } else {
                         $aging = \Carbon\Carbon::parse($item->created_at)
-                                        ->diffForHumans(now(), true);
+                                    ->diffForHumans(now(), true);
+                    }
                        
                         
                         $requestId  = data_get($item, 'assignment.VehicleRequest.req_id', 'N/A');
@@ -206,6 +218,7 @@ class B2BAccidentController extends Controller
                 return [
                     '<input class="form-check-input sr_checkbox" style="width:25px; height:25px;" type="checkbox" value="'.$item->id.'">',
                     e($requestId),
+                    e($item->assignment->VehicleRequest->accountAbilityRelation->name ?? 'N/A'), //updated by logesh
                     e($regNumber),
                     e($chassis),
                     e($riderName),
@@ -241,7 +254,14 @@ class B2BAccidentController extends Controller
     }
 
     $cities = City::where('status', 1)->get();
-    return view('b2badmin::accident.list', compact('cities'));
+        $accountability_types = EvTblAccountabilityType::where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+        
+    $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+    return view('b2badmin::accident.list', compact('cities','accountability_types','customers'));
 }
 
         
@@ -292,8 +312,11 @@ public function export(Request $request)
             $from_date = $request->input('from_date');
             $to_date   = $request->input('to_date');
             $zone = $request->input('zone_id')?? null;
-            $city = $request->input('city_id')?? null;
-             $selectedIds = $request->input('selected_ids', []);
+            $status = $request->input('status')?? null;
+            $city = $request->input('city')?? null;
+            $accountability_type = $request->input('accountability_type')?? null;
+            $customer_id = $request->input('customer_id')?? null;
+            $selectedIds = $request->input('selected_ids', []);
     
         
             if (empty($fields)) {
@@ -301,7 +324,7 @@ public function export(Request $request)
             }
         
             return Excel::download(
-                new B2BAdminAccidentReportExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
+                new B2BAdminAccidentReportExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),
                 'accident-report-list-' . date('d-m-Y') . '.xlsx'
             );
         }

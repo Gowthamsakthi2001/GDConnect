@@ -5,6 +5,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GetZoneController;
 use App\Http\Controllers\LocalizationController;
 use Modules\VehicleManagement\Http\Controllers\MobitraApiController;
+use Modules\VehicleServiceTicket\Http\Controllers\VehicleServiceTicketController;
+use App\Http\Controllers\TermsAndConditionController; //updated by Mugesh.B
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Artisan;
@@ -93,12 +95,33 @@ Route::get('/log/export/', function (Request $request) { //without middleware cr
     return view('exports.user_log_export', compact('reports'));
 });
 
+Route::prefix('/web/ticket-portal/')->as('admin.web.vehicle-ticket.')->controller(VehicleServiceTicketController::class)->group(function () {
+    Route::get('/create-ticket', 'create_web_ticket')->name('create');
+    Route::post('/store-ticket', 'new_ticket_create')->name('store');
+});
+
+
+
+Route::prefix('api/vehicle-service')
+->as('api.vehicle-service-tickets.')
+->controller(VehicleServiceTicketController::class)
+->group(function () {
+    Route::post('/update-status', 'updateStatus')->name('update_status');
+});
 
 
 
 
-
-
-
+Route::prefix('customer')
+    ->as('customer.')
+    ->controller(TermsAndConditionController::class)
+    ->group(function () {
+        Route::get('/terms-and-conditions', 'index')->name('terms');
+        Route::post('/terms-and-conditions/respond', 'respond')->name('respond');
+        
+        Route::get('/recovery-request', 'recoveryRequest')->name('recovery_request');
+        Route::post('/close-recovery-request', 'closeRecoveryRequest')->name('close_request');
+        
+    });
 
 

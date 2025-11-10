@@ -124,133 +124,13 @@
         
 
 
-<!--        <div class="table-responsive table-container">-->
-<!--    <div id="loadingOverlay" class="datatable-loading-overlay">-->
-<!--        <div class="loading-spinner"></div>-->
-<!--    </div>-->
-<!--    <table id="QualityCheckTable_List" class="table text-center" style="width: 100%;">-->
-<!--         Your table headers and body -->
-<!--    </table>-->
-<!--</div>-->
+
 
         <div class="table-responsive table-container">
             <div id="loadingOverlay" class="datatable-loading-overlay">
         <div class="loading-spinner"></div>
     </div>
-                    <!--<table id="QualityCheckTable_List" class="table text-center" style="width: 100%;">-->
-                    <!--      <thead class="bg-white rounded" style="background:white !important; color:black !important;">-->
-                    <!--        <tr>-->
-                    <!--          <th scope="col" class="custom-dark">-->
-                    <!--              <div class="form-check">-->
-                    <!--                  <input class="form-check-input" style="padding:0.7rem;" type="checkbox" value="" id="CSelectAllBtn" title="Note : If you want to select all the tables in the list, first select 'All' from the dropdown above the table and then click. That will select the entire list.">-->
-                    <!--                  <label class="form-check-label" for="CSelectAllBtn"></label>-->
-                    <!--                </div>-->
-                    <!--            </th>-->
-                    <!--          <th scope="col" class="custom-dark">QC ID</th>-->
-                    <!--            <th scope="col" class="custom-dark">Vehicle Type</th>-->
-                    <!--        <th scope="col" class="custom-dark">Vehicle Model</th>-->
-                    <!--          <th scope="col" class="custom-dark">Location</th>-->
-                    <!--          <th scope="col" class="custom-dark">Chassis No</th>-->
-                    <!--           <th scope="col" class="custom-dark">Battery No</th>-->
-                    <!--          <th scope="col" class="custom-dark">Telematics No</th>-->
-                    <!--        <th scope="col" class="custom-dark">Motor No</th>-->
-                    <!--          <th scope="col" class="custom-dark">Current Status</th>-->
-                    <!--          <th scope="col" class="custom-dark">Action</th>-->
-                    <!--        </tr>-->
-                    <!--      </thead>-->
-
-                          
-                    <!--    <tbody class="bg-white border border-white">-->
-                                  
-                      
-                                  
-                                   
-                    <!--            @if(isset($datas))-->
-                    <!--               @foreach($datas as $data)-->
-                    <!--               <tr>-->
-                    <!--                    <td>-->
-                    <!--                        <div class="form-check">-->
-                    <!--                            <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" type="checkbox" value="{{$data['id']}}">-->
-                    <!--                        </div>-->
-                    <!--                    </td>-->
-                    <!--                 <td>{{ $data['id'] }}</td>-->
-                    <!--                     <td>{{ \Modules\VehicleManagement\Entities\VehicleType::find($data['vehicle_type'])->name ?? '-' }}</td>-->
-                    <!--                    <td>{{ \DB::table('ev_tbl_vehicle_models')->where('id', $data['vehicle_model'])->value('vehicle_model') ?? '-' }}</td>-->
-                    <!--                    <td>{{ \Modules\AssetMaster\Entities\LocationMaster::find($data['location'])->name ?? '-' }}</td>-->
-                    <!--                    <td>{{ $data['chassis_number'] }}</td>-->
-                    <!--                    <td>{{ $data['battery_number'] }}</td>-->
-                    <!--                    <td>{{ $data['telematics_number'] }}</td>-->
-                    <!--                   <td>{{ $data['motor_number'] }}</td>-->
-                    <!--                    <td>-->
-                    <!--                        @php-->
-                    <!--                            $rawStatus = $data['status'] ?? null;-->
-                    <!--                            $normalizedStatus = strtolower($rawStatus);-->
-                                        
-                    <!--                            // Determine color class based on normalized status-->
-                    <!--                            $colorClass = match ($normalizedStatus) {-->
-                    <!--                                'pass' => 'text-success',-->
-                    <!--                                'fail' => 'text-danger',-->
-                    <!--                                'qc_pending', 'nqc_pending', 'pending', null, '' => 'text-warning',-->
-                    <!--                                default => 'text-warning',-->
-                    <!--                            };-->
-                                        
-                    <!--                            // Display label formatting-->
-                    <!--                            $displayStatus = match ($normalizedStatus) {-->
-                    <!--                                'qc_pending' => 'QC Pending',-->
-                    <!--                                'nqc_pending' => 'NQC Pending',-->
-                    <!--                                'pass' => 'Pass',-->
-                    <!--                                'fail' => 'Fail',-->
-                    <!--                                default => ucfirst($normalizedStatus ?: 'Pending'),-->
-                    <!--                            };-->
-                    <!--                        @endphp-->
-                                        
-                    <!--                        <div class="d-flex align-items-center gap-2">-->
-                    <!--                            <i class="bi bi-circle-fill {{ $colorClass }}"></i>-->
-                    <!--                            <span>{{ $displayStatus }}</span>-->
-                    <!--                        </div>-->
-                    <!--                    </td>-->
-
-
-
-                    <!--                    <td>-->
-                    <!--                      <div class="dropdown">-->
-                    <!--                        <button type="button" class="btn btn-sm dropdown-toggle custom-dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">-->
-                    <!--                          <i class="bi bi-three-dots"></i>-->
-                    <!--                        </button>-->
-                                            
-                    <!--                              <?php-->
-                    <!--                                  $id_encode = encrypt($data['id']);-->
-                    <!--                                ?>-->
-                    <!--                       <ul class="dropdown-menu dropdown-menu-end text-center p-1">-->
-                    <!--                          <li>-->
-                    <!--                            <a href="{{route('admin.asset_management.quality_check.view_quality_check',['id'=>$id_encode])}}" class="dropdown-item d-flex align-items-center justify-content-center">-->
-                    <!--                              <i class="bi bi-eye me-2 fs-5"></i> View-->
-                    <!--                            </a>-->
-                    <!--                          </li>-->
-                    <!--                          @if($data['status'] != 'pass')-->
-                    <!--                           <li>-->
-                    <!--                            <a href="javascript:void(0);" -->
-                    <!--                               class="dropdown-item d-flex align-items-center justify-content-center" onclick="DeleteRecord('{{$data->id}}')">-->
-                    <!--                              <i class="bi bi-trash me-2"></i> Delete-->
-                    <!--                            </a>-->
-                    <!--                          </li>-->
-                    <!--                          @endif-->
-                                          
-                    <!--                        </ul>-->
-                                            
-
-
-
-                    <!--                      </div>-->
-                    <!--                    </td>-->
-                    <!--               </tr>-->
-
-                    <!--               @endforeach-->
-                                   
-                    <!--              @endif-->
-                             
-                    <!--    </tbody>-->
-                    <!--    </table>-->
+ 
                     
                     <table id="QualityCheckTable_List" class="table text-center" style="width: 100%;">
     <thead class="bg-white rounded" style="background:white !important; color:black !important;">
@@ -264,7 +144,9 @@
             <th scope="col" class="custom-dark">QC ID</th>
             <th scope="col" class="custom-dark">Vehicle Type</th>
             <th scope="col" class="custom-dark">Vehicle Model</th>
-            <th scope="col" class="custom-dark">Location</th>
+            <th scope="col" class="custom-dark">City</th>
+            <th scope="col" class="custom-dark">Zone</th>
+            <th scope="col" class="custom-dark">Accountability Type</th>
             <th scope="col" class="custom-dark">Chassis No</th>
             <th scope="col" class="custom-dark">Battery No</th>
             <th scope="col" class="custom-dark">Telematics No</th>
@@ -323,12 +205,44 @@
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field4">Location</label>
+                        <label class="form-check-label mb-0" for="field4">City</label>
                         <div class="form-check form-switch m-0">
                           <input class="form-check-input export-field-checkbox" type="checkbox" id="location" name="location">
                         </div>
                       </div>
                     </div>
+                    
+                                        <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Zone</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="zone" name="zone">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                                        <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Accountability Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="accountability_type" name="accountability_type">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Customer</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="customer" name="customer">
+                        </div>
+                        </div>
+                      </div>
+            
+                    
+                    
                                         
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -469,20 +383,79 @@
            
             <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Location</h6></div>
+                   <div><h6 class="custom-dark">Select City</h6></div>
                </div>
                <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="location_id">Location</label>
-                        <select name="location_id" id="location_id" class="form-control custom-select2-field">
+                        <label class="form-label" for="location_id">City</label>
+                        <select name="location_id" id="location_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
                             <option value="">Select</option>
                             @if(isset($location_data))
                             @foreach($location_data as $l)
-                            <option value="{{$l->id}}" {{ $location == $l->id ? 'selected' : '' }}>{{$l->name}}</option>
+                            <option value="{{$l->id}}" {{ $location == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
                             @endforeach
                             @endif
 
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            
+                        <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Zone</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="zone_id">Zone</label>
+                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
+                            <option value="">Select a city first</option>
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Accountability Type</label>
+                        <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">
+                            <option value="">All</option>
+                            @if(isset($accountablity_types))
+                            @foreach($accountablity_types as $type)
+                            <option value="{{$type->id}}" {{ $accountability_type == $type->id ? 'selected' : '' }}>{{$type->name ?? ''}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            <div class="card mb-3 d-none" id="CustomerSection">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Customer</label>
+                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
+                            @endforeach
+                            @endif
                         </select>
                     </div>
                </div>
@@ -665,7 +638,9 @@ function clearQualityCheckFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
     $('#location_id').val('').trigger('change');
-    
+        $('#zone_id').val('').trigger('change');
+    $('#customer_id').val('').trigger('change');
+    $('#accountability_type_id').val('').trigger('change');
     // Reload DataTable with cleared filters
     $('#QualityCheckTable_List').DataTable().ajax.reload();
     
@@ -695,6 +670,9 @@ $(document).ready(function () {
                 d.to_date = $('#ToDate').val();
                 d.timeline = $('input[name="STtimeLine"]:checked').val();
                 d.location = $('#location_id').val();
+                                d.zone = $('#zone_id').val();
+                d.customer = $('#customer_id').val();
+                d.accountability_type = $('#accountability_type_id').val();
             },
             beforeSend: function() {
                 // Show loading overlay when AJAX starts
@@ -720,6 +698,8 @@ $(document).ready(function () {
             { data: 'vehicle_type', name: 'vehicle_type' },
             { data: 'vehicle_model', name: 'vehicle_model' },
             { data: 'location', name: 'location' },
+            { data: 'zone', name: 'zone' },
+            { data: 'accountability_type', name: 'accountability_type' },
             { data: 'chassis_number', name: 'chassis_number' },
             { data: 'battery_number', name: 'battery_number' },
             { data: 'telematics_number', name: 'telematics_number' },
@@ -1028,12 +1008,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     const params = new URLSearchParams();
-    params.append('status', '{{ $status }}');
-    params.append('from_date', '{{ $from_date }}');
-    params.append('to_date', '{{ $to_date }}');
-    params.append('timeline', '{{ $timeline }}');
-    params.append('location', '{{ $location }}');
+    params.append('status', $('#status').val() || '');
+   params.append('from_date', $('#from_date').val() || '');
+    params.append('to_date', $('#to_date').val() || '');
+   params.append('timeline', $('#STtimeLine').val() || '');
     
+        params.append('location', $('#location_id').val() || '');
+    params.append('zone', $('#zone_id').val() || '');
+    params.append('accountability_type', $('#accountability_type_id').val() || '');
+    params.append('customer', $('#customer_id').val() || '');
          if (selected.length > 0) {
       params.append('selected_ids', JSON.stringify(selected));
     }
@@ -1129,6 +1112,70 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 }
+
+function getZones(CityID) {
+        let ZoneDropdown = $('#zone_id');
+        ZoneDropdown.empty().append('<option value="">Loading...</option>');
+          
+        if (CityID) {
+            $.ajax({
+                url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+                type: "GET",
+                success: function (response) {
+                    ZoneDropdown.empty().append('<option value="">--Select Zone--</option>');
+    
+                    if (response.data && response.data.length > 0) {
+                        $.each(response.data, function (key, zone) {
+                            ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                        });
+                        
+                        const selectedZone = "{{ $zone_id ?? '' }}";
+                        if (selectedZone) {
+                        ZoneDropdown.val(selectedZone).trigger('change');
+                        }
+                        
+                    } else {
+                        ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                    }
+                },
+                error: function () {
+                    ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+                }
+            });
+        } else {
+            ZoneDropdown.empty().append('<option value="">Select a city first</option>');
+            // ZoneWrapper.hide();
+        }
+      
+      
+    }
+    
+    
+    $(document).ready(function () {
+        const existingCity = "{{ $location ?? '' }}";
+            if (existingCity) {
+                getZones(existingCity);
+            }
+    });
+    
+    $(document).ready(function() {
+    function toggleCustomerSection() {
+        const selectedType = $('#accountability_type_id').val();
+        if (selectedType == '2') {
+            $('#CustomerSection').removeClass('d-none'); // Show section
+        } else {
+            $('#CustomerSection').addClass('d-none'); // Hide section
+            $('#customer_id').val('').trigger('change');
+        }
+    }
+    // Run on page load in case a value is pre-selected
+    toggleCustomerSection();
+    // Run on change
+    $('#accountability_type_id').on('change', function() {
+        toggleCustomerSection();
+    });
+});
+
 
 </script>
 

@@ -138,6 +138,13 @@
         <div class="row mb-2">
             
             
+      @php
+            $accountabilityTypes = is_array($user->customer_relation->accountability_type_id) 
+                ? $user->customer_relation->accountability_type_id 
+                : json_decode($user->customer_relation->accountability_type_id, true) ?? [];
+        @endphp
+        <div class="row mb-2">
+        
             <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
@@ -148,13 +155,13 @@
                     </div>
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="total_vehicle">{{$total_vehicles ?? 0}}</span>
+                            <span class="stat-value" id="total_vehicles">{{$total_vehicles ?? 0}}</span>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2 accountability-card-2 {{ !in_array(2, $accountabilityTypes) ? 'd-none' : '' }}" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total RFD</div>
@@ -164,40 +171,14 @@
                     </div>
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="total_rfd">{{$total_rfd ?? 0}}</span>
+                            <span class="stat-value" id="total_rfds">{{$total_rfd ?? 0}}</span>
                         </div>
                     </div>
                 </div>
             </div>
             
             
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
-                <div class="dashboard-card stat-card">
-                    <div class="stat-header">
-                        <div>Service Requested / Under Maintenance</div>
-                        <div>
-                            <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
-                        </div>
-                    </div>
-                    @php
-                        $percent2 = $service_requests['change_percent'];
-                        $isPositive2 = $percent2 >= 0;
-                        $symbol2 = $isPositive2 ? '+' : '−'; // using minus sign
-                    @endphp
-                    <div>
-                        <div class="d-flex align-items-center">
-                            <span class="stat-value" id="service_request">{{ $service_requests['current']}}</span>
-                            <!--<span class="stat-change" style="color:#F54900; background:#FFF7ED;">-->
-                            <!--     {{ $symbol2 }}{{ abs($percent2) }} %-->
-                            <!--</span>-->
-                        </div>
-                        <!--<div class="stat-comparison">vs prior 30 days</div>-->
-                    </div>
-                </div>
-            </div>
-            
-             
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+                <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total Running Vehicle</div>
@@ -221,6 +202,50 @@
                     </div>
                 </div>
             </div>
+            
+            
+            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+                <div class="dashboard-card stat-card">
+                    <div class="stat-header">
+                        <div>Total Under Maintenance</div>
+                        <div>
+                            <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
+                        </div>
+                    </div>
+                    @php
+                        $percent2 = $service_requests['change_percent'];
+                        $isPositive2 = $percent2 >= 0;
+                        $symbol2 = $isPositive2 ? '+' : '−'; // using minus sign
+                    @endphp
+                    <div>
+                        <div class="d-flex align-items-center">
+                            <span class="stat-value" id="service_request">{{ $service_requests['current']}}</span>
+                            <!--<span class="stat-change" style="color:#F54900; background:#FFF7ED;">-->
+                            <!--     {{ $symbol2 }}{{ abs($percent2) }} %-->
+                            <!--</span>-->
+                        </div>
+                        <!--<div class="stat-comparison">vs prior 30 days</div>-->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+                <div class="dashboard-card stat-card">
+                    <div class="stat-header">
+                        <div>Total Return Requested Vehicles</div>
+                        <div>
+                            <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center">
+                            <span class="stat-value" id="return_requested">{{ $totalReturnopenRequests }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             
+
 
             <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
@@ -408,6 +433,26 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
           </div>
           <div class="offcanvas-body">
+              
+          <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountability_type" class="form-control custom-select2-field">
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+               </div>
+            </div>
         
             <div class="card mb-3">
                 <div class="card-header p-2">
@@ -838,6 +883,10 @@
         $('#return_request').text(data.return_requests.current);
         $('#recovery_request').text(data.recovery_requests.current);
         $('#accident_request').text(data.accident_report.current);
+        $('#return_requested').text(data.totalReturnOpenRequests);
+        
+        $('#total_vehicles').text(data.total_vehicles);
+        $('#total_rfds').text(data.total_rfd_vehicles);
 
         $('#assigned_vehicle_change').text(data.assigned_vehicles.change_percent.toFixed(2) + '%');
         $('#service_request_change').text(data.service_requests.change_percent.toFixed(2) + '%');
@@ -882,6 +931,7 @@
         $('#FromDate').val('');
         $('#ToDate').val('');
         $('#zone_id_1').val('').trigger('change');
+        $('#accountability_type').val('').trigger('change');
         $('#service-status').val('');
         $('#return-status').val('');
         $('#accident-status').val('');
@@ -907,6 +957,13 @@
             data: filters,
             success: function (response) {
                 updateDashboard(response); // 🔥 use shared function
+                 let defaultTypes = @json($accountabilityTypes).map(Number); // convert strings to numbers
+                if(defaultTypes.includes(2)){
+                    $('.accountability-card-2').removeClass('d-none');
+                } else {
+                    $('.accountability-card-2').addClass('d-none');
+                }
+                
                 // Close filter offcanvas if open
                 const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
                 if (bsOffcanvas) bsOffcanvas.hide();
@@ -943,6 +1000,7 @@
             return_status: $('#return-status').val(),
             accident_status: $('#accident-status').val(),
             recovery_status: $('#recovery-status').val(),
+            accountability_type: $('#accountability_type').val() || '',
             from_date: from_date,
             to_date: to_date
         };
@@ -955,6 +1013,24 @@
             success: function (response) {
                 updateDashboard(response); // 🔥 use shared function
                 // Close filter offcanvas if open
+                 let selectedAccountability = $('#accountability_type').val(); // value from filter (string)
+                 let defaultTypes = @json($accountabilityTypes).map(Number); // convert to numbers
+                    
+                    if(selectedAccountability == '2'){
+                        $('.accountability-card-2').removeClass('d-none');
+                    } else if(selectedAccountability === '' || selectedAccountability === null){
+                        // No filter selected, use default user types
+                        if(defaultTypes.includes(2)){
+                            $('.accountability-card-2').removeClass('d-none');
+                        } else {
+                            $('.accountability-card-2').addClass('d-none');
+                        }
+                    } else {
+                        // Selected other than 2
+                        $('.accountability-card-2').addClass('d-none');
+                    }
+                
+                
                 const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
                 if (bsOffcanvas) bsOffcanvas.hide();
             },

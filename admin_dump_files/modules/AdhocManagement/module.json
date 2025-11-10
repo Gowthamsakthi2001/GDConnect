@@ -1,0 +1,11 @@
+{
+    "name": "AdhocManagement",
+    "alias": "adhocmanagement",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\AdhocManagement\\Providers\\AdhocManagementServiceProvider"
+    ],
+    "files": []
+}

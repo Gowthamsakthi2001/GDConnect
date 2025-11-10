@@ -1,0 +1,11 @@
+{
+    "name": "B2BAdmin",
+    "alias": "b2badmin",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\B2BAdmin\\Providers\\B2BAdminServiceProvider"
+    ],
+    "files": []
+}

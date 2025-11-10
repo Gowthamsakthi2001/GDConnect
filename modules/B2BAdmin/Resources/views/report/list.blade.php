@@ -6,39 +6,40 @@
     <!-- First Row -->
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 w-100 h-100 report-card" data-url="{{ route('b2b.admin.report.deployment_report') }}" style="border-radius:8px; background-color:#FFFFFF; cursor:pointer;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon1.svg') }}" width="20" height="20" alt="icon">
                 </div>
                 <div class="d-flex flex-column justify-content-center">
                     <span style="font-size:16px; font-weight:500;">
-                        Vehicle Usage
+                        Deployment Report
                     </span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily vehicle usage details</span>
+                    <span class="text-muted" style="font-size:13px;">Compare daily deployment details</span>
                 </div>
             </div>
+
         </div>
 
         <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 w-100 h-100 report-card" data-url="{{ route('b2b.admin.report.service_report') }}" style="border-radius:8px; background-color:#FFFFFF; cursor:pointer;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
                 </div>
                 <div class="d-flex flex-column justify-content-center">
-                    <span style="font-size:16px; font-weight:500;">Rider Performance</span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily Rider Performance details</span>
+                    <span style="font-size:16px; font-weight:500;">Service Report</span>
+                    <span class="text-muted" style="font-size:13px;">Compare daily service details</span>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 w-100 h-100 report-card" data-url="{{ route('b2b.admin.report.accident_report') }}" style="border-radius:8px; background-color:#FFFFFF; cursor:pointer;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon1.svg') }}" width="20" height="20" alt="icon">
                 </div>
                 <div class="d-flex flex-column justify-content-center">
-                    <span style="font-size:16px; font-weight:500;">Ticket Requests</span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily ticket request details</span>
+                    <span style="font-size:16px; font-weight:500;">Accident Report</span>
+                    <span class="text-muted" style="font-size:13px;">Compare daily accident details</span>
                 </div>
             </div>
         </div>
@@ -47,60 +48,43 @@
     <!-- Second Row -->
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 w-100 h-100 report-card" data-url="{{ route('b2b.admin.report.recovery_report') }}" style="border-radius:8px; background-color:#FFFFFF;cursor:pointer;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
                 </div>
                 <div class="d-flex flex-column justify-content-center">
-                    <span style="font-size:16px; font-weight:500;">Deployment Request</span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily deployment request details</span>
+                    <span style="font-size:16px; font-weight:500;">Recovery Report</span>
+                    <span class="text-muted" style="font-size:13px;">Compare daily recovery details</span>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 w-100 h-100 report-card" data-url="{{ route('b2b.admin.report.return_report') }}" style="border-radius:8px; background-color:#FFFFFF;cursor:pointer;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
                 </div>
                 <div class="d-flex flex-column justify-content-center">
-                    <span style="font-size:16px; font-weight:500;">Return Requests</span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily return request details</span>
+                    <span style="font-size:16px; font-weight:500;">Return Report</span>
+                    <span class="text-muted" style="font-size:13px;">Compare daily return details</span>
                 </div>
             </div>
         </div>
         
-        <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
-                <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
-                    <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
-                </div>
-                <div class="d-flex flex-column justify-content-center">
-                    <span style="font-size:16px; font-weight:500;">Recovery Requests</span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily recovery request details</span>
-                </div>
-            </div>
-        </div>
+        
     </div>
     
-    <!-- Third Row -->
-    <div class="row g-2 g-md-3">
-        <div class="col-md-4 d-flex">
-            <div class="d-flex align-items-center p-3 w-100 h-100" style="border-radius:8px; background-color:#FFFFFF;">
-                <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
-                    <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
-                </div>
-                <div class="d-flex flex-column justify-content-center">
-                    <span style="font-size:16px; font-weight:500;">Client Statistics</span>
-                    <span class="text-muted" style="font-size:13px;">Compare daily client statistic details</span>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 
 
 @section('script_js')
+<script>
+document.querySelectorAll('.report-card').forEach(card => {
+    card.addEventListener('click', () => {
+        window.location.href = card.dataset.url;
+    });
+});
+</script>
 @endsection
 </x-app-layout>

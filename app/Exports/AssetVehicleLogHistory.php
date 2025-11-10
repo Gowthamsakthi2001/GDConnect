@@ -17,13 +17,19 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
     protected $selectedFields;
     protected $selectedIds;
     protected $city;
-    public function __construct($from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] , $city)
+    protected $zone;
+    protected $customer;
+    protected $accountability_type;
+    public function __construct($from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] , $city  , $zone , $customer , $accountability_type)
     {
         // dd($from_date,$to_date,$timeline,$selectedFields,$selectedIds);
         $this->from_date = $from_date;
         $this->to_date = $to_date;
         $this->timeline = $timeline;
          $this->city = $city;
+          $this->zone = $zone;
+           $this->customer = $customer;
+            $this->accountability_type = $accountability_type;
         $this->selectedFields = array_filter($selectedFields); // removes null/empty
         $this->selectedIds = array_filter($selectedIds) ?? []; // removes null/empty
     }
@@ -31,7 +37,7 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
 
     public function collection()
     {
-        $query = AssetMasterVehicle::with('vehicle_type_relation' ,'vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' ,'color_relation');
+        $query = AssetMasterVehicle::with('vehicle_type_relation' , 'quality_check' ,'vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' ,'color_relation');
 
 
         if (!empty($this->selectedIds)) {
@@ -39,10 +45,29 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
         }
         else{
             
+          if (!empty($this->city)) {
+                $query->whereHas('quality_check', function ($q) {
+                    $q->where('location', $this->city);
+                });
+            }
             
-    if (!empty($this->city)) {
-        $query->where('city_code', $this->city);
-    }
+             if (!empty($this->zone)) {
+                $query->whereHas('quality_check', function ($q) {
+                    $q->where('zone_id', $this->zone);
+                });
+            }
+            
+            if (!empty($this->customer)) {
+                $query->whereHas('quality_check', function ($q) {
+                    $q->where('customer_id', $this->customer);
+                });
+            }
+    
+             if (!empty($this->accountability_type)) {
+                $query->whereHas('quality_check', function ($q) {
+                    $q->where('accountability_type', $this->accountability_type);
+                });
+            }
 
         if ($this->timeline) {
             switch ($this->timeline) {
@@ -125,8 +150,16 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
                 case 'gd_hub_id_existing':
                     $mapped[] = $row->gd_hub_id ?? '-';
                 break;
-                case 'city_code':
-                    $mapped[] = $row->location_relation->city_code ?? '-';
+                case 'city':
+                    $mapped[] = $row->quality_check->location_relation->city_name ?? '-';
+                    // $mapped[] = $row->location ?? '-';
+                    break;
+                 case 'zone':
+                    $mapped[] = $row->quality_check->zone->name ?? '-';
+                    // $mapped[] = $row->location ?? '-';
+                    break;
+                case 'accountability_type':
+                    $mapped[] = $row->quality_check->accountability_type_relation->name ?? '-';
                     // $mapped[] = $row->location ?? '-';
                     break;
                 case 'road_tax_next_renewal_date':

@@ -103,6 +103,51 @@ class EvDeliveryManController extends Controller
         }
     }
     
+    
+             public function fcm_token_update(Request $request)
+        {
+            try {
+                //  Validate request
+                $validated = $request->validate([
+                    'user_id'   => 'required|integer|exists:ev_tbl_delivery_men,id',
+                    'fcm_token' => 'required|string|max:500',
+                ]);
+        
+                // Find the deliveryman
+                $rider = Deliveryman::find($validated['user_id']);
+        
+                //  Update FCM token
+                $rider->fcm_token = $validated['fcm_token'];
+                $rider->save();
+        
+                // Return success response
+                return response()->json([
+                    'status'  => true,
+                    'message' => 'FCM token updated successfully.',
+                    'data'    => [
+                        'user_id'   => $rider->id,
+                        'fcm_token' => $rider->fcm_token,
+                    ]
+                ], 200);
+        
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                //  Validation error
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Validation failed.',
+                    'errors'  => $e->errors(),
+                ], 422);
+        
+            } catch (\Exception $e) {
+                //  Other error
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Something went wrong while updating FCM token.',
+                    'error'   => $e->getMessage(),
+                ], 500);
+            }
+        }
+        
     public function getArea(Request $request): JsonResponse
     {
         try {
@@ -426,11 +471,28 @@ class EvDeliveryManController extends Controller
                 'account_holder_name' => 'required|string|max:255',
             ]);
         }
-        if ($type == 'PAN_VERIFY_ENDPOINT') {
-            $validator->addRules([
-               'pan_number' => 'required|string|max:10',
+        // if ($type == 'PAN_VERIFY_ENDPOINT') {
+        //     $validator->addRules([
+        //       'pan_number' => 'required|string|max:10',
+        //     ]);
+        // }
+        
+         if ($type == 'PAN_VERIFY_ENDPOINT') {
+            $request->merge([
+                'pan_number' => strtoupper($request->input('pan_number'))
+            ]);
+        
+           $validator->addRules([
+                'pan_number' => [
+                    'required',
+                    'string',
+                    'size:10',
+                    'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'
+                ],
             ]);
         }
+
+
     
         // Check if validation fails
         if ($validator->fails()) {

@@ -11,6 +11,7 @@ use Modules\City\Entities\City;
 use Modules\B2B\Entities\B2BVehicleRequests; 
 use Modules\VehicleManagement\Entities\VehicleType; 
 use App\Exports\B2BRiderExport;
+use App\Exports\B2BAdminRiderExport;
 use Maatwebsite\Excel\Facades\Excel;
 
 class B2BRiderController extends Controller
@@ -169,7 +170,7 @@ $formattedData = $datas->map(function ($rider) use (&$counter) {
         }
     
         return Excel::download(
-            new B2BRiderExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
+            new B2BAdminRiderExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
             'rider_list-' . date('d-m-Y') . '.xlsx'
         );
     }

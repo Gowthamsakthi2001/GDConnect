@@ -1,0 +1,31 @@
+{
+    "name": "bdtask/deliveryman",
+    "description": "",
+    "authors": [
+        {
+            "name": "Bdtask Limited",
+            "email": "business@bdtask.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Deliveryman\\": "",
+            "Modules\\Deliveryman\\App\\": "app/",
+            "Modules\\Deliveryman\\Database\\Factories\\": "database/factories/",
+            "Modules\\Deliveryman\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Deliveryman\\Tests\\": "tests/"
+        }
+    }
+}

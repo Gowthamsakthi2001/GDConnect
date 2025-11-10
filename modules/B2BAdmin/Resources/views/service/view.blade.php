@@ -310,67 +310,50 @@
         <div class="card-body">
            <div class="row">
                 <div class="col-12">
-                <div class="d-flex overflow-auto gap-3 pb-2 mb-2" 
-                     style="white-space: nowrap; overflow-x: scroll; -ms-overflow-style: none; scrollbar-width: none;">
-            
-                    @php
-                        // Ordered list of ticket statuses with proper labels and distinct colors
-                        $statusConfig = [
-                            'open' => [
-                                'label' => 'Open',
-                                'color' => '#DC2626', // Red — issue newly created
-                            ],
-                            'assigned' => [
-                                'label' => 'Assigned',
-                                'color' => '#2563EB', // Blue — technician assigned
-                            ],
-                            'work_in_progress' => [
-                                'label' => 'Work In Progress',
-                                'color' => '#0EA5E9', // Sky blue — ongoing work
-                            ],
-                            'spare_requested' => [
-                                'label' => 'Spare Requested',
-                                'color' => '#F59E0B', // Amber — waiting for approval
-                            ],
-                            'spare_approved' => [
-                                'label' => 'Spare Approved',
-                                'color' => '#10B981', // Green — parts approved
-                            ],
-                            'spare_collected' => [
-                                'label' => 'Spare Collected',
-                                'color' => '#059669', // Teal — parts collected and ready
-                            ],
-                            'closed' => [
-                                'label' => 'Closed',
-                                'color' => '#6B7280', // Gray — ticket resolved
-                            ],
-                        ];
-                    @endphp
+<div class="d-flex overflow-auto gap-3 pb-2 mb-2"
+     style="white-space: nowrap; overflow-x: scroll; -ms-overflow-style: none; scrollbar-width: none;">
 
-            
-                    <div class="d-flex flex-row flex-nowrap gap-3 overflow-auto" style="white-space: nowrap; overflow-x: scroll; -ms-overflow-style: none; scrollbar-width: none;">
-                        @foreach($statusConfig as $status => $config)
-                            @php
-                                // Find matching log from $data->logs
-                                $log = $data->logs->firstWhere('current_status', $status);
-                            @endphp
-            
-                            @if($log)
-                                <div class="card shadow-sm border-0 flex-shrink-0" style="min-width:220px;">
-                                    <div class="p-3 rounded" style="border:1px solid {{ $config['color'] }};">
-                                        <div class="mb-1" style="font-weight:500; font-size:14px; color:{{ $config['color'] }};">
-                                            {{ $config['label'] }}
-                                        </div>
-                                        <div style="font-weight:400; font-size:14px;">
-                                            {{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->format('d M Y, h:i A') : 'N/A' }}
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-                        @endforeach
+    @php
+        // Status configuration for colors and labels
+        $statusConfig = [
+            'open' => ['label' => 'Open', 'color' => '#DC2626'],
+            'assigned' => ['label' => 'Assigned', 'color' => '#2563EB'],
+            'work_in_progress' => ['label' => 'Work In Progress', 'color' => '#0EA5E9'],
+            'spare_requested' => ['label' => 'Spare Requested', 'color' => '#F59E0B'],
+            'spare_approved' => ['label' => 'Spare Approved', 'color' => '#10B981'],
+            'spare_collected' => ['label' => 'Spare Collected', 'color' => '#059669'],
+            'estimate_requested' => ['label' => 'Estimate Requested', 'color' => '#8B5CF6'],
+            'estimate_approved' => ['label' => 'Estimate Approved', 'color' => '#22C55E'],
+            'closed' => ['label' => 'Closed', 'color' => '#6B7280'],
+        ];
+
+        // Sort logs by created_at ascending (oldest first)
+        $sortedLogs = $data->logs->sortBy('created_at');
+    @endphp
+
+    <div class="d-flex flex-row flex-nowrap gap-3 overflow-auto"
+         style="white-space: nowrap; overflow-x: scroll; -ms-overflow-style: none; scrollbar-width: none;">
+
+        @foreach($sortedLogs as $log)
+            @php
+                $status = $log->current_status;
+                $config = $statusConfig[$status] ?? ['label' => ucfirst($status), 'color' => '#6B7280'];
+            @endphp
+
+            <div class="card shadow-sm border-0 flex-shrink-0" style="min-width:220px;">
+                <div class="p-3 rounded" style="border:1px solid {{ $config['color'] }};">
+                    <div class="mb-1" style="font-weight:500; font-size:14px; color:{{ $config['color'] }};">
+                        {{ $config['label'] }}
+                    </div>
+                    <div style="font-weight:400; font-size:14px;">
+                        {{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->format('d M Y, h:i A') : 'N/A' }}
                     </div>
                 </div>
             </div>
+        @endforeach
+    </div>
+</div>
+
             
             </div>
 
@@ -455,14 +438,25 @@
                 <div class="form-group">
                     <label class="input-label mb-2 ms-1">Repair Type <span style="color:red;">*</span></label>
                     <div class="d-flex flex-wrap gap-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="repair_type" id="breakdown"  value="Breakdown Repair" {{ $data->repair_type == 1 ? 'checked' : '' }} >
-                            <label class="form-check-label" style="font-weight:400;font-size:14px;" for="breakdown">Breakdown Repair</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="repair_type" id="running"  value="Running Repair" {{ $data->repair_type == 2 ? 'checked' : '' }} >
-                            <label class="form-check-label" style="font-weight:400;font-size:14px;" for="running">Running Repair</label>
-                        </div>
+                         @foreach($repair_types as $type)
+                                    <div class="form-check">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="radio" 
+                                            name="repair_type" 
+                                            id="repair_type_{{ $type->id }}"  
+                                            value="{{ $type->id }}" 
+                                            disabled
+                                            {{ isset($data->repair_type) && $data->repair_type == $type->id ? 'checked' : '' }}
+                                        >
+                                        <label 
+                                            class="form-check-label" 
+                                            style="font-weight:400;font-size:14px;" 
+                                            for="repair_type_{{ $type->id }}">
+                                            {{ $type->name }}
+                                        </label>
+                                    </div>
+                                @endforeach
                     </div>
                 </div>
             </div>

@@ -15,6 +15,7 @@ use Modules\VehicleServiceTicket\Entities\VehicleTicket;
 use Modules\VehicleServiceTicket\Entities\FieldProxyTicket;//updated by Mugesh.B
 use Modules\VehicleServiceTicket\Entities\FieldProxyLog;//updated by Mugesh.B
 use Modules\AssetMaster\Entities\VehicleTransferChassisLog;//updated by Mugesh.B
+use Modules\MasterManagement\Entities\RepairTypeMaster;
 use Modules\B2B\Entities\B2BReturnRequest;
 use App\Exports\B2BRiderExport;
 use App\Exports\B2BReturnedListExport;
@@ -50,14 +51,24 @@ use App\Exports\B2BAccidentReportExport;//logesh
 use App\Exports\B2BRecoveryRequestExport;
 use App\Exports\B2BServiceRequestExport;
 use Modules\B2B\Entities\B2BAgent;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType; //updated by Gowtham.s
+use Modules\RecoveryManager\Entities\RecoveryComment; //updated by logesh
+use Modules\Deliveryman\Entities\Deliveryman; //updated by logesh
+use Modules\Role\Entities\Role; //updated by logesh
+use App\Helpers\RecoveryNotifyHandler; //updated by Gowtham.S
+use Modules\MasterManagement\Entities\RecoveryReasonMaster;//updated by Gowtham.S
+use Modules\MasterManagement\Entities\RecoveryUpdatesMaster; //updated by logesh
 
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Writer;
 
+use App\Jobs\ProcessRiderCreationJob; //updated by Mugesh.B
+
 class B2BVehicleController extends Controller
 {
+    
 
         public function create()
         {
@@ -82,8 +93,10 @@ class B2BVehicleController extends Controller
         
     
     
+    
         public function store_rider(Request $request)
         {
+            Log::info('function is start'.now());
             $rules = [
                 'assign_zone'           => 'required|exists:zones,id',
                 'name'                  => 'required|max:200',
@@ -244,53 +257,41 @@ class B2BVehicleController extends Controller
                 $user->load(['city', 'zone' , 'customer_relation']);
                 
                 
-                // if ($request->submission_type === 'terms') {
-                    
-                //     $admins = User::where('role', 13)->get();
-                //     $agents = User::where('role', 14)
-                //                   ->where('city_id', $user->city_id)
-                //                   ->where('zone_id', $user->zone_id)
-                //                   ->get();
-                
-                //     // Send to Admins
-                //     foreach ($admins as $admin) {
-                //         Mail::to($admin->email)->send(
-                //             new B2BTermsAndCondition($rider, $user, 'admin')
-                //         );
-                //     }
-                
-                //     // Send to Agents
-                //     foreach ($agents as $agent) {
-                //         Mail::to($agent->email)->send(
-                //             new B2BTermsAndCondition($rider, $user, 'agent')
-                //         );
-                //     }
-                
-                //     Mail::to($user->email)
-                //         ->cc($user->customer_relation->email)
-                //         ->send(
-                //             new B2BTermsAndCondition($rider, $user, 'user')
-                //         );
-                // }
+
                 
                 
                 DB::commit();
+                Log::info('function is comitted'.now());
+
+                $riderData = B2BRider::with(['city', 'zone', 'customerLogin.customer_relation'])
+                    ->where('id', $rider->id)
+                    ->first();
                 
-                $riderData = B2BRider::with(['city', 'zone' , 'customerLogin.customer_relation'])->where('id',$rider->id)->first();
-                $this->RiderCredencials_SentWhatsAppMessage($riderData,'b2b_rider_account_created'); //whatsapp notification
-                $this->riderWelcomeNotification($riderData); //mobile notification 
-                $this->RiderCredencials_SentEmailNotify($riderData,'b2b_rider_ac_emailNotify');//email notify
 
-
-                if ($request->submission_type === 'terms') {
-                  $this->RiderTermsAndCondition_SentEmailNotify($riderData,'b2b_rider_terms_emailNotify');//email notify
-                }
-    
+                    $this->RiderCredencials_SentWhatsAppMessage($riderData, 'b2b_rider_account_created');
+                
+                
+                    $this->riderWelcomeNotification($riderData);
+                
+                
+                    $this->RiderCredencials_SentEmailNotify($riderData, 'b2b_rider_ac_emailNotify');
+                
+                    if ($request->submission_type === 'terms') {
+                        $this->RiderTermsAndCondition_SentEmailNotify($riderData, 'b2b_rider_terms_emailNotify');
+                        
+                    }
+                
+                
+                // ProcessRiderCreationJob::dispatchAfterResponse($rider->id, $request->submission_type);
+                // ProcessRiderCreationJob::dispatch($rider->id, $request->submission_type);
+                Log::info('function is closed'.now());
                 return response()->json([
                     'success' => true,
                     'message' => 'Rider created successfully',
                     'data'    => ['rider' => $rider]
                 ]);
+                
+
             } catch (\Exception $e) {
                 DB::rollBack();
                 return response()->json([
@@ -333,49 +334,31 @@ class B2BVehicleController extends Controller
         
             if ($forward_type === 'b2b_rider_terms_emailNotify') {
         
-                $riderSubject = "Terms & Conditions Accepted – GreenDriveConnect";
-                $riderBody = "
-                <html>
-                <body style='font-family: Arial, sans-serif; background-color:#f7f7f7; padding:20px; color:#544e54;'>
-                    <table width='100%' cellpadding='0' cellspacing='0' style='max-width:600px; margin:auto; background:#fff; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>
-                        <tr>
-                            <td style='padding:20px; text-align:center; background:#4CAF50; color:#fff; border-top-left-radius:8px; border-top-right-radius:8px;'>
-                                <h2>Terms & Conditions Accepted</h2>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style='padding:20px; color:#544e54;'>
-                                <p>Hello <strong>{$rider->name}</strong>,</p>
-                                <p>Thank you for accepting the <strong>GreenDriveConnect Terms & Conditions</strong>. You may proceed with onboarding even though you have not submitted a Driving License (DL) or Learner’s License (LLR) at this stage.</p>
-                                <p>Once your documents are ready, please upload them through your account to complete your profile verification.</p>
-                                <p style='margin-top:20px;'>{$footerContentText}</p>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style='text-align:center; padding:15px; font-size:12px; color:#544e54;'>
-                                &copy; " . date('Y') . " GreenDriveConnect Team. All rights reserved.
-                            </td>
-                        </tr>
-                    </table>
-                </body>
-                </html>";
-        
+                $customerSubject = "Action Required: Accept Terms & Conditions for Rider – {$rider->name}";
+                $encryptedRiderId = encrypt($rider->id);
+                $termsUrl = url("/customer/terms-and-conditions") . "?id={$encryptedRiderId}";
                 
-                $customerSubject = "Rider Accepted Terms & Conditions – {$rider->name}";
                 $customerBody = "
                 <html>
                 <body style='font-family: Arial, sans-serif; background-color:#f7f7f7; padding:20px; color:#544e54;'>
                     <table width='100%' cellpadding='0' cellspacing='0' style='max-width:600px; margin:auto; background:#fff; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>
                         <tr>
                             <td style='padding:20px; text-align:center; background:#2196F3; color:#fff; border-top-left-radius:8px; border-top-right-radius:8px;'>
-                                <h2>Rider Accepted Terms & Conditions</h2>
+                                <h2>Action Required: Accept Terms & Conditions</h2>
                             </td>
                         </tr>
                         <tr>
                             <td style='padding:20px; color:#544e54;'>
                                 <p>Hello <strong>{$customerName}</strong>,</p>
-                                <p>Your rider <strong>{$rider->name}</strong> ({$riderPhone}) has accepted the GreenDriveConnect <strong>Terms & Conditions</strong>.</p>
-                                <p>This rider has not yet submitted Driving License or LLR details. Please ensure document collection is completed as per your process.</p>
+                                <p>You have created a new rider <strong>{$rider->name}</strong> ({$riderPhone}) who does not have a Driving License (DL) or Learner’s License (LLR).</p>
+                                <p>Please review and accept the <strong>Terms & Conditions</strong> on behalf of this rider before they can proceed with onboarding.</p>
+                                
+                                <p style='margin-top:20px;'>
+                                    <a href='{$termsUrl}' style='background:#2196F3; color:#fff; text-decoration:none; padding:10px 20px; border-radius:5px; display:inline-block; font-weight:bold;'>Review & Accept Terms</a>
+                                </p>
+                
+                                <p style='margin-top:20px;'>Once you accept, the rider will be able to proceed with onboarding.</p>
+                
                                 <p style='margin-top:20px;'>{$footerContentText}</p>
                             </td>
                         </tr>
@@ -388,26 +371,27 @@ class B2BVehicleController extends Controller
                 </body>
                 </html>";
         
-                
-                $adminSubject = "Rider Accepted Terms & Conditions (No DL/LLR) – {$rider->name}";
+                $adminSubject = "New Rider Created Without DL/LLR – {$rider->name}";
                 $adminBody = "
                 <html>
                 <body style='font-family: Arial, sans-serif; background-color:#f7f7f7; padding:20px; color:#544e54;'>
                     <table width='100%' cellpadding='0' cellspacing='0' style='max-width:600px; margin:auto; background:#fff; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>
                         <tr>
                             <td style='padding:20px; text-align:center; background:#8b8b8b; color:#fff; border-top-left-radius:8px; border-top-right-radius:8px;'>
-                                <h2>Rider Accepted Terms & Conditions</h2>
+                                <h2>New Rider Created Without DL/LLR</h2>
                             </td>
                         </tr>
                         <tr>
                             <td style='padding:20px; color:#544e54;'>
-                                <p>A rider has accepted the Terms & Conditions but has no DL/LLR on record.</p>
+                                <p>A new rider <strong>{$rider->name}</strong> ({$riderPhone}) has been created by customer <strong>{$customerName}</strong> without a Driving License (DL) or Learner’s License (LLR).</p>
+                                <p>Customer acceptance of Terms & Conditions is pending.</p>
+                                
                                 <table cellpadding='8' cellspacing='0' style='width:100%; margin-top:15px; border:1px solid #ddd; border-radius:5px; color:#544e54;'>
                                     <tr style='background:#f2f2f2;'><td><strong>Rider Name:</strong></td><td>{$rider->name}</td></tr>
                                     <tr><td><strong>Rider Phone:</strong></td><td>{$riderPhone}</td></tr>
                                     <tr style='background:#f2f2f2;'><td><strong>Customer Name:</strong></td><td>{$customerName}</td></tr>
-                                    <tr><td><strong>Customer ID:</strong></td><td>{$customerId}</td></tr>
                                 </table>
+                
                                 <p style='margin-top:20px;'>{$footerContentText}</p>
                             </td>
                         </tr>
@@ -421,13 +405,9 @@ class B2BVehicleController extends Controller
                 </html>";
             }
         
-            
-            if (!empty($riderEmail)) {
-                CustomHandler::sendEmail($riderEmail, $riderSubject, $riderBody, $customerEmail);
-            }
         
             if (!empty($customerLoginEmail)) {
-                CustomHandler::sendEmail($customerLoginEmail, $customerSubject, $customerEmail);
+                CustomHandler::sendEmail($customerLoginEmail, $customerSubject, $customerBody ,$customerEmail);
             }
         
             if (!empty($toAdmins)) {
@@ -724,7 +704,7 @@ class B2BVehicleController extends Controller
                 }
                 elseif ($forward_type === 'rider_account_status_update') {
                 
-                $statusText = $account_status == 1 ? "Active ✅" : "Inactive ❌";
+                $statusText = $account_status == 1 ? "Active": "Inactive";
                 $message = "*Account Status Update*\n\n" .
                     "Hello *{$rider->name}*,\nYour account status has been updated.\n\n" .
                     "*Rider ID:* {$rider->id}\n" .
@@ -760,7 +740,13 @@ class B2BVehicleController extends Controller
             $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user  = Auth::guard($guard)->user();
             $login_type = $user->type;
-    
+            $customerId = $user->customer_id;
+            $accountability_Types = $user->customer_relation->accountability_type_id;
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }
+            
+            $accountability_Type = in_array(2, $accountability_Types) ? 2 : 1;
             $zones = Zones::where('city_id',$user->city_id)->where('status',1)->get();  
             $zone_id = null;
             if($login_type == 'zone'){
@@ -840,7 +826,7 @@ class B2BVehicleController extends Controller
                         <div class="d-flex align-items-center gap-1">
                             <a href="'.route('b2b.rider_view', $idEncode).'" title="View Rider Details"
                                 class="d-flex align-items-center justify-content-center border-0"
-                                style="background-color:#CAEDCE; color:#155724; border-radius:8px; width:35px; height:35px;">
+                                style="background-color:#CAEDCE; color:#155724; border-radius:8px; width:31px; height:31px;">
                                 <i class="bi bi-eye fs-5"></i>
                             </a>
                         ';
@@ -854,7 +840,7 @@ class B2BVehicleController extends Controller
                                data-id="'.$rider->id.'" data-get_zone_id="'.$rider->assign_zone_id.'" data-get_zone_name="'.$rider->zone->name.'" title="New Vehicle Request"
                                class="d-flex align-items-center justify-content-center border-0"
                                style="border-radius:8px;cursor:pointer;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 27 27" fill="none">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="31" height="31" viewBox="0 0 27 27" fill="none">
                                 <rect width="27" height="27" rx="8" fill="#D0ACFF"/>
                                 <path d="M13.5003 8.00016C14.5128 8.00016 15.3337 7.17935 15.3337 6.16683C15.3337 5.15431 14.5128 4.3335 13.5003 4.3335C12.4878 4.3335 11.667 5.15431 11.667 6.16683C11.667 7.17935 12.4878 8.00016 13.5003 8.00016Z" stroke="#9747FF" stroke-width="1.375"/>
                                 <path d="M11.6667 6.1665H8" stroke="#9747FF" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
@@ -864,7 +850,33 @@ class B2BVehicleController extends Controller
                                 </svg>
                             </a>';
                         }
+                        else{
+                        //  $activeRequest_id = B2BVehicleRequests::where('rider_id', $rider->id)
+                        // ->orderBy('id','desc')
+                        // ->first();
                         
+                        //  $req_idEncode = encrypt($activeRequest_id->req_id); 
+                             $actionButtons .= '
+                                <a href="javascript:void(0);" style="border-radius:8px;cursor:default;" title="vehicle request has been created. you can go to vehicle request list">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" viewBox="0 0 30 29" fill="none">
+                                    <g clip-path="url(#clip0_8_219)">
+                                    <path d="M19 1.1665H8C3.58172 1.1665 0 4.74823 0 9.1665V20.1665C0 24.5848 3.58172 28.1665 8 28.1665H19C23.4183 28.1665 27 24.5848 27 20.1665V9.1665C27 4.74823 23.4183 1.1665 19 1.1665Z" fill="#CAEDCE"></path>
+                                    <path d="M13.5003 9.1667C14.5128 9.1667 15.3337 8.34585 15.3337 7.33333C15.3337 6.32081 14.5128 5.5 13.5003 5.5C12.4878 5.5 11.667 6.32081 11.667 7.33333C11.667 8.34585 12.4878 9.1667 13.5003 9.1667Z" stroke="#1E580F" stroke-width="1.375"></path>
+                                    <path d="M11.6667 7.33301H8" stroke="#1E580F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M18.9997 7.33301H15.333" stroke="#1E580F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M10.75 22C9.53313 21.9675 8.82533 21.8425 8.38662 21.3625C7.7935 20.7135 7.97186 19.7215 8.3286 17.7375L8.88907 14.6206C9.11388 13.3702 9.22629 12.7451 9.55325 12.2707C9.87486 11.8041 10.3408 11.4383 10.8902 11.2209C11.4487 11 12.1325 11 13.5 11C14.8675 11 15.5513 11 16.1098 11.2209C16.6592 11.4383 17.1251 11.8041 17.4468 12.2707C17.7737 12.7451 17.8862 13.3702 18.1109 14.6206L18.6714 17.7375C19.0281 19.7215 19.2065 20.7135 18.6134 21.3625C18.1767 21.8403 17.4733 21.9666 16.2665 22" stroke="#1E580F" stroke-width="1.375" stroke-linecap="round"></path>
+                                    <path d="M13.5 20.1665V23.8332" stroke="#1E580F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M29.1663 4.16666C29.1663 1.86548 27.3008 0 24.9997 0C22.6985 0 20.833 1.86548 20.833 4.16666C20.833 6.46783 22.6985 8.33333 24.9997 8.33333C27.3008 8.33333 29.1663 6.46783 29.1663 4.16666Z" fill="#1E580F" stroke="white" stroke-width="0.625"></path>
+                                    <path d="M23.333 4.47916C23.333 4.47916 23.9997 4.85937 24.333 5.41666C24.333 5.41666 25.333 3.22916 26.6663 2.5" stroke="white" stroke-width="0.625" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </g>
+                                    <defs>
+                                    <clipPath id="clip0_8_219">
+                                    <rect width="30" height="29" fill="white"></rect>
+                                    </clipPath>
+                                    </defs>
+                                    </svg>
+                                </a>';
+                        }
                         $actionButtons .= '</div>';
                         
                  $profileImage = $rider->profile_image 
@@ -922,7 +934,8 @@ class B2BVehicleController extends Controller
             $vehicle_types = VehicleType::where('is_active', 1)->get();
             
         
-            return view('b2b::rider.rider_list' , compact('vehicle_types','zones','login_type','zone_id'));
+        return view('b2b::rider.rider_list' , compact('vehicle_types','zones','login_type','zone_id','guard','user','customerId','accountability_Type','accountability_Types'));
+
         }
 
     
@@ -955,109 +968,21 @@ class B2BVehicleController extends Controller
 
 
 
-    // public function create_vehicle_request(Request $request)
-    // {
+ 
     
-    //     $validator = Validator::make($request->all(), [
-    //         'rider_id'      => 'required|exists:b2b_tbl_riders,id',
-    //         'start_date'    => 'required|date|after_or_equal:today',
-    //         'end_date'      => 'required|date|after_or_equal:start_date',
-    //         'vehicle_type'  => 'required|integer',
-    //         'battery_type'  => 'nullable|integer',
-    //         'terms_agreed'  => 'required|in:1',
-    //     ], [
-    //         'rider_id.required' => 'Rider is required.',
-    //         'rider_id.exists'   => 'Invalid rider selected.',
-    //         'start_date.required' => 'Start date is required.',
-    //         'start_date.after_or_equal' => 'Start date must be today or a future date.',
-    //         'end_date.required' => 'End date is required.',
-    //         'end_date.after_or_equal' => 'End date must be after or equal to start date.',
-    //         'vehicle_type.required' => 'Vehicle type is required.',
-    //         'terms_agreed.in' => 'You must agree to the terms and conditions.',
-    //     ]);
-    
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'errors' => $validator->errors()
-    //         ], 422);
-    //     }
-        
-        
-            
-    //     $guard = Auth::guard('master')->check() ? 'master' : 'zone';
-    //     $user = Auth::guard($guard)->user();
-        
-    //     $rider = B2BRider::find($request->rider_id);
-        
-    //     do {
-    //         $randomNumber = mt_rand(10000000, 99999999);
-    //         $requestId = 'REQ' . $randomNumber;
-    //     } while (B2BVehicleRequests::where('req_id', $requestId)->exists());
-    
-    
-    //         // Generate QR code
-    //         if (ob_get_level()) ob_end_clean();
-    //         $renderer = new ImageRenderer(
-    //             new RendererStyle(200),
-    //             new SvgImageBackEnd()
-    //         );
-    //         $writer = new Writer($renderer);
-    //         $qrCodeSvg = $writer->writeString($requestId);
-    
-    //         $qrDir = public_path('b2b/qr');
-    //         if (!is_dir($qrDir)) mkdir($qrDir, 0777, true);
-    //         $qrFileName = "qr_" . uniqid() . ".svg";
-    //         file_put_contents($qrDir . '/' . $qrFileName, $qrCodeSvg);
-    
-    //         $qrCodeBase64 = 'data:image/svg+xml;base64,' . base64_encode($qrCodeSvg);
-        
-    //     $vehicleRequest = B2BVehicleRequests::create([
-    //         'req_id'         => $requestId,
-    //         'rider_id'       => $request->rider_id,
-    //         'start_date'     => $request->start_date,
-    //         'end_date'       => $request->end_date,
-    //         'vehicle_type'   => $request->vehicle_type,
-    //         'battery_type'   => $request->battery_type,
-    //         'terms_condition'=> $request->terms_agreed,
-    //         'status'         => 'pending',
-    //         'qrcode_image'          => $qrFileName,
-    //         'created_by'            => $user->id,
-    //     ]);
-            
-    // //   $admins = User::where('role', 13)->pluck('email')->toArray();
-      
-    // //     $customer = CustomerLogin::find($user->id); // customer email
-    // //     $customerEmail = $customer ? $customer->email : null;
-    // //     $loggedInUserEmail = $user->email ?? null;
-    // //     $recipients = array_filter(array_merge(
-    // //         $admins,
-    // //         [$customerEmail, $loggedInUserEmail]
-    // //     ));
-    // //     $recipients = array_unique($recipients);
-
-    // //     Mail::to($recipients)->send(new B2BVehicleRequestMail($vehicleRequest, $rider, $user));
-    
-        
-    //     return response()->json([
-    //         'success' => true,
-    //         'message' => 'Vehicle request created successfully!',
-    //         'data'    => [ 'request'=> $vehicleRequest , 'rider'=>$rider ,'qr_code' => $qrCodeBase64 ]
-    //     ]);
-    // }
-    
-         public function create_vehicle_request(Request $request)
+        public function create_vehicle_request(Request $request)
         {
             // dd($request->all());
             // Validation
             $validator = Validator::make($request->all(), [
                 'rider_id'      => 'required|exists:b2b_tbl_riders,id',
-                'start_date'    => 'required|date|after_or_equal:today',
-                'end_date'      => 'required|date|after_or_equal:start_date',
+                'start_date'    => 'nullable|date|after_or_equal:today',//Updated By Gowtham.S
+                'end_date'      => 'nullable|date|after_or_equal:start_date',//Updated By Gowtham.S
                 'vehicle_type'  => 'required|integer',
                 'battery_type'  => 'nullable|integer',
                 'terms_agreed'  => 'required|in:1',
-                'assign_zone'   => 'required|exists:zones,id'
+                'assign_zone'   => 'required|exists:zones,id',
+                'account_ability_type'=>'required|exists:ev_tbl_accountability_types,id'
             ], [
                 'rider_id.required' => 'Rider is required.',
                 'rider_id.exists'   => 'Invalid rider selected.',
@@ -1077,16 +1002,6 @@ class B2BVehicleController extends Controller
                 ], 422);
             }
             
-            $requests_validate = B2BVehicleRequests::where('rider_id', $request->rider_id)
-                ->where('status', 'pending')
-                ->exists();
-            
-            if ($requests_validate) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'A pending vehicle request already exists for this rider.'
-                ], 400);
-            }
             // Authenticated user
             $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user = Auth::guard($guard)->user();
@@ -1097,8 +1012,114 @@ class B2BVehicleController extends Controller
                     'errors' => 'Auth user not found!'
                 ]);
             }
+            
+            $user->load(['city', 'zone' , 'customer_relation']);
+            
+            
+            $customerId = $user->customer_id;
+            $accountability_Types = $user->customer_relation->accountability_type_id ?? null;  //updated by Gowtham.S
+
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }
+
+            $accountability_Type = in_array(2, $accountability_Types) ? 2 : 1;
+
+            $ac_types = \Modules\MasterManagement\Entities\EvTblAccountabilityType::where('status', 1)
+                ->whereIn('id', $accountability_Types)
+                ->get();
+            
+            
+             $rider = B2BRider::find($request->rider_id);
+
+            
+              if ($rider->terms_condition == 1 && $rider->terms_condition_status != 1) {
+                $customerTradeName = $user->customer_relation->trade_name ?? $user->customer_relation->name ?? 'N/A';
+                $customerEmailID     = $user->customer_relation->email ?? 'N/A';
+            
+                return response()->json([
+                    'success' => false,
+                    'title'   => 'Cannot Create Vehicle Request',
+                    'message' => "
+                        Terms & Conditions Status: " . 
+                            ($rider->terms_condition_status == 2 ? 'Rejected' : 'Not Accepted') . "<br><br>
+                        <strong>Important:</strong> This rider does <u>not have a valid Driving License (DL) or Learner's License (LLR)</u>.<br>
+                        You must accept the rider's Terms & Conditions before creating a vehicle request.<br><br>
+                        Please contact your customer <strong>{$customerTradeName}</strong> at 
+                        <a href='mailto:{$customerEmailID}'>{$customerEmailID}</a> for any assistance."
+                ], 400);
+            }
+            
+            
+            
+            
+            $client_type = ($accountability_Type == 2) ? 'fixed_client' : 'variable_client';
+            
+            $get_rfd_vehicle_data = [];
+            $get_rfd_vehicle_count = 0;
+
+            if ($accountability_Type == 2) {
+                $get_rfd_vehicle_data = \App\Helpers\CustomHandler::Get_Customer_rfd_count($customerId, $user, $guard, $accountability_Type);
+                $get_rfd_vehicle_count = $get_rfd_vehicle_data['total_count'] ?? 0;
+            }
+
+            if ($client_type === 'fixed_client') {
+                if ($request->account_ability_type == 2 && $get_rfd_vehicle_count == 0) {  //updated by Gowtham.S
+                    return response()->json([
+                        'success' => false,
+                        'message'  => "Your RFD vehicle count is {$get_rfd_vehicle_count}. You cannot select Fixed Accountability Type."
+                    ]);
+                }
+                if ($request->account_ability_type == 1 && $get_rfd_vehicle_count > 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message'  => "Your RFD vehicle count is {$get_rfd_vehicle_count}. You cannot select Variable Accountability Type."
+                    ]);
+                }
+            }
+            
+           
+           
+           if ($client_type === 'fixed_client' && $request->account_ability_type == 2) { //updated by Gowtham.S
+                $selectedZoneId = $request->assign_zone;
+                $selectedZoneCount = 0;
+                $zoneData = collect($get_rfd_vehicle_data['zone_data'] ?? []);
+                if ($zoneData->isEmpty()) {
+                    return response()->json([
+                        'success' => false,
+                        'message'  => "Your selected zone RFD vehicle count is 0. You cannot select this zone."
+                    ]);
+                }
+                $selectedZone = $zoneData->firstWhere('zone_id', $selectedZoneId);
+            
+                if ($selectedZone) {
+                    $selectedZoneCount = $selectedZone['total_count'] ?? 0;
+                }
+                if (!$selectedZone || $selectedZoneCount == 0) {
+                    return response()->json([
+                        'success' => false,
+                        'message'  => "Your selected zone RFD vehicle count is {$selectedZoneCount}. You cannot select this zone."
+                    ]);
+                }
+            }
+
+          
+           
+
+
+            
+            $requests_validate = B2BVehicleRequests::where('rider_id', $request->rider_id)
+                ->where('status', 'pending')
+                ->exists();
+            
+            if ($requests_validate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A pending vehicle request already exists for this rider.'
+                ], 400);
+            }
+
     
-            $rider = B2BRider::find($request->rider_id);
             $rider->assign_zone_id = $request->assign_zone;
             $rider->save();
             
@@ -1138,12 +1159,14 @@ class B2BVehicleController extends Controller
                 'qrcode_image'    => $qrFileName,
                 'created_by'      => $user->id,
                 'city_id'         => $user->city_id,
-                'zone_id'         => $request->assign_zone
+                'zone_id'         => $request->assign_zone,
+                'account_ability_type'=>$request->account_ability_type
+                
             ]);
             
             
     
-            $user->load(['city', 'zone' , 'customer_relation']);
+
             
             // Start Mail Section
             $admins = User::whereIn('role', ['1','13'])->pluck('email')->toArray();
@@ -1189,11 +1212,11 @@ class B2BVehicleController extends Controller
             
             // $this->AutoRiderSendQrCodeWhatsApp($request->rider_id);
             // $this->AutoCustomerSendQrCodeWhatsApp($request->rider_id);
-            
+            $acTypeName = $vehicleRequest->accountAbilityRelation->name ?? 'N/A';
             $this->AutoSendQrCodeWhatsApp($request->rider_id);
             $this->pushRiderNotificationSent($rider,$requestId);
             $this->AutoAgentSendQrCodeWhatsApp($agent_Arr,$request->rider_id);
-            $this->pushAgentNotificationSent($agent_Arr,$requestId);
+            $this->pushAgentNotificationSent($agent_Arr,$requestId,$acTypeName);
     
             return response()->json([
                 'success' => true,
@@ -1240,7 +1263,7 @@ class B2BVehicleController extends Controller
         }
 
     }
-    public function pushAgentNotificationSent($agent_Arr, $requestId)
+    public function pushAgentNotificationSent($agent_Arr, $requestId,$actypeName)
     {
         $svc = new FirebaseNotificationService();
         $title = 'New Vehicle Request!';
@@ -1250,7 +1273,7 @@ class B2BVehicleController extends Controller
         foreach ($agent_Arr as $agent) {
             $agentId    = $agent->id;
             $token      = $agent->mb_fcm_token;
-            $body       = "Dear Agent, a new Vehicle Request has been created. Request ID: {$requestId}";
+            $body       = "Dear Agent, a new Vehicle Request has been created. Request ID: {$requestId}, Accountability Type - {$actypeName}";
             $data       = [];
             $icon       = null; 
 
@@ -1299,6 +1322,7 @@ class B2BVehicleController extends Controller
             $riderPhone    = $rider->mobile_no ?? 'N/A';
             $requestId     = $vehicleRequest->req_id ?? '';
             $zoneName      = $vehicleRequest->zone->name ?? 'N/A';
+            $actypeName      = $vehicleRequest->accountAbilityRelation->name ?? 'N/A';
             $customerID    = $rider->customerLogin->customer_relation->id ?? 'N/A';
             $customerName  = $rider->customerLogin->customer_relation->name ?? 'N/A';
             $customerEmail = $rider->customerLogin->customer_relation->email ?? 'N/A';
@@ -1322,6 +1346,7 @@ class B2BVehicleController extends Controller
                 $message = "Dear Agent,\n\n"
                     . "A new Vehicle Request has been created.\n\n"
                     . "🔹 Request ID: {$requestId}\n\n"
+                    . "🔹 Accountability Type: {$actypeName}\n\n"
                     . "📌 Rider Details:\n"
                     . "• Name: {$riderName}\n"
                     . "• Phone: {$riderPhone}\n\n"
@@ -1407,6 +1432,7 @@ class B2BVehicleController extends Controller
             $riderName    = $rider->name ?? 'Rider';
             $riderPhone   = $rider->mobile_no;
             $requestId    = $vehicleRequest->req_id ?? '';
+            $actypeName      = $vehicleRequest->accountAbilityRelation->name ?? 'N/A';
             $customerID   = $rider->customerLogin->customer_relation->id ?? 'N/A';
             $customerName = $rider->customerLogin->customer_relation->name ?? 'N/A';
             $customerEmail= $rider->customerLogin->customer_relation->email ?? 'N/A';
@@ -1439,7 +1465,7 @@ class B2BVehicleController extends Controller
             if (!empty($customerPhone)) {
                 $messages[] = [
                     "number"    => $this->formatPhoneNumber($customerPhone),
-                    "message"   => "Dear {$customerName},\n\nNew Vehicle Request ID is: {$requestId}.\nHere is QR Code.\nRider Name: {$riderName}\nRider Phone: {$riderPhone}\n\n{$footerContentText}",
+                    "message"   => "Dear {$customerName},\n\nNew Vehicle Request ID is: {$requestId}.\n Accountability Type - {$actypeName} \n Here is QR Code.\nRider Name: {$riderName}\nRider Phone: {$riderPhone}\n\n{$footerContentText}",
                     "media"     => "image",
                     "url"       => $fileUrl,
                     "file_name" => $filename
@@ -1450,7 +1476,7 @@ class B2BVehicleController extends Controller
             if (!empty($adminPhone)) {
                 $messages[] = [
                     "number"    => $this->formatPhoneNumber($adminPhone),
-                    "message"   => "Dear Admin,\n\nNew Vehicle Request ID is: {$requestId}.\nHere is QR Code.\nCustomer Name: {$customerName}\nCustomer ID: {$customerID}\nRider Name: {$riderName}\nRider Phone: {$riderPhone}\n\n{$footerContentText}",
+                    "message"   => "Dear Admin,\n\nNew Vehicle Request ID is: {$requestId}.\n Accountability Type - {$actypeName} \n Here is QR Code.\nCustomer Name: {$customerName}\nCustomer ID: {$customerID}\nRider Name: {$riderName}\nRider Phone: {$riderPhone}\n\n{$footerContentText}",
                     "media"     => "image",
                     "url"       => $fileUrl,
                     "file_name" => $filename
@@ -1850,13 +1876,22 @@ class B2BVehicleController extends Controller
             ->where('city_id', $user->city_id)
             ->pluck('id');
             
+        $user->load('customer_relation');
+            
+        $accountability_Types = $user->customer_relation->accountability_type_id;
+
+        // Make sure it's an array (sometimes could be stored as string or null)
+        if (!is_array($accountability_Types)) {
+            $accountability_Types = json_decode($accountability_Types, true) ?? [];
+        }
+        
         if ($request->ajax()) {
             try {
             $start  = $request->input('start', 0);
             $length = $request->input('length', 25);
             $search = $request->input('search.value');
 
-            $query = B2BVehicleRequests::with('rider','zone','city');
+            $query = B2BVehicleRequests::with('rider','zone','city','accountAbilityRelation');
             
             // if ($guard === 'master') {
                     // $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
@@ -1895,7 +1930,9 @@ class B2BVehicleController extends Controller
             if ($request->filled('status') && $request->status != 'all') {
                 $query->where('status', $request->status);
             }
-
+            if (!empty($request->accountability_type)) {
+                $query->where('account_ability_type', $request->accountability_type);
+            }
             
             if ($request->filled('from_date') && $request->filled('to_date')) {
                 $query->whereDate('created_at', '>=', $request->from_date)
@@ -1923,6 +1960,39 @@ class B2BVehicleController extends Controller
                            ->get();
 
             $formattedData = $datas->map(function ($item) {
+                
+                     if ($item->status === 'completed' && $item->completed_at) {
+                    $created   = \Carbon\Carbon::parse($item->created_at);
+                    $completed = \Carbon\Carbon::parse($item->completed_at);
+                    $diffInDays = $created->diffInDays($completed);
+                    $diffInHours = $created->diffInHours($completed);
+                    $diffInMinutes = $created->diffInMinutes($completed);
+                
+                    if ($diffInDays > 0) {
+                        $aging = $diffInDays . ' days';
+                    } elseif ($diffInHours > 0) {
+                        $aging = $diffInHours . ' hours';
+                    } else {
+                        $aging = $diffInMinutes . ' mins';
+                    }
+                } else {
+                    $created   = \Carbon\Carbon::parse($item->created_at);
+                    $now       = now();
+                    $diffInDays = $created->diffInDays($now);
+                    $diffInHours = $created->diffInHours($now);
+                    $diffInMinutes = $created->diffInMinutes($now);
+                
+                    if ($diffInDays > 0) {
+                        $aging = $diffInDays . ' days';
+                    } elseif ($diffInHours > 0) {
+                        $aging = $diffInHours . ' hours';
+                    } else {
+                        $aging = $diffInMinutes . ' mins';
+                    }
+                }
+                
+                
+                
                 $statusColumn = '';
                 if ($item->status === 'pending') {
                     $statusColumn = '
@@ -1945,10 +2015,13 @@ class B2BVehicleController extends Controller
                         <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" name="is_select[]" type="checkbox" value="'.$item->id.'">
                     </div>',
                     $requestId,
+                    e($item->accountAbilityRelation->name ?? 'N/A'), //Updated By Gowtham.S
                     e($rider->name ?? ''),
                     e($rider->mobile_no ?? ''),
                     e($item->zone->name ?? 'N/A'),  // Zone Name - Updated By Gowtham.S
                     \Carbon\Carbon::parse($item->created_at)->format('d M Y, h:i A'),
+                    \Carbon\Carbon::parse($item->updated_at)->format('d M Y, h:i A'),
+                    $aging,
                     $statusColumn,
                     '<a href="'.route('b2b.vehicle_request.vehicle_request_view', $idEncode).'"
                         class="d-flex align-items-center justify-content-center border-0" title="view"
@@ -1976,8 +2049,12 @@ class B2BVehicleController extends Controller
                 ], 500);
             }
         }
+        $accountability_types = EvTblAccountabilityType::where('status', 1)
+        ->whereIn('id',$accountability_Types)
+        ->orderBy('id', 'desc')
+        ->get();
     
-        return view('b2b::vehicles.vehicle_request_list');
+        return view('b2b::vehicles.vehicle_request_list', compact('accountability_types'));
     }
 
     
@@ -2091,22 +2168,110 @@ class B2BVehicleController extends Controller
         $zones = Zones::where('status',1)->where('city_id',$data->vehicleRequest->city_id)->get();
         
         $apiKey = BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
-        return view('b2b::vehicle_list.service_request' , compact('vehicle_types' ,'data' ,'cities' ,'apiKey','zones'));
+        $repair_types = RepairTypeMaster::where('status',1)->get();
+        
+        return view('b2b::vehicle_list.service_request' , compact('vehicle_types' ,'data' ,'cities' ,'apiKey','zones' , 'repair_types'));
         
     }
     
-         public function vehicle_recovery_request(Request $request , $id)
-    {
+    //      public function vehicle_recovery_request(Request $request , $id)
+    // {
         
-        $decrypt_id = decrypt($id);
-        $data = B2BVehicleAssignment::with('vehicle' ,'rider.customerLogin.customer_relation')
-            ->where('id', $decrypt_id)
-            ->first();
+    //     $decrypt_id = decrypt($id);
+    //     $data = B2BVehicleAssignment::with('vehicle' ,'rider.customerLogin.customer_relation')
+    //         ->where('id', $decrypt_id)
+    //         ->first();
             
-        return view('b2b::vehicle_list.recovery_request',compact('data'));
+    //     return view('b2b::vehicle_list.recovery_request',compact('data'));
         
+    // }
+    
+    public function vehicle_recovery_request(Request $request, $id)
+{
+    $guard = Auth::guard('master')->check() ? 'master' : 'zone';
+    $user  = Auth::guard($guard)->user();
+    $customerId = $user->customer_id;
+    $user->load('customer_relation');
+
+    $decrypt_id = decrypt($id);
+
+    $data = B2BVehicleAssignment::with('vehicle', 'vehicleRequest', 'rider.customerLogin.customer_relation')
+        ->where('id', $decrypt_id)
+        ->first();
+    
+    $create = true;
+    $reason = '';
+
+    // 🛑 Step 0: Prevent creation on Sundays
+    if (now()->isSunday()) {
+        $create = false;
+        $reason = 'Recovery requests cannot be created on Sundays.';
     }
     
+    // if (now()->isFriday()) {
+    //     $create = false;
+    //     $reason = 'Recovery requests cannot be created on Fridays.';
+    // }
+    
+    // ✅ Step 1: Total vehicles count
+    $totalVehicles = AssetMasterVehicle::whereHas('quality_check', function ($query) use ($user, $guard, $customerId) {
+        if ($guard === 'master') {
+            $query->where('location', $user->city_id);
+        } elseif ($guard === 'zone') {
+            $query->where('location', $user->city_id)
+                  ->where('zone_id', $user->zone_id);
+        }
+        $query->where('customer_id', $customerId);
+    })->count();
+
+    // ✅ Step 2: 2% of total vehicles (allowed per day)
+    $allowedRequests = ceil(($totalVehicles * 2) / 100);
+
+    // ✅ Step 3: Get today's recovery requests
+    $today = now()->toDateString();
+    $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
+        ->where('city_id', $user->city_id)
+        ->pluck('id');
+
+    $totalRecoveryRequestsToday = B2BRecoveryRequest::whereDate('created_at', $today)
+        ->whereHas('assignment.vehicleRequest', function ($q) use ($customerLoginIds, $guard, $user) {
+            if ($customerLoginIds->isNotEmpty()) {
+                $q->whereIn('created_by', $customerLoginIds);
+            }
+
+            if ($guard === 'master') {
+                $q->where('city_id', $user->city_id);
+            } elseif ($guard === 'zone') {
+                $q->where('city_id', $user->city_id)
+                  ->where('zone_id', $user->zone_id);
+            }
+        })
+        ->count();
+
+    // ✅ Step 4: Check remaining requests allowed
+    $remainingCount = $allowedRequests - $totalRecoveryRequestsToday;
+    
+    if ($remainingCount <= 0 && $reason === '') {
+        $create = false;
+        $reason = "You’ve reached your daily limit of recovery requests ({$allowedRequests}), which is 2% of your total vehicles. You can create new requests tomorrow.";
+    } else {
+        $create = true;
+        $reason = "You can create {$remainingCount} more recovery request" . ($remainingCount > 1 ? 's' : '') . " today (out of {$allowedRequests} allowed).";
+    }
+
+
+    // ✅ Return view with validation data
+    return view('b2b::vehicle_list.recovery_request', compact(
+        'data',
+        'remainingCount',
+        'allowedRequests',
+        'totalRecoveryRequestsToday',
+        'totalVehicles',
+        'create',
+        'reason'
+    ));
+}
+
     
 
     public function store(Request $request): RedirectResponse
@@ -2122,14 +2287,7 @@ class B2BVehicleController extends Controller
   
      public function vehicle_list(Request $request)
     {
-        if ($request->ajax()) {
-            try {
-                
-                // Pagination and ordering inputs from DataTables
-                $start  = $request->input('start', 0);
-                $length = $request->input('length', 25);
-                $search = $request->input('search.value');
-    
+        
                 $guard = Auth::guard('master')->check() ? 'master' : 'zone';
                 $user  = Auth::guard($guard)->user();
                 $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
@@ -2138,33 +2296,34 @@ class B2BVehicleController extends Controller
                 ->where('city_id', $user->city_id)
                 ->pluck('id');
                 
+                $user->load('customer_relation');
+
+
+                $accountability_Types = $user->customer_relation->accountability_type_id;
+            
+                // Make sure it's an array (sometimes could be stored as string or null)
+                if (!is_array($accountability_Types)) {
+                    $accountability_Types = json_decode($accountability_Types, true) ?? [];
+                }
+                $accountability_type = $request->accountability_type;
+                
+                
+        if ($request->ajax()) {
+            try {
+                
+                // Pagination and ordering inputs from DataTables
+                $start  = $request->input('start', 0);
+                $length = $request->input('length', 25);
+                $search = $request->input('search.value');
+    
+
                 // Base query
-                $query = B2BVehicleAssignment::with(['rider', 'vehicle.vehicle_type_relation','vehicle.vehicle_model_relation', 'zone','VehicleRequest']);
+               $query = B2BVehicleAssignment::with(['rider', 'vehicle.vehicle_type_relation','vehicle.vehicle_model_relation','vehicle.quality_check', 'zone','VehicleRequest','VehicleRequest.accountAbilityRelation' , 'recovery_Request']);
     
  
           
-                //  $query->whereHas('VehicleRequest', function ($q) use ($user) {
-                //       if(!empty($customerLoginIds)){
-                //             $q->whereIn('created_by', $customerLoginIds);
-                //         }
-                //     });
                 
-                // if ($guard === 'master') {  
-                //     // Filter by city
-                //     $query->whereHas('VehicleRequest', function ($q) use ($user) {
-                //         $q->where('city_id', $user->city_id);
-                //     });
-                // }
-                
-                // if ($guard === 'zone') {
-                //     // Filter by zone
-                //     $query->whereHas('VehicleRequest', function ($q) use ($user) {
-                //         $q->where('city_id', $user->city_id)
-                //           ->where('zone_id', $user->zone_id);
-                //     });
-                // }
-                
-                $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+                $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds ,$accountability_type) {
                     // Always filter by created_by if IDs exist
                     if ($customerLoginIds->isNotEmpty()) {
                         $q->whereIn('created_by', $customerLoginIds);
@@ -2173,6 +2332,9 @@ class B2BVehicleController extends Controller
                     // Apply guard-specific filters
                     if ($guard === 'master') {
                         $q->where('city_id', $user->city_id);
+                    }
+                    if (!empty($accountability_type)) {
+                        $q->where('account_ability_type', $accountability_type);
                     }
                 
                     if ($guard === 'zone') {
@@ -2197,6 +2359,9 @@ class B2BVehicleController extends Controller
                           ->orWhereHas('vehicle', function ($v) use ($search) {
                               $v->where('permanent_reg_number', 'like', "%{$search}%");
                           })
+                          ->orWhereHas('VehicleRequest', function ($v) use ($search) {
+                              $v->where('req_id', 'like', "%{$search}%");
+                          })
                           ->orWhereHas('vehicle', function ($v) use ($search) {
                               $v->where('chassis_number', 'like', "%{$search}%");
                           })
@@ -2215,7 +2380,9 @@ class B2BVehicleController extends Controller
                     });
                 }
     
-    
+                    if(!empty($request->status)){
+                  $query->where('status' , $request->status);
+                }
               $query->whereNotIn('status', ['returned']);
               
               
@@ -2233,9 +2400,9 @@ class B2BVehicleController extends Controller
                                ->take($length)
                                ->get();
                 // print_r($datas);exit;               
-                //  dd($customerLoginIds,$datas[0]->VehicleRequest);    
                                
                 // Format for DataTables
+                
                 $formattedData = $datas->map(function ($data) {
                     $id_encode  = encrypt($data->id);
                     
@@ -2243,7 +2410,7 @@ class B2BVehicleController extends Controller
                     
                     $city_name = $data->rider->customerLogin->city->city_name ?? '';
                     
-                    
+                    $recovery_status = $data->vehicle->quality_check->is_recoverable;
                 
                     $statusBadge = '';
 
@@ -2278,22 +2445,34 @@ class B2BVehicleController extends Controller
                         
                     }
                     elseif ($data->status === 'recovery_request') { 
-                    $statusBadge = '<span class="badge-status badge-gdm-init">
+                        
+                        $recoveryStatus = $data->recovery_Request->created_by_type ?? null;
+                           
+             
+                        $status_Text = 'Client Recovery Initiated';
+                    
+                    
+                        // Conditional override
+                        if ($recoveryStatus === 'b2b-admin-dashboard') {
+                            $status_Text = 'GDM Recovery Initiated';
+                            
+                        }
+                        
+                    $statusBadge = '<span class="badge-status badge-gdm-init '.$recoveryStatus.'">
                         <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none">
                         <path d="M13.4601 16.6252C14.3343 16.6252 15.0429 15.9163 15.0429 15.0418C15.0429 14.1674 14.3343 13.4585 13.4601 13.4585C12.5861 13.4585 11.8774 14.1674 11.8774 15.0418C11.8774 15.9163 12.5861 16.6252 13.4601 16.6252Z" stroke="#A6661D" stroke-width="1.1875"/>
                         <path d="M5.54658 16.6252C6.42069 16.6252 7.12929 15.9163 7.12929 15.0418C7.12929 14.1674 6.42069 13.4585 5.54658 13.4585C4.67247 13.4585 3.96387 14.1674 3.96387 15.0418C3.96387 15.9163 4.67247 16.6252 5.54658 16.6252Z" stroke="#A6661D" stroke-width="1.1875"/>
                         <path d="M9.50293 9.5L4.75479 2.375M4.75479 2.375L6.3375 10.2917M4.75479 2.375H3.03819C2.88854 2.375 2.7623 2.50244 2.74376 2.67225L2.47985 5.08928C2.97146 5.08928 3.37 5.545 3.37 6.10715C3.37 6.66929 2.97146 7.125 2.47985 7.125C2.09227 7.125 1.71156 6.84177 1.58936 6.44643M15.0425 15.0417C17.1659 15.0417 17.4165 14.307 17.4165 12.2807C17.4165 11.3109 17.4165 10.826 17.2265 10.4166C17.0281 9.98909 16.6706 9.72277 15.9187 9.17787C15.1719 8.63669 14.6409 8.02829 14.135 7.19023C13.4134 5.995 13.0527 5.39739 12.5116 5.0737C11.9706 4.75 11.3324 4.75 10.0561 4.75H9.50293V10.2917" stroke="#A6661D" stroke-width="1.1875" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M3.96365 15.0384C3.96365 15.0384 3.04573 15.0465 2.76084 15.0099C2.52343 14.9149 2.23495 14.692 2.04862 14.5681C1.47885 14.1893 1.5928 14.3449 1.5928 14.0029C1.5928 13.4682 1.58958 11.0882 1.58958 11.0882V10.3282C1.58958 10.2807 1.54075 10.2908 1.90612 10.2965H17.0052M7.12918 15.0431H11.8773" stroke="#A6661D" stroke-width="1.1875" stroke-linecap="round"/>
-                        </svg>
-                         GDM Recovery Initialized</span>';   
+                        </svg>'.$status_Text.'</span>';   
                         
                     }
                     
                     elseif ($data->status === 'return_request') { 
                     $statusBadge = '
                         <span class="badge-status d-inline-flex align-items-center px-2 py-1" 
-                              style="background-color:#EEE9CA; border-radius:6px; font-size:14px; font-weight:500; gap:6px; line-height:1;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 23 23" fill="none">
+                              style="background-color:#EEE9CA; font-size:14px; font-weight:500; gap:6px; line-height:1;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 23 23" fill="none">
                                 <rect width="24" height="24" rx="8" fill="#EEE9CA"/>
                                 <path d="M4.3335 9.8335V20.8335C4.3335 21.846 5.15431 22.6668 6.16683 22.6668H20.8335C21.846 22.6668 22.6668 21.846 22.6668 20.8335V9.8335" stroke="#58490F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
                                 <path d="M6.57677 5.34694L4.3335 9.8335H22.6668L20.4236 5.34694C20.113 4.72584 19.4782 4.3335 18.7837 4.3335H8.21656C7.52214 4.3335 6.88733 4.72583 6.57677 5.34694Z" stroke="#58490F" stroke-width="1.375" stroke-linejoin="round"/>
@@ -2306,17 +2485,17 @@ class B2BVehicleController extends Controller
                         
                     }
                     
-                    // elseif ($data->status === 'returned') { 
-                    // $statusBadge = '<span class="badge-status badge-gdm-init">
-                    //     <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none">
-                    //     <path d="M13.4601 16.6252C14.3343 16.6252 15.0429 15.9163 15.0429 15.0418C15.0429 14.1674 14.3343 13.4585 13.4601 13.4585C12.5861 13.4585 11.8774 14.1674 11.8774 15.0418C11.8774 15.9163 12.5861 16.6252 13.4601 16.6252Z" stroke="#A6661D" stroke-width="1.1875"/>
-                    //     <path d="M5.54658 16.6252C6.42069 16.6252 7.12929 15.9163 7.12929 15.0418C7.12929 14.1674 6.42069 13.4585 5.54658 13.4585C4.67247 13.4585 3.96387 14.1674 3.96387 15.0418C3.96387 15.9163 4.67247 16.6252 5.54658 16.6252Z" stroke="#A6661D" stroke-width="1.1875"/>
-                    //     <path d="M9.50293 9.5L4.75479 2.375M4.75479 2.375L6.3375 10.2917M4.75479 2.375H3.03819C2.88854 2.375 2.7623 2.50244 2.74376 2.67225L2.47985 5.08928C2.97146 5.08928 3.37 5.545 3.37 6.10715C3.37 6.66929 2.97146 7.125 2.47985 7.125C2.09227 7.125 1.71156 6.84177 1.58936 6.44643M15.0425 15.0417C17.1659 15.0417 17.4165 14.307 17.4165 12.2807C17.4165 11.3109 17.4165 10.826 17.2265 10.4166C17.0281 9.98909 16.6706 9.72277 15.9187 9.17787C15.1719 8.63669 14.6409 8.02829 14.135 7.19023C13.4134 5.995 13.0527 5.39739 12.5116 5.0737C11.9706 4.75 11.3324 4.75 10.0561 4.75H9.50293V10.2917" stroke="#A6661D" stroke-width="1.1875" stroke-linecap="round" stroke-linejoin="round"/>
-                    //     <path d="M3.96365 15.0384C3.96365 15.0384 3.04573 15.0465 2.76084 15.0099C2.52343 14.9149 2.23495 14.692 2.04862 14.5681C1.47885 14.1893 1.5928 14.3449 1.5928 14.0029C1.5928 13.4682 1.58958 11.0882 1.58958 11.0882V10.3282C1.58958 10.2807 1.54075 10.2908 1.90612 10.2965H17.0052M7.12918 15.0431H11.8773" stroke="#A6661D" stroke-width="1.1875" stroke-linecap="round"/>
-                    //     </svg>
-                    //      Returned</span>';   
+                    elseif ($data->status === 'recovered') { 
+                    $statusBadge = '<span class="badge-status badge-gdm-init">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none">
+                        <path d="M13.4601 16.6252C14.3343 16.6252 15.0429 15.9163 15.0429 15.0418C15.0429 14.1674 14.3343 13.4585 13.4601 13.4585C12.5861 13.4585 11.8774 14.1674 11.8774 15.0418C11.8774 15.9163 12.5861 16.6252 13.4601 16.6252Z" stroke="#A6661D" stroke-width="1.1875"/>
+                        <path d="M5.54658 16.6252C6.42069 16.6252 7.12929 15.9163 7.12929 15.0418C7.12929 14.1674 6.42069 13.4585 5.54658 13.4585C4.67247 13.4585 3.96387 14.1674 3.96387 15.0418C3.96387 15.9163 4.67247 16.6252 5.54658 16.6252Z" stroke="#A6661D" stroke-width="1.1875"/>
+                        <path d="M9.50293 9.5L4.75479 2.375M4.75479 2.375L6.3375 10.2917M4.75479 2.375H3.03819C2.88854 2.375 2.7623 2.50244 2.74376 2.67225L2.47985 5.08928C2.97146 5.08928 3.37 5.545 3.37 6.10715C3.37 6.66929 2.97146 7.125 2.47985 7.125C2.09227 7.125 1.71156 6.84177 1.58936 6.44643M15.0425 15.0417C17.1659 15.0417 17.4165 14.307 17.4165 12.2807C17.4165 11.3109 17.4165 10.826 17.2265 10.4166C17.0281 9.98909 16.6706 9.72277 15.9187 9.17787C15.1719 8.63669 14.6409 8.02829 14.135 7.19023C13.4134 5.995 13.0527 5.39739 12.5116 5.0737C11.9706 4.75 11.3324 4.75 10.0561 4.75H9.50293V10.2917" stroke="#A6661D" stroke-width="1.1875" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M3.96365 15.0384C3.96365 15.0384 3.04573 15.0465 2.76084 15.0099C2.52343 14.9149 2.23495 14.692 2.04862 14.5681C1.47885 14.1893 1.5928 14.3449 1.5928 14.0029C1.5928 13.4682 1.58958 11.0882 1.58958 11.0882V10.3282C1.58958 10.2807 1.54075 10.2908 1.90612 10.2965H17.0052M7.12918 15.0431H11.8773" stroke="#A6661D" stroke-width="1.1875" stroke-linecap="round"/>
+                        </svg>
+                         Recovered</span>';   
                         
-                    // }
+                    }
                     
                     else {
                         $statusBadge = '<span class="badge-status badge-default">Unknown</span>';
@@ -2370,13 +2549,17 @@ class B2BVehicleController extends Controller
                             <path d="M13.5 9.8335V4.3335" stroke="#58490F" stroke-width="1.375"/>
                             <path d="M10.2918 15.3333H15.3335C16.346 15.3333 17.1668 16.1541 17.1668 17.1667C17.1668 18.1792 16.346 19 15.3335 19H14.4168M11.6668 13.5L9.8335 15.3333L11.6668 17.1667" stroke="#58490F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            </a>
+                            </a>';
+                        if($recovery_status == 1){
+                            $actions.='
                             <a href="' . route('b2b.recovery_request', $id_encode) . '" class="btn" data-bs-toggle="tooltip" data-bs-placement="top" title="Recovery Request">
                           <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
                             <rect width="27" height="27" rx="8" fill="#A1DBD0"/>
                             <path d="M8.68754 13.5C8.68754 13.7317 8.70404 13.9641 8.73636 14.1916L7.37511 14.3862C7.33305 14.0927 7.31214 13.7965 7.31254 13.5C7.31254 10.0879 10.0887 7.3125 13.5 7.3125C14.9046 7.3125 16.2803 7.7965 17.3741 8.67444L16.5127 9.74694C15.6605 9.05723 14.5963 8.68299 13.5 8.6875C10.8463 8.6875 8.68754 10.8463 8.68754 13.5ZM8.00004 16.25C8.00004 16.4323 8.07248 16.6072 8.20141 16.7361C8.33034 16.8651 8.50521 16.9375 8.68754 16.9375C8.86988 16.9375 9.04475 16.8651 9.17368 16.7361C9.30261 16.6072 9.37504 16.4323 9.37504 16.25C9.37504 16.0677 9.30261 15.8928 9.17368 15.7639C9.04475 15.6349 8.86988 15.5625 8.68754 15.5625C8.50521 15.5625 8.33034 15.6349 8.20141 15.7639C8.07248 15.8928 8.00004 16.0677 8.00004 16.25ZM13.5 5.25C18.0492 5.25 21.75 8.95081 21.75 13.5H23.125C23.125 8.1925 18.8075 3.875 13.5 3.875C12.3705 3.875 11.2636 4.06888 10.2104 4.45181L10.6806 5.74431C11.5844 5.41651 12.5386 5.24923 13.5 5.25ZM17.625 10.75C17.625 10.9323 17.6975 11.1072 17.8264 11.2361C17.9553 11.3651 18.1302 11.4375 18.3125 11.4375C18.4949 11.4375 18.6697 11.3651 18.7987 11.2361C18.9276 11.1072 19 10.9323 19 10.75C19 10.5677 18.9276 10.3928 18.7987 10.2639C18.6697 10.1349 18.4949 10.0625 18.3125 10.0625C18.1302 10.0625 17.9553 10.1349 17.8264 10.2639C17.6975 10.3928 17.625 10.5677 17.625 10.75ZM8.68754 6.625C8.86988 6.625 9.04475 6.55257 9.17368 6.42364C9.30261 6.2947 9.37504 6.11984 9.37504 5.9375C9.37504 5.75516 9.30261 5.5803 9.17368 5.45136C9.04475 5.32243 8.86988 5.25 8.68754 5.25C8.50521 5.25 8.33034 5.32243 8.20141 5.45136C8.07248 5.5803 8.00004 5.75516 8.00004 5.9375C8.00004 6.11984 8.07248 6.2947 8.20141 6.42364C8.33034 6.55257 8.50521 6.625 8.68754 6.625ZM5.25004 13.5C5.25004 11.2966 6.10804 9.22444 7.66661 7.66656L6.69379 6.69375C5.79699 7.58531 5.08606 8.646 4.6022 9.81434C4.11834 10.9827 3.87118 12.2354 3.87504 13.5C3.87504 18.8075 8.19254 23.125 13.5 23.125V21.75C8.95086 21.75 5.25004 18.0492 5.25004 13.5ZM22.0938 20.0312C22.0938 21.1684 21.1684 22.0938 20.0313 22.0938C18.8942 22.0938 17.9688 21.1684 17.9688 20.0312C17.9688 19.7136 18.0472 19.4166 18.175 19.1478L14.3835 15.3556C14.1154 15.4841 13.8177 15.5625 13.5 15.5625C12.3629 15.5625 11.4375 14.6371 11.4375 13.5C11.4375 12.3629 12.3629 11.4375 13.5 11.4375C14.6372 11.4375 15.5625 12.3629 15.5625 13.5C15.5625 13.8176 15.4849 14.1146 15.3563 14.3834L19.1479 18.1757C19.416 18.0471 19.7137 17.9688 20.0313 17.9688C21.1684 17.9688 22.0938 18.8941 22.0938 20.0312ZM13.5 14.1875C13.8789 14.1875 14.1875 13.8788 14.1875 13.5C14.1875 13.1212 13.8789 12.8125 13.5 12.8125C13.1212 12.8125 12.8125 13.1212 12.8125 13.5C12.8125 13.8788 13.1212 14.1875 13.5 14.1875ZM20.7188 20.0312C20.7187 19.8488 20.6461 19.6739 20.5171 19.545C20.388 19.416 20.213 19.3437 20.0306 19.3438C19.8482 19.3438 19.6733 19.4164 19.5443 19.5455C19.4154 19.6745 19.343 19.8495 19.3431 20.0319C19.3432 20.2144 19.4158 20.3893 19.5448 20.5182C19.6739 20.6471 19.8489 20.7195 20.0313 20.7194C20.2137 20.7193 20.3886 20.6468 20.5176 20.5177C20.6465 20.3887 20.7189 20.2137 20.7188 20.0312Z" fill="#14A388"/>
                             </svg>
-                            </a>
+                            </a>';
+                        }
+                        $actions.='
                             <a href="' . route('b2b.accident_report', $id_encode) . '" class="btn" data-bs-toggle="tooltip" data-bs-placement="top" title="Accident Report">
                             <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
                             <rect width="27" height="27" rx="8" fill="#FFC1BE"/>
@@ -2389,15 +2572,16 @@ class B2BVehicleController extends Controller
                         </div>';  
                         }
                     return [
-                        '<div class="form-check">
+                         '<div class="form-check">
                             <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" type="checkbox" value="' . $data->id . '">
                         </div>',
                         $data->req_id ?? '',
+                        $data->VehicleRequest->accountAbilityRelation->name ?? 'N/A',
                         $data->rider->name ?? '',
                         $data->rider->mobile_no ?? '',
                         $data->vehicle->permanent_reg_number ?? '',
                         $data->vehicle->vehicle_type_relation->name ?? '',
-                        $data->vehicle->vehicle_model_relation->vehicle_model ?? '',
+                        $data->vehicle->vehicle_model_relation->make ?? '',
                         $city_name ?? '',
                         $data->VehicleRequest->zone->name ?? 'N/A',
                         '<span class="badge-vehicle">' . ucfirst($data->handover_type ?? '') . '</span>',
@@ -2406,56 +2590,7 @@ class B2BVehicleController extends Controller
                         
                         
                         $actions,
-                        // '<div class="d-flex gap-0 action-icons">
-                        //     <a href="' . route('b2b.vehicle_details_view', $id_encode) . '" class="btn">
-                        //     <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
-                        //     <rect width="27" height="27" rx="8" fill="#CAEDCE"/>
-                        //     <path d="M22.2488 12.6247C22.5275 13.0155 22.6668 13.211 22.6668 13.5002C22.6668 13.7894 22.5275 13.9848 22.2488 14.3756C20.9966 16.1315 17.7986 19.9168 13.5002 19.9168C9.20171 19.9168 6.00375 16.1315 4.75153 14.3756C4.47284 13.9848 4.3335 13.7894 4.3335 13.5002C4.3335 13.211 4.47284 13.0155 4.75153 12.6247C6.00375 10.8688 9.20171 7.0835 13.5002 7.0835C17.7986 7.0835 20.9966 10.8688 22.2488 12.6247Z" stroke="#1E580F" stroke-width="1.375"/>
-                        //     <path d="M16.25 13.5C16.25 11.9812 15.0188 10.75 13.5 10.75C11.9812 10.75 10.75 11.9812 10.75 13.5C10.75 15.0188 11.9812 16.25 13.5 16.25C15.0188 16.25 16.25 15.0188 16.25 13.5Z" stroke="#1E580F" stroke-width="1.375"/>
-                        //     </svg>
-                        //     </a>
-                        //     <a href="' . route('b2b.rider_details_view', $id_encode) . '" class="btn">
-                        //     <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
-                        //     <rect width="27" height="27" rx="8" fill="#E1D2FF"/>
-                        //     <path d="M13.4998 8.00016C14.5124 8.00016 15.3332 7.17935 15.3332 6.16683C15.3332 5.15431 14.5124 4.3335 13.4998 4.3335C12.4873 4.3335 11.6665 5.15431 11.6665 6.16683C11.6665 7.17935 12.4873 8.00016 13.4998 8.00016Z" stroke="#9747FF" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M11.6667 6.1665H8" stroke="#9747FF" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M19.0002 6.1665H15.3335" stroke="#9747FF" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M16.25 20.8335H17.5685C18.7613 20.8335 19.6364 19.7126 19.3471 18.5555L17.5138 11.2222C17.3097 10.406 16.5765 9.8335 15.7352 9.8335H11.2647C10.4235 9.8335 9.69018 10.406 9.48615 11.2222L7.65281 18.5555C7.36353 19.7126 8.23869 20.8335 9.4314 20.8335H10.75" stroke="#9747FF" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M13.5 19V22.6667" stroke="#9747FF" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     </svg> 
-                        //     </a>
-                        //     <a href="' . route('b2b.service_request', $id_encode) . '" class="btn">
-                        //      <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
-                        //     <rect width="27" height="27" rx="8" fill="#D8E4FE"/>
-                        //     <path d="M13.9582 9.8335L11.6665 13.5002H15.3332L13.0415 17.1668" stroke="#2563EB" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M4.3335 11.6969V15.3028C6.95212 15.3028 8.65489 18.1471 7.32912 20.4053L10.5045 22.2082C11.1758 21.0648 12.3379 20.4055 13.5002 20.4053C14.6624 20.4055 15.8246 21.0648 16.4957 22.2082L19.6712 20.4053C18.3454 18.1471 20.0482 15.3028 22.6668 15.3028V11.6969C20.0482 11.6969 18.3439 8.85266 19.6698 6.59441L16.4944 4.7915C15.8234 5.93433 14.6619 6.62464 13.5002 6.62489C12.3385 6.62464 11.1769 5.93433 10.506 4.7915L7.33057 6.59441C8.65637 8.85266 6.95217 11.6969 4.3335 11.6969Z" stroke="#2563EB" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     </svg>
-                        //     </a>
-                        //     <a href="' . route('b2b.return_request', $id_encode) . '" class="btn">
-                        //     <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
-                        //     <rect width="27" height="27" rx="8" fill="#EEE9CA"/>
-                        //     <path d="M4.3335 9.8335V20.8335C4.3335 21.846 5.15431 22.6668 6.16683 22.6668H20.8335C21.846 22.6668 22.6668 21.846 22.6668 20.8335V9.8335" stroke="#58490F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M6.57677 5.34694L4.3335 9.8335H22.6668L20.4236 5.34694C20.113 4.72584 19.4782 4.3335 18.7837 4.3335H8.21656C7.52214 4.3335 6.88733 4.72583 6.57677 5.34694Z" stroke="#58490F" stroke-width="1.375" stroke-linejoin="round"/>
-                        //     <path d="M13.5 9.8335V4.3335" stroke="#58490F" stroke-width="1.375"/>
-                        //     <path d="M10.2918 15.3333H15.3335C16.346 15.3333 17.1668 16.1541 17.1668 17.1667C17.1668 18.1792 16.346 19 15.3335 19H14.4168M11.6668 13.5L9.8335 15.3333L11.6668 17.1667" stroke="#58490F" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     </svg>
-                        //     </a>
-                        //     <a href="' . route('b2b.recovery_request', $id_encode) . '" class="btn">
-                        //   <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
-                        //     <rect width="27" height="27" rx="8" fill="#A1DBD0"/>
-                        //     <path d="M8.68754 13.5C8.68754 13.7317 8.70404 13.9641 8.73636 14.1916L7.37511 14.3862C7.33305 14.0927 7.31214 13.7965 7.31254 13.5C7.31254 10.0879 10.0887 7.3125 13.5 7.3125C14.9046 7.3125 16.2803 7.7965 17.3741 8.67444L16.5127 9.74694C15.6605 9.05723 14.5963 8.68299 13.5 8.6875C10.8463 8.6875 8.68754 10.8463 8.68754 13.5ZM8.00004 16.25C8.00004 16.4323 8.07248 16.6072 8.20141 16.7361C8.33034 16.8651 8.50521 16.9375 8.68754 16.9375C8.86988 16.9375 9.04475 16.8651 9.17368 16.7361C9.30261 16.6072 9.37504 16.4323 9.37504 16.25C9.37504 16.0677 9.30261 15.8928 9.17368 15.7639C9.04475 15.6349 8.86988 15.5625 8.68754 15.5625C8.50521 15.5625 8.33034 15.6349 8.20141 15.7639C8.07248 15.8928 8.00004 16.0677 8.00004 16.25ZM13.5 5.25C18.0492 5.25 21.75 8.95081 21.75 13.5H23.125C23.125 8.1925 18.8075 3.875 13.5 3.875C12.3705 3.875 11.2636 4.06888 10.2104 4.45181L10.6806 5.74431C11.5844 5.41651 12.5386 5.24923 13.5 5.25ZM17.625 10.75C17.625 10.9323 17.6975 11.1072 17.8264 11.2361C17.9553 11.3651 18.1302 11.4375 18.3125 11.4375C18.4949 11.4375 18.6697 11.3651 18.7987 11.2361C18.9276 11.1072 19 10.9323 19 10.75C19 10.5677 18.9276 10.3928 18.7987 10.2639C18.6697 10.1349 18.4949 10.0625 18.3125 10.0625C18.1302 10.0625 17.9553 10.1349 17.8264 10.2639C17.6975 10.3928 17.625 10.5677 17.625 10.75ZM8.68754 6.625C8.86988 6.625 9.04475 6.55257 9.17368 6.42364C9.30261 6.2947 9.37504 6.11984 9.37504 5.9375C9.37504 5.75516 9.30261 5.5803 9.17368 5.45136C9.04475 5.32243 8.86988 5.25 8.68754 5.25C8.50521 5.25 8.33034 5.32243 8.20141 5.45136C8.07248 5.5803 8.00004 5.75516 8.00004 5.9375C8.00004 6.11984 8.07248 6.2947 8.20141 6.42364C8.33034 6.55257 8.50521 6.625 8.68754 6.625ZM5.25004 13.5C5.25004 11.2966 6.10804 9.22444 7.66661 7.66656L6.69379 6.69375C5.79699 7.58531 5.08606 8.646 4.6022 9.81434C4.11834 10.9827 3.87118 12.2354 3.87504 13.5C3.87504 18.8075 8.19254 23.125 13.5 23.125V21.75C8.95086 21.75 5.25004 18.0492 5.25004 13.5ZM22.0938 20.0312C22.0938 21.1684 21.1684 22.0938 20.0313 22.0938C18.8942 22.0938 17.9688 21.1684 17.9688 20.0312C17.9688 19.7136 18.0472 19.4166 18.175 19.1478L14.3835 15.3556C14.1154 15.4841 13.8177 15.5625 13.5 15.5625C12.3629 15.5625 11.4375 14.6371 11.4375 13.5C11.4375 12.3629 12.3629 11.4375 13.5 11.4375C14.6372 11.4375 15.5625 12.3629 15.5625 13.5C15.5625 13.8176 15.4849 14.1146 15.3563 14.3834L19.1479 18.1757C19.416 18.0471 19.7137 17.9688 20.0313 17.9688C21.1684 17.9688 22.0938 18.8941 22.0938 20.0312ZM13.5 14.1875C13.8789 14.1875 14.1875 13.8788 14.1875 13.5C14.1875 13.1212 13.8789 12.8125 13.5 12.8125C13.1212 12.8125 12.8125 13.1212 12.8125 13.5C12.8125 13.8788 13.1212 14.1875 13.5 14.1875ZM20.7188 20.0312C20.7187 19.8488 20.6461 19.6739 20.5171 19.545C20.388 19.416 20.213 19.3437 20.0306 19.3438C19.8482 19.3438 19.6733 19.4164 19.5443 19.5455C19.4154 19.6745 19.343 19.8495 19.3431 20.0319C19.3432 20.2144 19.4158 20.3893 19.5448 20.5182C19.6739 20.6471 19.8489 20.7195 20.0313 20.7194C20.2137 20.7193 20.3886 20.6468 20.5176 20.5177C20.6465 20.3887 20.7189 20.2137 20.7188 20.0312Z" fill="#14A388"/>
-                        //     </svg>
-                        //     </a>
-                        //     <a href="' . route('b2b.accident_report', $id_encode) . '" class="btn">
-                        //     <svg xmlns="http://www.w3.org/2000/svg" width="27" height="27" viewBox="0 0 27 27" fill="none">
-                        //     <rect width="27" height="27" rx="8" fill="#FFC1BE"/>
-                        //     <path d="M9.37516 20.8335C9.37516 21.8461 8.55435 22.6669 7.54183 22.6669C6.52931 22.6669 5.7085 21.8461 5.7085 20.8335M9.37516 20.8335C9.37516 19.8211 8.55435 19.0002 7.54183 19.0002C6.52931 19.0002 5.7085 19.8211 5.7085 20.8335M9.37516 20.8335H11.2085C11.7148 20.8335 12.1252 20.4232 12.1252 19.9169V17.1802C12.1252 16.8842 11.9822 16.6063 11.7413 16.4343L8.91683 14.4169M5.7085 20.8335H4.3335M8.91683 14.4169H4.3335M8.91683 14.4169L5.98222 10.2245C5.81067 9.97942 5.53032 9.83347 5.23117 9.8335L4.3335 9.83358" stroke="#DC2626" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M17.625 20.8335C17.625 21.8461 18.4458 22.6669 19.4583 22.6669C20.4709 22.6669 21.2917 21.8461 21.2917 20.8335M17.625 20.8335C17.625 19.8211 18.4458 19.0002 19.4583 19.0002C20.4709 19.0002 21.2917 19.8211 21.2917 20.8335M17.625 20.8335H15.7917C15.2854 20.8335 14.875 20.4232 14.875 19.9169V17.1802C14.875 16.8842 15.018 16.6063 15.2589 16.4343L18.0833 14.4169M21.2917 20.8335H22.6667M18.0833 14.4169L21.018 10.2245C21.1895 9.97942 21.4699 9.83347 21.769 9.8335L22.6667 9.83358M18.0833 14.4169H22.6667" stroke="#DC2626" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M11.2082 11.6668L8.9165 9.32514L10.7498 8.91677L9.45984 5.25629L12.5832 6.62511L13.9149 4.3335L14.8748 8.00011L18.0832 7.06822L16.2816 11.6669" stroke="#DC2626" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     <path d="M13.9583 11.6668L13.5 9.8335" stroke="#DC2626" stroke-width="1.375" stroke-linecap="round" stroke-linejoin="round"/>
-                        //     </svg>
-                        //     </a>
-                        // </div>',
+            
                     ];
                 });
     
@@ -2478,8 +2613,13 @@ class B2BVehicleController extends Controller
                 ], 500);
             }
         }
+        
+        $accountability_types = EvTblAccountabilityType::where('status', 1)
+        ->whereIn('id', $accountability_Types)
+        ->orderBy('id', 'desc')
+        ->get();
     
-        return view('b2b::vehicle_list.vehicle_list');
+        return view('b2b::vehicle_list.vehicle_list' , compact('accountability_types'));
     }
 
     
@@ -2501,7 +2641,7 @@ class B2BVehicleController extends Controller
             'address'          => 'string',
             'city'             =>'required',
             'zone'             => 'required',
-            'repair_type'      => 'required|string|max:100',
+            'repair_type'      => 'nullable|exists:ev_tbl_repair_types,id'
         ]);
     
     
@@ -2533,10 +2673,12 @@ class B2BVehicleController extends Controller
             }
         
         
-            $repairTypes = [
-                1 => 'Breakdown Repair',
-                2 => 'Running Repair'
-            ];
+
+            $repair_type = null;
+            if (!empty($validated['repair_type'])) {
+                $repair_type = RepairTypeMaster::find($validated['repair_type']);
+            }
+
             
             $customer = CustomerLogin::with('customer_relation')
             ->where('id', $user->id) 
@@ -2547,6 +2689,12 @@ class B2BVehicleController extends Controller
             if ($assignment) {
                 $assignment->update(['status' => 'under_maintenance']);
     
+    
+            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)->first();
+
+            // Store current (old) location before update
+            $from_location_source = $inventory ? $inventory->transfer_status : null; 
+            
             // Update inventory status for this vehicle
             AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
                     ->update(['transfer_status' => 23]);
@@ -2583,6 +2731,8 @@ class B2BVehicleController extends Controller
             // // Log this inventory action
             VehicleTransferChassisLog::create([
                 'chassis_number' => $assignment->vehicle->chassis_number,
+                'from_location_source' => $from_location_source,
+                'to_location_destination' => 23,
                 'vehicle_id'     => $assignment->vehicle->id,
                 'status'         => 'updated',
                 'remarks'        => $remarks,
@@ -2647,7 +2797,7 @@ class B2BVehicleController extends Controller
                 "state" => $city->state->state_name ?? '',
                 "priority" => 'High',
                 "point_of_contact_info" => $customer->customer_relation->phone.' - '. $customer->customer_relation->trade_name,
-                "job_type" => $repairTypes[$validated['repair_type']] ?? null,
+                "job_type" => $repair_type->name ?? null,
                 "issue_description" => $validated['description'] ?? '',
                 'image' => [],
                 'address'   => $request->gps_pin_address,
@@ -3595,6 +3745,11 @@ class B2BVehicleController extends Controller
                     'status' => 'accident'
                 ]);
                 
+                 $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)->first();
+
+                // Store current (old) location before update
+                $from_location_source = $inventory ? $inventory->transfer_status : null; 
+                
                 AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
                     ->update(['transfer_status' => 17]);
                     
@@ -3604,6 +3759,8 @@ class B2BVehicleController extends Controller
                 // // Log this inventory action
                 VehicleTransferChassisLog::create([
                     'chassis_number' => $assignment->vehicle->chassis_number,
+                    'from_location_source' => $from_location_source,
+                    'to_location_destination' => 17,
                     'vehicle_id'     => $assignment->vehicle->id,
                     'status'         => 'updated',
                     'remarks'        => $remarks,
@@ -3638,13 +3795,14 @@ class B2BVehicleController extends Controller
     }   
     
     
-    public function recovery_request_functionality(Request $request)
+     public function recovery_request_functionality(Request $request)
     {
         $validator = Validator::make($request->all(), [
            
-            'datetime'             => 'required|date',
+            // 'datetime'             => 'required|date',
+            'city_id'              =>'required|integer',
+            'zone_id'              =>'required|integer',
             'reason_for_recovery'  => 'required|string',
-           
             'vehicle_number'       => 'required|string|max:255',
             'chassis_number'       => 'nullable|string|max:255',
             'rider_id'             => 'nullable|string|max:255',
@@ -3664,68 +3822,106 @@ class B2BVehicleController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-
-        // Upload multiple files
-        $uploadedFiles = [];
-        if ($request->hasFile('files')) {
-            foreach ($request->file('files') as $file) {
-                $uploadedFiles[] = $this->uploadFile($file, 'b2b/recovery_request');
+        
+       try {
+             DB::beginTransaction();
+            // Upload multiple files
+            $uploadedFiles = [];
+            if ($request->hasFile('files')) {
+                foreach ($request->file('files') as $file) {
+                    $uploadedFiles[] = $this->uploadFile($file, 'b2b/recovery_request');
+                }
             }
+            
+            $guard = Auth::guard('master')->check() ? 'master' : 'zone';
+            $user = Auth::guard($guard)->user();
+    
+    
+            // Save to DB
+            $recovery = new B2BRecoveryRequest();
+            $recovery->assign_id              = $request->id;
+            $recovery->city_id              = $request->city_id; //updated by logesh
+            $recovery->zone_id              = $request->zone_id; //updated by logesh
+            $recovery->reason                = $request->reason_for_recovery;
+            $recovery->vehicle_number           = $request->vehicle_number;
+            $recovery->chassis_number        = $request->chassis_number;
+            $recovery->rider_id              = $request->rider_id;
+            $recovery->rider_name            = $request->rider_name;
+            $recovery->client_name           = $request->client_business_name;
+            $recovery->rider_mobile_no   = $request->rider_mobile_no; //updated by logesh
+            $recovery->contact_no            = $request->contact_no;
+            $recovery->contact_email         = $request->contact_email;
+            $recovery->description           = $request->description;
+            // $recovery->accident_photos       = json_encode($uploadedFiles);
+            $recovery->terms_condition       = $request->has('terms_condition') ? 1 : 0;
+            $recovery->created_by = $user->id;
+            $recovery->created_by_type = 'b2b-web-dashboard';
+         
+    
+            $recovery->save();
+            
+            $assignment = B2BVehicleAssignment::find($request->id);
+                if ($assignment) {
+                    $assignment->update([
+                        'status' => 'recovery_request'
+                    ]);
+                
+                // $vehicle_request = B2BVehicleRequests::where('req_id',$assignment->req_id)->where('is_active',1)->first();
+                //     if ($vehicle_request) {
+                //             $vehicle_request->is_active = 0;
+                //             $vehicle_request->save();
+                //         }
+                
+                }
+            B2BVehicleAssignmentLog::create([
+                'assignment_id' => $request->id,
+                'status'        => 'opened',
+                'remarks'       => "Vehicle {$request->vehicle_number} has been requested for recovery",
+                'action_by'     => $user->id ?? null,
+                'type'          => 'b2b-web-dashboard',
+                'request_type'  => 'recovery_request',
+                'request_type_id'=>$recovery->id??null  //updated by logesh
+            ]);
+            
+            RecoveryComment::create([
+                'req_id'    => $recovery->id,
+                'status'    => 'opened',
+                'comments'  => "Vehicle {$request->vehicle_number} has been requested for recovery",
+                'user_id'   => $user->id ?? null,
+                'user_type' => 'b2b-web-dashboard',
+            ]);
+            
+            DB::commit();
+            
+            $requestID = $assignment->req_id;
+            $rider_id = $assignment->rider_id;
+            $vehicle_id = $assignment->asset_vehicle_id;
+            $tc_create_type = 'b2b-web-dashboard';
+            $recoveryInfo = [
+                'recovery_reason' => $request->reason_for_recovery_txt,
+                'recovery_description' => $request->description
+            ];
+            if(!empty($requestID)){
+                RecoveryNotifyHandler::AutoSendRecoveryRequestEmail($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+                RecoveryNotifyHandler::AutoSendRecoveryRequestWhatsApp($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+            }
+    
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Recovery Request submitted successfully!',
+                'data'    => $recovery
+            ], 200);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Recovery Request Error: '.$e->getMessage());
+    
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Something went wrong while submitting the recovery request.',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
-        
-          $guard = Auth::guard('master')->check() ? 'master' : 'zone';
-        $user = Auth::guard($guard)->user();
-
-
-        // Save to DB
-        $recovery = new B2BRecoveryRequest();
-        $recovery->assign_id              = $request->id;
-        $recovery->datetime              = $request->datetime;
-        $recovery->reason                = $request->reason_for_recovery;
-        $recovery->vehicle_number           = $request->vehicle_number;
-        $recovery->chassis_number        = $request->chassis_number;
-        $recovery->rider_id              = $request->rider_id;
-        $recovery->rider_name            = $request->rider_name;
-        $recovery->client_name           = $request->client_business_name;
-        // $recovery->contact_person_name   = $request->contact_person_name;
-        $recovery->contact_no            = $request->contact_no;
-        $recovery->contact_email         = $request->contact_email;
-        $recovery->description           = $request->description;
-        // $recovery->accident_photos       = json_encode($uploadedFiles);
-        $recovery->terms_condition       = $request->has('terms_condition') ? 1 : 0;
-        $recovery->created_by = $user->id;
-     
-
-        $recovery->save();
-        
-        $assignment = B2BVehicleAssignment::find($request->id);
-            if ($assignment) {
-                $assignment->update([
-                    'status' => 'recovery_request'
-                ]);
-            
-            $vehicle_request = B2BVehicleRequests::where('req_id',$assignment->req_id)->where('is_active',1)->first();
-                if ($vehicle_request) {
-                        $vehicle_request->is_active = 0;
-                        $vehicle_request->save();
-                    }
-            
-            }
-        B2BVehicleAssignmentLog::create([
-            'assignment_id' => $request->id,
-            'status'        => 'opened',
-            'remarks'       => "Vehicle {$request->vehicle_number} has been requested for recovery",
-            'action_by'     => $user->id ?? null,
-            'type'          => 'b2b-web-dashboard',
-            'request_type'  => 'recovery_request',
-            'request_type_id'=>$vehicle_request->id??null
-        ]);
-        
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Recovery Request submitted successfully!',
-            'data'    => $recovery
-        ], 200);
     }
     
     
@@ -3739,9 +3935,10 @@ class B2BVehicleController extends Controller
         $status = $request->status;
         $from_date = $request->from_date;
         $to_date = $request->to_date;
+         $accountability_type = $request->accountability_type;
         
         
-        return Excel::download(new B2BVehicleRequestExport($status , $from_date  , $to_date , $selectedIds , $selectedFields ), 'vehicle-requests-' . date('d-m-Y') . '.xlsx');
+        return Excel::download(new B2BVehicleRequestExport($status , $from_date  , $to_date , $selectedIds , $selectedFields , $accountability_type), 'vehicle-requests-' . date('d-m-Y') . '.xlsx');
         
     }
       
@@ -3820,6 +4017,7 @@ class B2BVehicleController extends Controller
                     $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
                     ->where('city_id', $user->city_id)
                     ->pluck('id');
+                     $accountability_type = $request->accountability_type;
                 
                     $query = B2BReturnRequest::with([
                         'rider',
@@ -3828,10 +4026,11 @@ class B2BVehicleController extends Controller
                         'assignment.VehicleRequest',
                         'assignment.VehicleRequest.city',
                         'assignment.VehicleRequest.zone',
-                        'rider.customerlogin.customer_relation'
-                    ])->where('status','closed');
+                        'rider.customerlogin.customer_relation',
+                        'assignment.VehicleRequest.accountAbilityRelation'
+                    ]);
         
-                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds , $accountability_type) {
                     // Always filter by created_by if IDs exist
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
@@ -3842,6 +4041,11 @@ class B2BVehicleController extends Controller
                             $q->where('city_id', $user->city_id);
                         }
                     
+                        if (!empty($accountability_type)) {
+                            $q->where('account_ability_type', $accountability_type);
+                        }
+                        
+                        
                         if ($guard === 'zone') {
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
@@ -3951,6 +4155,7 @@ class B2BVehicleController extends Controller
         
                         // NULL-safe values using data_get
                         $requestId  = data_get($item, 'assignment.VehicleRequest.req_id', 'N/A');
+                        $accountability_name = data_get($item, 'assignment.VehicleRequest.accountAbilityRelation.name', 'N/A');
                         $regNumber  = data_get($item, 'assignment.vehicle.permanent_reg_number', '');
                         $chassis    = data_get($item, 'assignment.vehicle.chassis_number', '');
                         $riderName  = data_get($item, 'rider.name', '');
@@ -3970,6 +4175,7 @@ class B2BVehicleController extends Controller
                                     name="is_select[]" type="checkbox" value="'.$item->id.'">
                             </div>',
                             e($requestId),
+                            e($accountability_name),
                             e($regNumber),
                             e($chassis),
                             e($riderName),
@@ -4012,15 +4218,30 @@ class B2BVehicleController extends Controller
             
             $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user  = Auth::guard($guard)->user();
+            $user->load('customer_relation');
+    
+
+            $accountability_Types = $user->customer_relation->accountability_type_id;
+        
+            // Make sure it's an array (sometimes could be stored as string or null)
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }
+            
             $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
                     
             $zoneIds = CustomerLogin::where('customer_id', $customerId)
             ->where('type', 'zone')
             ->pluck('zone_id');
-          $zones = Zones::whereIn('id', $zoneIds)->get();
-             $cities = City::where('status',1)->get();
+              $zones = Zones::whereIn('id', $zoneIds)->get();
+                 $cities = City::where('status',1)->get();
         
-            return view('b2b::vehicles.returned_list' , compact('cities','zones','guard'));
+            $accountability_types = EvTblAccountabilityType::where('status', 1)
+              ->whereIn('id', $accountability_Types)
+            ->orderBy('id', 'desc')
+            ->get();
+        
+         return view('b2b::vehicles.returned_list' , compact('cities','zones','guard' , 'accountability_types'));
         }
    
     public function returned_check_view(Request $request , $id)
@@ -4043,6 +4264,7 @@ class B2BVehicleController extends Controller
             $to_date   = $request->input('to_date');
             $zone = $request->input('zone_id')?? null;
             $city = $request->input('city_id')?? null;
+            $accountability_type = $request->input('accountability_type')?? null;
              $selectedIds = $request->input('selected_ids', []);
     
         
@@ -4051,7 +4273,7 @@ class B2BVehicleController extends Controller
             }
         
             return Excel::download(
-                new B2BReturnedListExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
+                new B2BReturnedListExport($from_date, $to_date, $selectedIds, $fields,$city,$zone , $accountability_type),
                 'returned-list-' . date('d-m-Y') . '.xlsx'
             );
         }
@@ -4071,6 +4293,7 @@ class B2BVehicleController extends Controller
             $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
                     ->where('city_id', $user->city_id)
                     ->pluck('id');
+                     $accountability_type = $request->accountability_type;
                     
             $query = B2BReportAccident::with([
                         'rider',
@@ -4079,10 +4302,11 @@ class B2BVehicleController extends Controller
                         'assignment.VehicleRequest',
                         'assignment.VehicleRequest.city',
                         'assignment.VehicleRequest.zone',
-                        'rider.customerlogin.customer_relation' 
+                        'rider.customerlogin.customer_relation' ,
+                        'assignment.VehicleRequest.accountAbilityRelation'
             ]);
             
-            $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+            $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds , $accountability_type) {
                     // Always filter by created_by if IDs exist
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
@@ -4096,6 +4320,10 @@ class B2BVehicleController extends Controller
                         if ($guard === 'zone') {
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
+                        }
+                        
+                                                if ($accountability_type) {
+                            $q->where('account_ability_type', $accountability_type);
                         }
                     });
                     
@@ -4234,6 +4462,7 @@ class B2BVehicleController extends Controller
                        
                         
                         $requestId  = data_get($item, 'assignment.VehicleRequest.req_id', 'N/A');
+                        $accountability_name  = data_get($item, 'assignment.VehicleRequest.accountAbilityRelation.name', 'N/A');
                         $regNumber  = data_get($item, 'assignment.vehicle.permanent_reg_number', '');
                         $chassis    = data_get($item, 'assignment.vehicle.chassis_number', '');
                         $riderName  = data_get($item, 'rider.name', '');
@@ -4257,6 +4486,7 @@ class B2BVehicleController extends Controller
                 return [
                     '<input class="form-check-input sr_checkbox" style="width:25px; height:25px;" type="checkbox" value="'.$item->id.'">',
                     e($requestId),
+                    e($accountability_name),
                     e($regNumber),
                     e($chassis),
                     e($riderName),
@@ -4291,16 +4521,32 @@ class B2BVehicleController extends Controller
         }
     }
 
-    $guard = Auth::guard('master')->check() ? 'master' : 'zone';
+
+            $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user  = Auth::guard($guard)->user();
             $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
                     
+                    
+            $user->load('customer_relation');
+    
+
+            $accountability_Types = $user->customer_relation->accountability_type_id;
+        
+            // Make sure it's an array (sometimes could be stored as string or null)
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }  
+            
             $zoneIds = CustomerLogin::where('customer_id', $customerId)
             ->where('type', 'zone')
             ->pluck('zone_id');
           $zones = Zones::whereIn('id', $zoneIds)->get();
-        $cities = City::where('status',1)->get();
-    return view('b2b::vehicles.accident_list', compact('cities','guard','zones'));
+            $cities = City::where('status',1)->get();
+            $accountability_types = EvTblAccountabilityType::where('status', 1)
+                ->whereIn('id' , $accountability_Types)
+                ->orderBy('id', 'desc')
+                ->get();
+    return view('b2b::vehicles.accident_list', compact('cities','guard','zones' , 'accountability_types'));
 }
 
         
@@ -4317,12 +4563,15 @@ class B2BVehicleController extends Controller
     public function accident_export(Request $request)
         {
 
+
+
             $fields    = $request->input('fields', []);  
             $from_date = $request->input('from_date');
             $to_date   = $request->input('to_date');
             $zone = $request->input('zone_id')?? null;
             $city = $request->input('city_id')?? null;
             $status = $request->input('status')?? null;
+            $accountability_type = $request->input('accountability_type')?? null;
             $selectedIds = $request->input('selected_ids', []);
     
         
@@ -4331,7 +4580,7 @@ class B2BVehicleController extends Controller
             }
         
             return Excel::download(
-                new B2BAccidentReportExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status),
+                new B2BAccidentReportExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status , $accountability_type),
                 'accident-report-' . date('d-m-Y') . '.xlsx'
             );
         }
@@ -4348,7 +4597,7 @@ class B2BVehicleController extends Controller
                     $guard = Auth::guard('master')->check() ? 'master' : 'zone';
                     $user  = Auth::guard($guard)->user();
                     $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
-                    
+                    $accountability_type = $request->accountability_type ?? '';
                     $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
                     ->where('city_id', $user->city_id)
                     ->pluck('id');
@@ -4363,9 +4612,10 @@ class B2BVehicleController extends Controller
                         'rider.customerlogin.customer_relation'
                     ]);
                     
-                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds , $accountability_type) {
                     // Always filter by created_by if IDs exist
                         if ($customerLoginIds->isNotEmpty()) {
+                        
                             $q->whereIn('created_by', $customerLoginIds);
                         }
                     
@@ -4377,6 +4627,10 @@ class B2BVehicleController extends Controller
                         if ($guard === 'zone') {
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
+                        }
+                       
+                        if ($accountability_type) {
+                            $q->where('account_ability_type', $accountability_type);
                         }
                     });
                     
@@ -4457,22 +4711,84 @@ class B2BVehicleController extends Controller
                                    ->skip($start)
                                    ->take($length)
                                    ->get();
-        
+                  
                     $formattedData = $datas->map(function ($item) {
                         // Status display
                         $statusColumn = '';
                         if ($item->status === 'opened') {
                             $statusColumn = '
-                                <span style="background-color:#CAEDCE; color:#155724;" class="px-2 py-1 rounded-pill">
+                                <span style="background-color:#CAEDCE; color:#155724;border:1px solid #155724;" class="px-2 py-1 rounded-pill">
                                     <i class="bi bi-x-circle me-1"></i> Opened
                                 </span>';
                         } elseif ($item->status === 'closed') {
                             $statusColumn = '
-                                <span style="background-color:#EECACB; color:#721c24;" class="px-2 py-1 rounded-pill">
+                                <span style="background-color:#EECACB; color:#721c24;border:1px solid #721c24;" class="px-2 py-1 rounded-pill">
                                     <i class="bi bi-check-circle me-1"></i> Closed
                                 </span>';
+                        } elseif ($item->status === 'agent_assigned') {
+                            $statusColumn = '
+                                <span style="background-color:#FFF3CD; color:#856404;border:1px solid #856404;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-person-check me-1"></i> Agent Assigned
+                                </span>';
+                        } elseif ($item->status === 'not_recovered') {
+                            $statusColumn = '
+                                <span style="background-color:#E2E3E5; color:#383D41;border:1px solid #383D41;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Not Recovered
+                                </span>';
                         }
-        
+                        
+                        $agentStatusColumn = '';
+                        if ($item->agent_status === 'opened') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#CAEDCE; color:#155724;border:1px solid #155724;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-x-circle me-1"></i> Opened
+                                </span>';
+                        } elseif ($item->agent_status === 'in_progress') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#FFF3CD; color:#856404;border:1px solid #856404;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-arrow-repeat me-1"></i> In Progress
+                                </span>';
+                        } elseif ($item->agent_status === 'reached_location') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#CCE5FF; color:#004085;border:1px solid #004085;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-geo-alt me-1"></i> Reached Location
+                                </span>';
+                        } elseif ($item->agent_status === 'revisit_location') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#D6D8D9; color:#383D41;border:1px solid #383D41;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-arrow-clockwise me-1"></i> Revisited Location
+                                </span>';
+                        } elseif ($item->agent_status === 'recovered') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#D4EDDA; color:#155724;border:1px solid #155724;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-check-circle me-1"></i> Vehicle Found
+                                </span>';
+                        } elseif ($item->agent_status === 'closed') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#EECACB; color:#721c24;border:1px solid #721c24;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-check-circle me-1"></i> Closed
+                                </span>';
+                        } elseif ($item->agent_status === 'not_recovered') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#F8D7DA; color:#721c24;border:1px solid #721c24;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Vehicle Not Found
+                                </span>';
+                        } elseif ($item->agent_status === 'hold') {
+                            $agentStatusColumn = '
+                                <span style="background-color:#D1ECF1; color:#0C5460;border:1px solid #0C5460;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-pause-circle me-1"></i> Hold
+                                </span>';
+                        }elseif ($item->agent_status === 'rider_contacted') {
+                                $agentStatusColumn = '
+                                    <span style="background-color:#E2EAFD; color:#1A237E; border:1px solid #1A237E;" class="px-2 py-1 rounded-pill">
+                                        <i class="bi bi-telephone-forward me-1"></i> Follow-up Call
+                                    </span>';
+                            }
+                        else{
+                            $agentStatusColumn = '<span style="background-color:#E2E3E5; color:#383D41; border:1px solid #383D41;" class="px-2 py-1 rounded-pill">
+                                    <i class="bi bi-info-circle me-1"></i> Not Assigned
+                                </span>';
+                        }
                         // Aging
                         if ($item->status === 'closed' && $item->closed_at) {
                             $aging = \Carbon\Carbon::parse($item->created_at)
@@ -4484,6 +4800,7 @@ class B2BVehicleController extends Controller
         
                         // NULL-safe values using data_get
                         $requestId  = data_get($item, 'assignment.VehicleRequest.req_id', 'N/A');
+                        $accountability_name   = data_get($item, 'assignment.VehicleRequest.accountAbilityRelation.name', 'N/A');
                         $regNumber  = data_get($item, 'assignment.vehicle.permanent_reg_number', '');
                         $chassis    = data_get($item, 'assignment.vehicle.chassis_number', '');
                         $riderName  = data_get($item, 'rider.name', '');
@@ -4493,16 +4810,60 @@ class B2BVehicleController extends Controller
                         $zoneName = data_get($item, 'assignment.VehicleRequest.zone.name', 'N/A');
         
                         $createdAt  = $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('d M Y, h:i A') : '';
-                        $updatedAt  = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('d M Y, h:i A') : '';
-        
+                        $updatedAt  = $item->closed_at ? \Carbon\Carbon::parse($item->closed_at)->format('d M Y, h:i A') : '-';
+                        
                         $idEncode = encrypt($item->id);
-        
+                        $action ='
+                        <div class="d-flex align-content-center" style="gap:8px;">
+                                <!-- View Button -->
+                                <a href="'.route('b2b.recovery.view', $idEncode).'"
+                                   class="d-flex align-items-center justify-content-center border-0"
+                                   title="View"
+                                   style="background-color:#CAEDCE; color:#155724; border-radius:8px; width:35px; height:35px;">
+                                   <i class="bi bi-eye fs-5"></i>
+                                </a>
+                            
+                                <!-- Logs Button -->
+                                <a href="javascript:void(0);"
+                                   data-bs-toggle="modal"
+                                   data-bs-target="#showLogModal"
+                                   data-agent_id="'.$item->recovery_agent_id.'"
+                                   data-id="'.$item->id.'"
+                                   data-get_zone_id="'.$item->assignment->vehicleRequest->zone_id.'"
+                                   data-get_city_id="'.$item->assignment->vehicleRequest->city_id.'"
+                                   title="Logs"
+                                   class="view-comments d-flex align-items-center justify-content-center border-0"
+                                   style="background-color:#E2E3E5; color:#383D41; border-radius:8px; width:35px; height:35px;">
+                                   <i class="bi bi-clock-history fs-5"></i>
+                                </a>
+                        ';
+                        if($item->faq_id && $item->faq_id == 4){
+                            $action .='
+                            <a href="javascript:void(0);"
+                               data-id="'.$item->id.'"
+                               title="Close Request"
+                               class="close-request d-flex align-items-center justify-content-center border-0"
+                               style="background-color:#F8D7DA; color:#721C24; border-radius:8px; width:35px; height:35px;">
+                               <i class="bi bi-x-circle fs-5"></i>
+                            </a>
+                            </div>
+                            ';
+                        }else{
+                            $action .='</div>';
+                        }
+                        $created_by = 'Unknown';
+                        if($item->created_by_type == 'b2b-web-dashboard'){
+                            $created_by = 'Customer';
+                        }elseif($item->created_by_type == 'b2b-admin-dashboard'){
+                            $created_by = 'GDM';
+                        }
                         return [
                             '<div class="form-check">
                                 <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" 
                                     name="is_select[]" type="checkbox" value="'.$item->id.'">
                             </div>',
                             e($requestId),
+                            e($accountability_name),
                             e($regNumber),
                             e($chassis),
                             e($riderName),
@@ -4510,15 +4871,13 @@ class B2BVehicleController extends Controller
                             // e($clientName),
                             e($cityName),
                             e($zoneName),
+                            $created_by,
                             $createdAt,
                             $updatedAt,
                             $aging,
+                            $agentStatusColumn,
                             $statusColumn,
-                            '<a href="'.route('b2b.recovery.view', $idEncode).'"
-                                class="d-flex align-items-center justify-content-center border-0" title="View"
-                                style="background-color:#CAEDCE;color:#155724;border-radius:8px;width:35px;height:31px;">
-                                <i class="bi bi-eye fs-5"></i>
-                            </a>'
+                            $action
                         ];
                     });
                     
@@ -4543,17 +4902,31 @@ class B2BVehicleController extends Controller
                 }
             }
             
-             $guard = Auth::guard('master')->check() ? 'master' : 'zone';
+            
+            $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user  = Auth::guard($guard)->user();
             $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
-                    
+            
+            $user->load('customer_relation');
+    
+
+            $accountability_Types = $user->customer_relation->accountability_type_id;
+        
+            // Make sure it's an array (sometimes could be stored as string or null)
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }        
             $zoneIds = CustomerLogin::where('customer_id', $customerId)
             ->where('type', 'zone')
             ->pluck('zone_id');
-          $zones = Zones::whereIn('id', $zoneIds)->get();
-             $cities = City::where('status',1)->get();
+              $zones = Zones::whereIn('id', $zoneIds)->get();
+                 $cities = City::where('status',1)->get();
+              $accountability_types = EvTblAccountabilityType::where('status', 1)
+              ->whereIn('id' , $accountability_Types)
+            ->orderBy('id', 'desc')
+            ->get();
         
-            return view('b2b::vehicles.recovery_list' , compact('cities','guard','zones'));
+            return view('b2b::vehicles.recovery_list' , compact('cities','guard','zones'  , 'accountability_types'));
         }
 
     
@@ -4578,6 +4951,7 @@ class B2BVehicleController extends Controller
             $zone = $request->input('zone_id')?? null;
             $city = $request->input('city_id')?? null;
             $status = $request->input('status')?? null;
+            $accountability_type = $request->input('accountability_type')?? null;
             $selectedIds = $request->input('selected_ids', []);
     
         
@@ -4586,7 +4960,7 @@ class B2BVehicleController extends Controller
             }
         
             return Excel::download(
-                new B2BRecoveryRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status),
+                new B2BRecoveryRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status , $accountability_type),
                 'recovery-request-list-' . date('d-m-Y') . '.xlsx'
             );
         }
@@ -4611,6 +4985,7 @@ class B2BVehicleController extends Controller
                     $user  = Auth::guard($guard)->user();
                     $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
                     
+            $accountability_type   = $request->input('accountability_type');
             $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
                     ->where('city_id', $user->city_id)
                     ->pluck('id');
@@ -4623,7 +4998,7 @@ class B2BVehicleController extends Controller
                 'assignment.rider.customerlogin.customer_relation'
             ]);
 
-            $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+            $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds , $accountability_type) {
                     // Always filter by created_by if IDs exist
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
@@ -4637,6 +5012,9 @@ class B2BVehicleController extends Controller
                         if ($guard === 'zone') {
                             $q->where('city_id', $user->city_id)
                               ->where('zone_id', $user->zone_id);
+                        }
+                        if (!empty($accountability_type)) {
+                            $q->where('account_ability_type', $accountability_type);
                         }
                     });
             if (!empty($search)) {
@@ -4748,44 +5126,79 @@ class B2BVehicleController extends Controller
                         </a>
                     </div>
                 ';
+                
+                  if ($service->status === 'closed') {
+                            $created   = \Carbon\Carbon::parse($service->created_at);
+                            $completed = \Carbon\Carbon::parse($service->updated_at);
+                            $diffInDays = $created->diffInDays($completed);
+                            $diffInHours = $created->diffInHours($completed);
+                            $diffInMinutes = $created->diffInMinutes($completed);
+                        
+                            if ($diffInDays > 0) {
+                                $aging = $diffInDays . ' days';
+                            } elseif ($diffInHours > 0) {
+                                $aging = $diffInHours . ' hours';
+                            } else {
+                                $aging = $diffInMinutes . ' mins';
+                            }
+                        } else {
+                            $created   = \Carbon\Carbon::parse($service->created_at);
+                            $now       = now();
+                            $diffInDays = $created->diffInDays($now);
+                            $diffInHours = $created->diffInHours($now);
+                            $diffInMinutes = $created->diffInMinutes($now);
+                        
+                            if ($diffInDays > 0) {
+                                $aging = $diffInDays . ' days';
+                            } elseif ($diffInHours > 0) {
+                                $aging = $diffInHours . ' hours';
+                            } else {
+                                $aging = $diffInMinutes . ' mins';
+                            }
+                        }
             
                 return [
                     '<div class="form-check">
                                     <input class="form-check-input sr_checkbox" style="width:25px; height:25px;" 
                                            name="is_select[]" type="checkbox" value="'.$service->id.'">
                                 </div>',
-            
+                                
                     // Request Id
-                    e($service->assignment->VehicleRequest->req_id ?? ''),
+                    e($service->assignment->VehicleRequest->req_id ?? '-'),
                     
-                    e($service->ticket_id ?? ''),
+                    e($service->assignment->VehicleRequest->accountAbilityRelation->name ?? '-'),
+                    
+                    
+                    e($service->ticket_id ?? '-'),
                     
                     // Vehicle No
-                    e($service->assignment->vehicle->permanent_reg_number ?? ''),
+                    e($service->assignment->vehicle->permanent_reg_number ?? '-'),
             
                     // Chassis No
-                    e($service->assignment->vehicle->chassis_number ?? ''),
+                    e($service->assignment->vehicle->chassis_number ?? '-'),
             
                     // Rider Name
-                    e($service->assignment->rider->name ?? ''),
+                    e($service->assignment->rider->name ?? '-'),
             
                     // Contact Details
-                    e($service->assignment->rider->mobile_no ?? ''),
+                    e($service->assignment->rider->mobile_no ?? '-'),
             
                     // Client
                     // e($service->assignment->rider->customerlogin->customer_relation->trade_name ?? ''),
             
                     // City
-                    e($service->assignment->VehicleRequest->city->city_name ?? ''),
+                    e($service->assignment->VehicleRequest->city->city_name ?? '-'),
             
                     // Zone
-                    e($service->assignment->VehicleRequest->zone->name ?? ''),
+                    e($service->assignment->VehicleRequest->zone->name ?? '-'),
             
                     // Created Date and Time
-                    $service->created_at ? $service->created_at->format('d M Y h:i A') : '',
+                    $service->created_at ? $service->created_at->format('d M Y h:i A') : '-',
             
                     // Updated Date and Time
-                    $service->updated_at ? $service->updated_at->format('d M Y h:i A') : '',
+                    $service->updated_at ? $service->updated_at->format('d M Y h:i A') : '-',
+                    
+                    $aging ,
             
                     // Created By (Type - first letter capital)
                     ucfirst($service->type ?? ''),
@@ -4821,14 +5234,28 @@ class B2BVehicleController extends Controller
             $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user  = Auth::guard($guard)->user();
             $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
+            $user->load('customer_relation');
+    
+
+            $accountability_Types = $user->customer_relation->accountability_type_id;
+        
+            // Make sure it's an array (sometimes could be stored as string or null)
+            if (!is_array($accountability_Types)) {
+                $accountability_Types = json_decode($accountability_Types, true) ?? [];
+            }
                     
             $zoneIds = CustomerLogin::where('customer_id', $customerId)
             ->where('type', 'zone')
             ->pluck('zone_id');
-          $zones = Zones::whereIn('id', $zoneIds)->get();
+            $zones = Zones::whereIn('id', $zoneIds)->get();
              $cities = City::where('status',1)->get();
+             
+            $accountability_types = EvTblAccountabilityType::where('status', 1)
+            ->whereIn('id', $accountability_Types)
+            ->orderBy('id', 'desc')
+            ->get();
     
-        return view('b2b::vehicles.service_list',compact('cities','guard','zones'));
+        return view('b2b::vehicles.service_list',compact('cities','guard','zones' , 'accountability_types'));
     }
     
     
@@ -4840,15 +5267,15 @@ class B2BVehicleController extends Controller
         
         $data = B2BServiceRequest::where('id' ,$service_id)->first();
         
-        
+        $repair_types = RepairTypeMaster::where('status',1)->get();
         
         $apiKey = BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
-        return view('b2b::vehicles.service_view' , compact('apiKey' ,'data'));
+        
+        return view('b2b::vehicles.service_view' , compact('apiKey' ,'data' , 'repair_types'));
     }
       
       public function service_export(Request $request)
     {
-        
         
         $fields    = $request->input('fields', []);  
         $from_date = $request->input('from_date');
@@ -4856,17 +5283,451 @@ class B2BVehicleController extends Controller
         $zone = $request->input('zone_id')?? null;
         $city = $request->input('city_id')?? null;
         $status = $request->input('status')?? null;
-         $selectedIds = $request->input('selected_ids', []);
+        $accountability_type = $request->input('accountability_type')?? null;
+        $selectedIds = $request->input('selected_ids', []);
 
     
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
-    
         return Excel::download(
-            new B2BServiceRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status),
+            new B2BServiceRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status , $accountability_type),
             'service-request-list-' . date('d-m-Y') . '.xlsx'
         );
     }
+    
+    
+        public function closeRequest(Request $request,$id)
+    {   
+        
+        $recoveryId = $id; // from email link
+
+        if (!$recoveryId) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Recovery ID is required.'
+            ], 400);
+        }
+
+        $recovery = B2BRecoveryRequest::with('rider','recovery_agent')->find($recoveryId);
+
+        if (!$recovery) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Recovery request not found.'
+            ], 404);
+        }
+
+        if ($recovery->status === 'closed') {
+            return response()->json([
+                'status'  => false,
+                'message' => 'This recovery request is already closed.'
+            ], 200);
+        }
+
+        // Update status
+        $recovery->status = 'closed';
+        $recovery->agent_status = 'closed';
+        $recovery->closed_by = $recovery->created_by; 
+        $recovery->closed_by_type = 'b2b-customer';
+        $recovery->closed_at = now();
+        $recovery->faq_id = null;
+        $recovery->save();
+        
+        B2BVehicleAssignmentLog::create([
+            'assignment_id'   => $recovery->assign_id,
+            'status'          => 'closed',
+            'remarks'         => 'Closed by customer via b2b dashboard',
+            'action_by'       => $recovery->created_by ?? null,
+            'type'            => 'b2b-customer' ,
+            'request_type'    => 'recovery_request',
+            'request_type_id' => $recovery->id,
+            'location_lat'    => null,
+            'location_lng'    => null
+            ]);
+        
+        $remark = RecoveryComment::create([
+            'req_id'    => $recovery->id,
+            'status'    => 'closed',
+            'comments'  => 'Closed by customer via b2b dashboard',
+            'user_id'   => $recovery->created_by ?? null,
+            'user_type' => 'b2b-customer',
+            'location_lat'    => null,
+            'location_lng'    => null
+        ]);
+        Log::info("Recovery request #{$recovery->id} closed by customer.");
+        
+        $admins = User::whereIn('role', [1,13])
+            ->where('status', 'Active')
+            ->pluck('email')
+            ->toArray();
+        
+        $manager = '';
+    
+        if($recovery->city_manager_id){
+            $manager =  User::where('id',$recovery->city_manager_id)
+                ->where('status', 'Active')
+                ->pluck('email');
+        }
+        
+        $customerEmail = $recovery->rider->customerLogin->customer_relation->email;
+        // $recipients = [
+        //     [
+        //         'to'  => $customerEmail,
+        //         'cc'  => [$manager],
+        //         'bcc' => $admins
+        //     ]
+        // ];
+        
+        $recipients = [
+            [
+                'to'  => 'logeshmudaliyar2802@gmail.com',
+                'cc'  => ['mudaliyarlogesh@gmail.com'],
+                'bcc' => array_merge(['pratheesh@alabtechnology.com'],['gowtham@alabtechnology.com'])
+            ]
+        ];
+        
+        $footerText = \App\Models\BusinessSetting::where('key_name', 'email_footer')->value('value');
+        $footerContent = $footerText ?? "For any assistance, please reach out to Admin Support.<br>Email: support@greendrivemobility.com<br>Thank you,<br>GreenDriveConnect Team";
+        
+        $faqSubject = 'Thank You – Your Recovery Request Has Been Closed (ID: #'.$recovery->assignment->req_id.')';
+        $customer = $recovery->rider->customerLogin->customer_relation->trade_name ?? $recovery->client_name;
+        $faqBody = '
+        <html>
+        <body style="font-family: Arial, sans-serif; background-color:#f7f7f7; padding:20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; margin:auto; background:#fff; border-radius:8px;">
+                <tr>
+                    <td style="padding:20px; text-align:center; background:#2196F3; color:#fff;">
+                        <h2>Recovery Request Closed</h2>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:20px;">
+                        <p>Dear <strong>'.$customer.'</strong>,</p>
+                        <p>Thank you for confirming the closure of your recovery request <strong>#'.$recovery->assignment->req_id.'</strong>.</p>
+                        <p>We appreciate your prompt response and cooperation throughout the recovery process.</p>
+                        
+                        <p><strong>Summary of Request</strong></p>
+                        <table cellpadding="8" cellspacing="0" border="1" style="border-collapse: collapse; width: 100%; max-width: 600px;">
+                            <tr style="background:#f2f2f2;">
+                                <td><strong>Vehicle Number</strong></td>
+                                <td>'.($recovery->vehicle_number ?? 'N/A').'</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Chassis Number</strong></td>
+                                <td>'.($recovery->chassis_number ?? 'N/A').'</td>
+                            </tr>
+                            <tr style="background:#f2f2f2;">
+                                <td><strong>Closed On</strong></td>
+                                <td>'.now()->format('d M Y, h:i A').'</td>
+                            </tr>
+                        </table>
+
+                        <p>'.$footerContent.'</p>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>';
+        
+        $this->sendDynamicEmailNotify($recipients,$faqSubject,$faqBody,false);
+        $this->AutoSendRecoveryWhatsAppMessage($recovery,'closed_by_customer_notify','closed');
+        return response()->json([
+            'status'  => true,
+            'message' => 'The recovery request has been successfully closed.',
+            'data'    => [
+                'recovery_id' => $recovery->id,
+                'status' => $recovery->status,
+            ]
+        ], 200);
+    }
+    
+       public function AutoSendRecoveryWhatsAppMessage($recovery,$forward_type,$status='null')
+    {
+            // $recovery = B2BRecoveryRequest::with('rider.customerLogin.customer_relation','recovery_agent','rider' 
+            // ,'assignment.vehicle' ,'assignment.VehicleRequest' )->find($request_id); 
+            
+            if (!$recovery) {
+                Log::info('Assign Recovery Agent : Recovery Request not found');
+                return false;
+            }
+            
+            if($recovery->recovery_agent_id){
+                $agent = Deliveryman::find($recovery->recovery_agent_id);
+                $agentName    = $agent->first_name .' '. $agent->first_name  ?? 'Agent';
+                $agentPhone   = $agent->mobile_number ;
+                
+                if (!$agent || !$agent->mobile_number) {
+                Log::info('Assign Recovery Agent : Agent or mobile number not found');
+                return false;
+                }
+            }
+            
+            $manager = User::find($recovery->city_manager_id);
+
+            if (!$manager || !$manager->phone) {
+                Log::info('Assign Recovery Agent : Manager or mobile number not found');
+                return false;
+            }
+            
+
+            // WhatsApp API
+            $api_key = BusinessSetting::where('key_name', 'whatshub_api_key')->value('value');
+            $url = BusinessSetting::where('key_name', 'whatshub_api_url')->value('value');
+        
+            
+            $requestId    = $recovery->assignment->req_id ?? '';
+            $customerID   = $recovery->rider->customerLogin->customer_relation->id ?? 'N/A';
+            $customerName = $recovery->rider->customerLogin->customer_relation->name ?? 'N/A';
+            $customerEmail= $recovery->rider->customerLogin->customer_relation->email ?? 'N/A';
+            $customerPhone= $recovery->rider->customerLogin->customer_relation->phone ?? '';
+            //vehicle details
+            $AssetvehicleId    = $recovery->assignment->asset_vehicle_id ?? 'N/A'; 
+            $vehicleNo    = $recovery->assignment->vehicle->permanent_reg_number ?? 'N/A'; 
+            $vehicleType  = $recovery->assignment->vehicle->vehicle_type_relation->name ?? 'N/A'; 
+            $vehicleModel  = $recovery->assignment->vehicle->vehicle_model_relation->vehicle_model ?? 'N/A'; 
+            $cityData = City::select('city_name')->where('id',$manager->city_id)->first();
+            $zoneData = Zones::select('name')->where('id',$manager->zone_id)->first();
+            //agent details
+            $assignBy_managerName    = $manager->name;
+            $assignBy_managerPhone   = $manager->phone;
+            $assignBy_managerCity = 'N/A';
+            $assignBy_managerZone = 'N/A';
+
+            $reasonData = RecoveryReasonMaster::where('id',$recovery->reason)->first();
+            $reason = $reasonData->label_name ?? 'Unknown';
+            if($cityData){
+                $assignBy_managerCity = $cityData->city_name;
+            }
+            if($zoneData){
+                $assignBy_managerZone = $zoneData->name;
+            }
+            //   dd($vehicle_id,$AssetvehicleId,$vehicleNo,$vehicleType,$vehicleModel,$agentName,$agentPhone,$requestId,$customerID,$customerName,$customerEmail,$customerPhone,$assignBy_managerName,$assignBy_managerPhone,$assignBy_managerCity,$assignBy_managerZone);
+
+            $footerText = \App\Models\BusinessSetting::where('key_name', 'whatsapp_notify_footer')->value('value');
+            $footerContentText = $footerText ??
+                "For any assistance, please reach out to Admin Support.\nEmail: support@greendrivemobility.com\nThank you,\nGreenDriveConnect Team";
+            
+             $CustomerfooterContentText = "For any assistance, please reach out to Admin Support.\n" .
+                 "Email: {$customerEmail}\n" .
+                 "Thank you,\n" .
+                 "{$customerName}";
+
+            if($forward_type == 'closed_by_customer_notify'){
+                $agent_message = 
+                    "Hello {$agentName},\n\n" .
+                    "Customer has been successfully closed recovery request assigned to you.\n\n" .
+                    "📌 *Request Details:*\n" .
+                    "• Request ID: {$requestId}\n" .
+                    "• Recovery Reason: {$reason}\n" .
+                    "• Recovery Description: {$recovery->description}\n\n" .
+                    "*Vehicle Information:*\n" .
+                    "• Vehicle ID: {$AssetvehicleId}\n" .
+                    "• Vehicle No: {$vehicleNo}\n" .
+                    "• Vehicle Type: {$vehicleType}\n" .
+                    "• Vehicle Model: {$vehicleModel}\n\n" .
+                    "{$footerContentText}";
+                    
+                $customer_message = 
+                    "Hello {$customerName},\n\n" .
+                    "You have successfully closed recovery request Id :#{requestId} .\n\n" .
+                    "📌 *Request Details:*\n" .
+                    "• Request ID: {$requestId}\n" .
+                    "• Recovery Reason: {$reason}\n" .
+                    "• Recovery Description: {$recovery->description}\n\n" .
+                    "*Vehicle Information:*\n" .
+                    "• Vehicle ID: {$AssetvehicleId}\n" .
+                    "• Vehicle No: {$vehicleNo}\n" .
+                    "• Vehicle Type: {$vehicleType}\n" .
+                    "• Vehicle Model: {$vehicleModel}\n\n" .
+                    "*Recovery Manager:* {$assignBy_managerName}\n\n" .
+                    "{$footerContentText}";
+
+                $manager_message = 
+                    "Hello {$assignBy_managerName},\n\n" .
+                    "Customer have successfully closed a Recovery Request.\n\n" .
+                    "📌 *Request Details:*\n" .
+                    "• Request ID: {$requestId}\n\n" .
+                    "*Customer Information:*\n" .
+                    "• Customer Name: {$customerName}\n\n" .
+                    "*Rider Information:*\n" .
+                    "• Name: {$agentName}\n" .
+                    "• Phone: {$agentPhone}\n\n" .
+                    "*Vehicle Information:*\n" .
+                    "• Vehicle ID: {$AssetvehicleId}\n" .
+                    "• Vehicle No: {$vehicleNo}\n" .
+                    "• Vehicle Type: {$vehicleType}\n" .
+                    "• Vehicle Model: {$vehicleModel}\n\n" .
+                    "📍 *Assigned Zone:* {$assignBy_managerZone}, {$assignBy_managerCity}\n\n" .
+                    "{$footerContentText}";
+                
+                $admin_message = 
+                "Dear Admin,\n\n" .
+                "A recovery request has been closed by Customer.\n\n" .
+                "📌 *Request Details:*\n" .
+                "• Request ID: {$requestId}\n\n" .
+                "*Customer Information:*\n" .
+                "• Customer Name: {$customerName}\n" .
+                "• Customer ID: {$customerID}\n\n" .
+                "*Agent Information:*\n" .
+                "• Name: {$agentName}\n" .
+                "• Phone: {$agentPhone}\n\n" .
+                "*Vehicle Information:*\n" .
+                "• Vehicle ID: {$AssetvehicleId}\n" .
+                "• Vehicle No: {$vehicleNo}\n" .
+                "• Vehicle Type: {$vehicleType}\n" .
+                "• Vehicle Model: {$vehicleModel}\n\n" .
+                "*Recovery Manager:* {$assignBy_managerName}\n" .
+                "📍 *Recovery Manager Zone:* {$assignBy_managerZone}, {$assignBy_managerCity}\n\n" .
+                "{$footerContentText}";
+            }
+            
+            if($forward_type == 'manager_status_update_whatsapp_notify'){
+                if(!$status || !in_array($status, ['closed', 'not_recovered'])){
+                   Log::info('Recovery Status Update by Manager : Status not available or it is invalid');
+                    return false; 
+                }
+                    $statusLabel = [
+                        "closed" => "Closed",
+                        "not_recovered" => "Not Recovered"
+                    ];
+                    $statusText = $statusLabel[$status] ?? ucfirst($status);
+                $agent_content = '';
+                if($recovery->recovery_agent_id){
+                    $agent_content = 
+                        "*Agent Information:*\n" .
+                        "• Name: {$agentName}\n" .
+                        "• Phone: {$agentPhone}\n\n";
+                    
+                    $agent_message = 
+                        "Hello {$agentName},\n\n" .
+                        "Your Recovery Request Id :#{$requestId} status has been changed to {$statusText}.\n\n" .
+                        "📌 *Request Details:*\n" .
+                        "• Request ID: {$requestId}\n\n" .
+                        "*Vehicle Information:*\n" .
+                        "• Vehicle ID: {$AssetvehicleId}\n" .
+                        "• Vehicle No: {$vehicleNo}\n" .
+                        "• Vehicle Type: {$vehicleType}\n" .
+                        "• Vehicle Model: {$vehicleModel}\n\n" .
+                        "{$footerContentText}";
+                }
+                    
+                
+                    
+                $customer_message = 
+                    "Hello {$customerName},\n\n" .
+                    "A recovery request id :#{$requestId} status has been changed to {$statusText}.\n\n" .
+                    "📌 *Request Details:*\n" .
+                    "• Request ID: {$requestId}\n\n" .
+                     "{$agent_content}".
+                    "*Vehicle Information:*\n" .
+                    "• Vehicle ID: {$AssetvehicleId}\n" .
+                    "• Vehicle No: {$vehicleNo}\n" .
+                    "• Vehicle Type: {$vehicleType}\n" .
+                    "• Vehicle Model: {$vehicleModel}\n\n" .
+                    "*Managed By:* {$assignBy_managerName}\n" .
+                    "📍 *Manager Zone:* {$assignBy_managerZone}, {$assignBy_managerCity}\n\n" .
+                    "{$footerContentText}";
+
+                $manager_message = 
+                "Hello {$assignBy_managerName},\n\n" .
+                "You have successfully updated the status of recovery request id :#{$requestId} to {$statusText}.\n\n" .
+                "📌 *Request Details:*\n" .
+                "• Request ID: {$requestId}\n\n" .
+                "{$agent_content}".
+                "*Vehicle Information:*\n" .
+                "• Vehicle ID: {$AssetvehicleId}\n" .
+                "• Vehicle No: {$vehicleNo}\n" .
+                "• Vehicle Type: {$vehicleType}\n" .
+                "• Vehicle Model: {$vehicleModel}\n\n" .
+                "📍 *Manager Zone:* {$assignBy_managerZone}, {$assignBy_managerCity}\n\n" .
+                "{$footerContentText}";
+                
+                $admin_message = 
+                "Dear Admin,\n\n" .
+                "A recovery request id :#{$requestId} status has been changed to {$statusText}.\n\n" .
+                "📌 *Request Details:*\n" .
+                "• Request ID: {$requestId}\n\n" .
+                "*Customer Information:*\n" .
+                "• Customer Name: {$customerName}\n" .
+                "• Customer ID: {$customerID}\n\n" .
+                "{$agent_content}".
+                "*Vehicle Information:*\n" .
+                "• Vehicle ID: {$AssetvehicleId}\n" .
+                "• Vehicle No: {$vehicleNo}\n" .
+                "• Vehicle Type: {$vehicleType}\n" .
+                "• Vehicle Model: {$vehicleModel}\n\n" .
+                "*Managed By:* {$assignBy_managerName}\n" .
+                "📍 *Manager Zone:* {$assignBy_managerZone}, {$assignBy_managerCity}\n\n" .
+                "{$footerContentText}";
+            }
+            
+            
+            // Rider message
+            // if($recovery->recovery_agent_id){
+            //     if (!empty($agentPhone)) {
+            //         CustomHandler::user_whatsapp_message('+917812880655', $agent_message);
+            //         // CustomHandler::user_whatsapp_message($agentPhone, $agent_message);
+            //     }
+            // }
+
+            // Customer message
+            if (!empty($customerPhone)) {
+                CustomHandler::user_whatsapp_message('+917812880655', $customer_message);
+                // CustomHandler::user_whatsapp_message($customerPhone, $customer_message);
+            }
+            // Agent message
+            if (!empty($assignBy_managerPhone)) {
+                CustomHandler::user_whatsapp_message('+917812880655', $manager_message);
+                // CustomHandler::user_whatsapp_message($assignBy_managerPhone, $manager_message);
+
+            }
+            
+            $adminPhone = BusinessSetting::where('key_name', 'admin_whatsapp_no')->value('value');
+            if (!empty($adminPhone)) {
+
+                // CustomHandler::admin_whatsapp_message($admin_message);
+            }
+           
+    
+        }
+        
+    public function sendDynamicEmailNotify(array $recipients, string $subject, string $body, bool $footer = false)
+        {
+            // Add footer content dynamically if needed
+            if ($footer) {
+                $footerText = \App\Models\BusinessSetting::where('key_name', 'email_footer')->value('value');
+                $footerContent = $footerText ?? "For any assistance, please reach out to Admin Support.<br>Email: support@greendrivemobility.com<br>Thank you,<br>GreenDriveConnect Team";
+                $body .= "<p style='margin-top:20px;'>{$footerContent}</p>";
+            }
+        
+            foreach ($recipients as $recipient) {
+                $to  = $recipient['to'] ?? null;
+                $cc  = (array) ($recipient['cc'] ?? []);
+                $bcc = (array) ($recipient['bcc'] ?? []);
+        
+                if (!empty($to)) {
+                    CustomHandler::updatedSendEmail($to, $subject, $body, $cc, $bcc);
+                }
+            }
+        
+            return true;
+        }
+        
+    public function recovery_logs(Request $request,$req_id){
+        
+        $logs = B2BVehicleAssignmentLog::where('request_type', 'recovery_request')
+        ->where('request_type_id', $req_id)
+                ->orderBy('created_at', 'asc')
+                ->get();
+        
+        $roles = Role::All();
+        $customers = CustomerMaster::All();
+         $updates = RecoveryUpdatesMaster::where('status',1)->get();
+        $html = view('b2b::vehicles.recovery_logs', compact('logs','roles','customers','updates'))->render();
+    
+        return response()->json(['success' => true, 'html' => $html]);
+    }
+
     
 }

@@ -53,6 +53,9 @@ Route::prefix('b2b')
         Route::get('/recovery-list',[B2BVehicleController::class,'recovery_list'])->name('recovery.list'); // Logesh Updated
         Route::get('/recovery-view/{id}',[B2BVehicleController::class,'recovery_view'])->name('recovery.view'); // Logesh Updated
         Route::get('/recovery-export',[B2BVehicleController::class,'recovery_export'])->name('recovery_export'); // Logesh Updated
+        
+         Route::get('/get-recovery-logs/{req_id}',[B2BVehicleController::class,'recovery_logs'])->name('recovery_logs'); // Logesh Updated
+         Route::get('/close-request/{id}',[B2BVehicleController::class,'closeRequest'])->name('recovery.close');
          
         Route::get('/service-list',[B2BVehicleController::class,'service_list'])->name('service.list'); // Logesh Updated
         Route::get('/service-view/{id}',[B2BVehicleController::class,'service_view'])->name('service.view'); // Logesh Updated
@@ -62,6 +65,9 @@ Route::prefix('b2b')
         Route::get('/returned-view/{id}',[B2BVehicleController::class,'returned_check_view'])->name('returned.checkview');
         Route::get('/returned-export',[B2BVehicleController::class,'returned_export'])->name('returned_export');
         
+                Route::get('/get-deployment-vehicles',[B2BVehicleController::class,'get_deployment_vehicles'])->name('get_deployment_vehicles');
+                
+                
         Route::post(
                 '/settings/app-version-manage/rider-update',
                 [B2BController::class, 'updateRiderAppSettings']
@@ -105,8 +111,24 @@ Route::prefix('b2b')
         ->as('reports.')
         ->controller(B2BReportController::class)
         ->group(function () {
-        Route::get('/index','index')->name('index');
-        Route::get('/vehicle-usage','vehicle_usage')->name('vehicle_usage');
+            Route::get('/index','index')->name('index');
+            Route::get('/vehicle-usage','vehicle_usage')->name('vehicle_usage');
+            
+            Route::get('/deployment-report','deployment_report')->name('deployment_report'); //updated by Mugesh.B
+            Route::get('/export-deployment-report','export_deployment_report')->name('export_deployment_report'); //updated by Mugesh.B
+            
+            Route::get('/service-report','service_report')->name('service_report'); //updated by Mugesh.B
+            Route::get('/export-service-report','export_service_report')->name('export_service_report'); //updated by Mugesh.B
+            
+            Route::get('/return-report','return_report')->name('return_report'); //updated by Mugesh.B
+            Route::get('/export-return-report','export_return_report')->name('export_return_report'); //updated by Mugesh.B
+            
+            Route::get('/accident-report','accident_report')->name('accident_report'); //updated by Mugesh.B
+            Route::get('/export-accident-report','export_accident_report')->name('export_accident_report'); //updated by Mugesh.B
+            
+            Route::get('/recovery-report','recovery_report')->name('recovery_report'); //updated by Mugesh.B
+            Route::get('/export-recovery-report','export_recovery_report')->name('export_recovery_report'); //updated by Mugesh.B
+            
         });
     
     

@@ -131,6 +131,9 @@
                                 </th>
                               <th scope="col" class="custom-dark">Lot No</th>
                               <th scope="col" class="custom-dark">Chassis No</th>
+                               <th scope="col" class="custom-dark">City</th>
+                                <th scope="col" class="custom-dark">Zone</th>
+                                 <th scope="col" class="custom-dark">Accountability Type</th>
                               <th scope="col" class="custom-dark">Vehicle Type</th>
                               <th scope="col" class="custom-dark">Vehicle Model</th>
                               <th scope="col" class="custom-dark">Vehicle ID</th>
@@ -142,10 +145,6 @@
                             </tr>
                           </thead>
 
-                         
-
-
-                          
                         <tbody class="bg-white border border-white">
                        
 
@@ -190,14 +189,7 @@
                       </div>
                     </div>
                     
-                    <div class="col-md-3 col-12 mb-3">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="zone">Zone</label>
-                        <div class="form-check form-switch m-0">
-                          <input class="form-check-input get-export-label" type="checkbox" id="field48" value="zone">
-                        </div>
-                      </div>
-                    </div>
+
                 
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -326,9 +318,29 @@
                     
                      <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
-                        <label class="form-check-label mb-0" for="field16">City Code</label>
+                        <label class="form-check-label mb-0" for="field16">City</label>
                         <div class="form-check form-switch m-0">
-                          <input class="form-check-input get-export-label" type="checkbox" id="field16" value="city_code">
+                          <input class="form-check-input get-export-label" type="checkbox" id="field16" value="city">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="zone">Zone</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input get-export-label" type="checkbox" id="field48" value="zone">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="accountability_type">Accountability Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input get-export-label" type="checkbox" id="field48" value="accountability_type">
                         </div>
                       </div>
                     </div>
@@ -954,20 +966,7 @@
                           $customers = \Modules\MasterManagement\Entities\CustomerMaster::where('status',1)->select('id','trade_name')->get();
                     ?>
                     
-                    <div class="mb-3">
-                        <label class="form-label" for="status">Select Customer</label>
-                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
-                            <option value="all" {{ request('status', 'all') == 'all' ? 'selected' : '' }}>All</option>
-                    
-                            @if(isset($customers))
-                                @foreach($customers as $data)
-                                    <option value="{{ $data->id }}" {{ request('customer_id') == $data->id ? 'selected' : '' }}>
-                                        {{ $data->trade_name }}
-                                    </option>
-                                @endforeach
-                            @endif
-                        </select>
-                    </div>
+
                      <div class="mb-3">
                         <label class="form-label" for="status">Select Status</label>
                         <select name="status" id="status" class="form-control custom-select2-field">
@@ -987,7 +986,7 @@
                     
                </div>
            </div>
-                       <div class="card mb-3">
+            <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select City</h6></div>
                </div>
@@ -995,11 +994,11 @@
  
                     <div class="mb-3">
                         <label class="form-label" for="FromDate">City</label>
-                        <select name="city_id" id="city_id" class="form-control custom-select2-field">
+                        <select name="city_id" id="city_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
                             <option value="">Select</option>
                             @if(isset($locations))
                             @foreach($locations as $l)
-                            <option value="{{$l->id}}" {{ $city == $l->id ? 'selected' : '' }}>{{$l->name." - ".$l->city_code}}</option>
+                            <option value="{{$l->id}}" {{ $city == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
                             @endforeach
                             @endif
 
@@ -1008,7 +1007,65 @@
                </div>
             </div>
 
-                       <div class="card mb-3">
+
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Zone</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="zone_id">Zone</label>
+                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
+                            <option value="">Select a city first</option>
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Accountability Type</label>
+                        <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            @if(isset($accountablity_types))
+                            @foreach($accountablity_types as $type)
+                            <option value="{{$type->id}}" {{ $accountability_type == $type->id ? 'selected' : '' }}>{{$type->name ?? ''}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Customer</label>
+                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
+            <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select Time Line</h6></div>
                </div>
@@ -1086,12 +1143,14 @@ $(document).ready(function () {
                 type: "GET",
                 data: function (d) {
                     // Pass filter data to the server
-                    d.customer_id = $('#customer_id').val();
                     d.status = $('#status').val();
                     d.city = $('#city_id').val();
                     d.from_date = $('#FromDate').val();
                     d.to_date = $('#ToDate').val();
                     d.timeline = $('input[name="STtimeLine"]:checked').val();
+                    d.zone = $('#zone_id').val();
+                    d.customer = $('#customer_id').val();
+                    d.accountability_type = $('#accountability_type_id').val();
                 },
                  beforeSend: function() {
                 // Show loading overlay when AJAX starts
@@ -1110,6 +1169,9 @@ $(document).ready(function () {
                 { data: 'checkbox', name: 'checkbox', orderable: false, searchable: false, className: 'text-center' },
                 { data: 'id', name: 'id' },
                 { data: 'chassis_no', name: 'assetVehicle.chassis_number' }, // Use relation for sorting
+                { data: 'city', name: 'city' }, // Use relation for sorting
+                { data: 'zone', name: 'zone' }, // Use relation for sorting
+                { data: 'accountability_type', name: 'accountability_type' }, // Use relation for sorting
                 { data: 'vehicle_type', name: 'vehicle_type' },
                 { data: 'vehicle_model', name: 'vehicle_model' },
                 { data: 'vehicle_id', name: 'assetVehicle.vehicle_id' }, // Use relation for sorting
@@ -1246,7 +1308,8 @@ function clearInventoryFilter() {
     $('#customer_id').val('');
     $('#ToDate').val('');
      $('#city_id').val('').trigger('change');
-    
+    $('#accountability_type_id').val('').trigger('change');
+    $('#zone_id').val('').trigger('change');
     // Reload DataTable with cleared filters
     $('#InventoryTable_List').DataTable().ajax.reload();
     
@@ -1256,6 +1319,8 @@ function clearInventoryFilter() {
         bsOffcanvas.hide();
     }
 }
+
+
     
     
     
@@ -1427,7 +1492,10 @@ function clearInventoryFilter() {
         var from_date = document.getElementById('FromDate').value;
         var to_date = document.getElementById('ToDate').value;
         var city = document.getElementById('city_id').value;
-        var customer_id = document.getElementById('customer_id').value;
+        
+        const zone = document.getElementById('zone_id').value;
+        const customer = document.getElementById('customer_id').value;
+        const accountability_type = document.getElementById('accountability_type_id').value;
     
         $.ajax({
             url: "{{ route('admin.asset_management.asset_master.export.inventory_detail') }}",
@@ -1441,7 +1509,10 @@ function clearInventoryFilter() {
                 from_date: from_date,
                 to_date: to_date,
                 city: city,
-                customer_id: customer_id
+                customer: customer ,
+                zone : zone ,
+                accountability_type : accountability_type
+                
             },
             xhrFields: {
                 responseType: 'blob' 
@@ -1463,6 +1534,48 @@ function clearInventoryFilter() {
             }
         });
     }
+    
+    
+function getZones(CityID) {
+        let ZoneDropdown = $('#zone_id');
+        ZoneDropdown.empty().append('<option value="">Loading...</option>');
+
+           
+        if (CityID) {
+            $.ajax({
+                url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+                type: "GET",
+                success: function (response) {
+                    ZoneDropdown.empty().append('<option value="">--Select Zone--</option>');
+    
+                    if (response.data && response.data.length > 0) {
+                        $.each(response.data, function (key, zone) {
+                            ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                        });
+                        
+                    } else {
+                        ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                    }
+                },
+                error: function () {
+                    ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+                }
+            });
+        } else {
+            ZoneDropdown.empty().append('<option value="">Select a city first</option>');
+            // ZoneWrapper.hide();
+        }
+       
+       
+    }
+    
+    
+    $(document).ready(function () {
+        const existingCity = "{{ $city ?? '' }}";
+            if (existingCity) {
+                getZones(existingCity);
+            }
+    });
 
 </script>
 

@@ -23,6 +23,7 @@ class B2BRider extends Authenticatable
         'name',
         'mobile_no',
         'email',
+        'terms_condition_status',
         'dob',
         'adhar_front',
         'adhar_back',

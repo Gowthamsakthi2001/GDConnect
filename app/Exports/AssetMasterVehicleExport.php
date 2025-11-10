@@ -17,7 +17,10 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
     protected $selectedFields;
     protected $selectedIds;
     protected $city;
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city)
+    protected $zone;
+    protected $customer;
+    protected $accountability_type;
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city  , $zone , $customer , $accountability_type)
     {
         // dd($status,$from_date,$to_date,$timeline,$selectedFields,$selectedIds);
         $this->status = $status;
@@ -28,6 +31,9 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
         $this->selectedIds = array_filter($selectedIds) ?? []; // removes null/empty
         
          $this->city = $city;
+         $this->zone = $zone;
+         $this->customer = $customer;
+         $this->accountability_type = $accountability_type;
         
         
     }
@@ -35,7 +41,7 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
 
     public function collection()
     {
-       $query = AssetMasterVehicle::with('vehicle_type_relation' ,'vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' , 'customer_relation' ,'color_relation');
+       $query = AssetMasterVehicle::with('vehicle_type_relation' , 'quality_check' , 'quality_check.zone','quality_check.accountability_type_relation','vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' , 'customer_relation' ,'color_relation');
 
 
         if (!empty($this->selectedIds)) {
@@ -48,11 +54,46 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
         if ($this->status && $this->status != "all") {
             $query->where('is_status', $this->status);
         }
+            
+        if (!empty($this->city)) {
+            $query->whereHas('quality_check', function ($q) {
+                $q->where('location', $this->city);
+            });
+        }
         
-         if (!empty($this->city)) {
-            $query->where('city_code', $this->city);
+         if (!empty($this->zone)) {
+            $query->whereHas('quality_check', function ($q) {
+                $q->where('zone_id', $this->zone);
+            });
+        }
+        
+        // if (!empty($this->customer)) {
+        //     $query->whereHas('quality_check', function ($q) {
+        //         $q->where('customer_id', $this->customer);
+        //     });
+        // }
+
+         if (!empty($this->accountability_type)) {
+            $query->whereHas('quality_check', function ($q) {
+                $q->where('accountability_type', $this->accountability_type);
+            });
+        }
+        
+        
+        if (!empty($this->customer) && $this->accountability_type == 2) { 
+            // Customer accountability
+            $customer = $this->customer;
+            $query->whereHas('quality_check', function ($q) use ($customer) {
+                $q->where('customer_id', $customer);
+            });
         }
 
+        if (!empty($this->customer) && $this->accountability_type == 1) { 
+            // Client accountability
+            $query->where('client', $this->customer);
+        }
+        
+        
         if ($this->timeline) {
             switch ($this->timeline) {
                 case 'today':
@@ -134,8 +175,16 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
                 case 'gd_hub_id_existing':
                     $mapped[] = $row->gd_hub_id ?? '-';
                 break;
-                case 'city_code':
-                    $mapped[] = $row->location_relation->city_code ?? '-';
+                case 'city':
+                    $mapped[] = $row->quality_check->location_relation->city_name ?? '-';
+                    // $mapped[] = $row->location ?? '-';
+                    break;
+                case 'zone':
+                    $mapped[] = $row->quality_check->zone->name ?? '-';
+                    // $mapped[] = $row->location ?? '-';
+                    break;
+                case 'accountability_type':
+                    $mapped[] = $row->quality_check->accountability_type_relation->name ?? '-';
                     // $mapped[] = $row->location ?? '-';
                     break;
                 case 'road_tax_next_renewal_date':

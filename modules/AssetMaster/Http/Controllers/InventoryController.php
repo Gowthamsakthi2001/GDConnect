@@ -1,5 +1,4 @@
 <?php
-
 namespace Modules\AssetMaster\Http\Controllers;
 
 use App\Http\Controllers\Controller;
@@ -15,6 +14,11 @@ use App\Exports\AssetMasterVehicleExport;
 use App\Exports\AssetMasterInventoryExport;//updated by Mugesh.B
 use App\Helpers\CustomHandler;
 use Illuminate\Support\Facades\DB;
+use Modules\City\Entities\City;//updated by Mugesh.B
+use Modules\Zones\Entities\Zones; //updated by Mugesh.B
+use Modules\MasterManagement\Entities\EvTblAccountabilityType;//updated by Mugesh.B
+use Modules\AssetMaster\Entities\QualityCheck;
+use Modules\AssetMaster\Entities\QualityCheckReinitiate;
 
 use Modules\MasterManagement\Entities\FinancingTypeMaster;//updated by Mugesh.B
 use Modules\MasterManagement\Entities\AssetOwnershipMaster;//updated by Mugesh.B
@@ -79,7 +83,7 @@ class InventoryController extends Controller
     //         $query->where('transfer_status', $status);
     //     }
         
-    // // 🔹 Filter by city
+    // // ðŸ”¹ Filter by city
     // if (!empty($city)) {
     //     $query->whereHas('assetVehicle', function ($q) use ($city) {
     //         $q->where('city_code', $city);
@@ -133,6 +137,7 @@ class InventoryController extends Controller
     //     return view('assetmaster::inventory.inventory_list' , compact('data' ,'status' , 'from_date' , 'to_date' , 'timeline' ,'inventory_locations' ,'locations' ,'city'));
     // }
     
+    
 public function inventory_list(Request $request)
 {
     // Handle AJAX requests from DataTables
@@ -141,6 +146,10 @@ public function inventory_list(Request $request)
             // Base query with eager loading for displaying data efficiently
             $query = AssetVehicleInventory::with([
                 'assetVehicle.quality_check.vehicle_model_relation',
+                'assetVehicle.quality_check',
+                 'assetVehicle.quality_check.location_relation',
+                'assetVehicle.quality_check.zone',
+                'assetVehicle.quality_check.accountability_type_relation',
                 'assetVehicle.vehicle_type_relation',
                 'inventory_location',
                 'assetVehicle.location'
@@ -148,12 +157,14 @@ public function inventory_list(Request $request)
 
             // 1. Get total records count (before any filtering)
             $totalRecords = $query->count();
+            
 
-            // 2. Apply custom filters
-            $customer_id = $request->input('customer_id');
-            // dd($customer_id);
             $status = $request->input('status');
             $city = $request->input('city');
+            $zone_id = $request->input('zone');
+            $customer_id = $request->input('customer');
+            $accountability_type_id = $request->input('accountability_type');
+            
             $timeline = $request->input('timeline');
             $from_date = $request->input('from_date');
             $to_date = $request->input('to_date');
@@ -163,12 +174,29 @@ public function inventory_list(Request $request)
             }
 
             if (!empty($city)) {
-                $query->whereHas('assetVehicle', function ($q) use ($city) {
-                    $q->where('city_code', $city);
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($city) {
+                    $q->where('location', $city);
                 });
             }
             
-            if (!empty($customer_id) && $customer_id !== 'all') {
+            if (!empty($zone_id)) {
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($zone_id) {
+                    $q->where('zone_id', $zone_id);
+                });
+            }
+            
+            if (!empty($accountability_type_id)) {
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($accountability_type_id) {
+                    $q->where('accountability_type', $accountability_type_id);
+                });
+            }
+            
+            if (!empty($customer_id) && $accountability_type_id == 2) { //updated by Gowtham.s
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($customer_id) {
+                    $q->where('customer_id', $customer_id);
+                });
+            }
+             if (!empty($customer_id) && $accountability_type_id == 1) { //updated by Gowtham.s
                 $query->whereHas('assetVehicle', function ($q) use ($customer_id) {
                     $q->where('client', $customer_id);
                 });
@@ -239,6 +267,18 @@ public function inventory_list(Request $request)
                       ->orWhereHas('assetVehicle.vehicle_type_relation', function($subQ) use ($search) {
                           $subQ->where('name', 'like', "%$search%");
                       })
+                      
+                    ->orWhereHas('assetVehicle.quality_check.location_relation', function($subQ) use ($search) {
+                          $subQ->where('city_name', 'like', "%$search%");
+                      })
+                      
+                    ->orWhereHas('assetVehicle.quality_check.zone', function($subQ) use ($search) {
+                          $subQ->where('name', 'like', "%$search%");
+                      })
+                      
+                    ->orWhereHas('assetVehicle.quality_check.accountability_type_relation', function($subQ) use ($search) {
+                          $subQ->where('name', 'like', "%$search%");
+                      })
 
                       // Search on related InventoryLocationMaster: Current Status name
                       ->orWhereHas('inventory_location', function($subQ) use ($search) {
@@ -290,6 +330,9 @@ public function inventory_list(Request $request)
                     'checkbox' => '<div class="form-check"><input class="form-check-input sr_checkbox" style="width:25px; height:25px;" name="is_select[]" type="checkbox" value="'.$item->id.'"></div>',
                     'id' => $item->id,
                     'chassis_no' => $item->assetVehicle->chassis_number ?? '-',
+                    'city' => $item->assetVehicle->quality_check->location_relation->city_name ?? '-',
+                    'zone' => $item->assetVehicle->quality_check->zone->name ?? '-',
+                    'accountability_type' => $item->assetVehicle->quality_check->accountability_type_relation->name ?? '-',
                     'vehicle_type' => $item->assetVehicle->vehicle_type_relation->name ?? '-',
                     'vehicle_model' => $item->assetVehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-',
                     'vehicle_id' => $item->assetVehicle->vehicle_id ?? '-',
@@ -329,8 +372,11 @@ public function inventory_list(Request $request)
 
     // For initial page load (non-AJAX), pass filter values for the UI
     $inventory_locations = InventoryLocationMaster::where('status', 1)->get();
-    $locations = LocationMaster::where('status', 1)->get();
+    $locations = City::where('status', 1)->get();
     $total_count = AssetVehicleInventory::count();
+    
+    $accountablity_types = EvTblAccountabilityType::where('status', 1)->get();
+    $customers = CustomerMaster::where('status',1)->get();
 
     return view('assetmaster::inventory.inventory_list', [
         'status' => $request->status ?? 'all', 
@@ -339,7 +385,12 @@ public function inventory_list(Request $request)
         'timeline' => $request->timeline, 
         'inventory_locations' => $inventory_locations, 
         'locations' => $locations, 
+        'customers' => $customers ,
+        'accountablity_types' => $accountablity_types ,
         'city' => $request->city,
+        'zone_id'  => $request->zone,
+        'customer_id' => $request->customer ,
+        'accountability_type' => $request->accountability_type,
         'total_count' => $total_count
     ]);
 }  
@@ -388,7 +439,9 @@ public function inventory_list(Request $request)
         $from_date = $request->from_date ?? '';
         $to_date = $request->to_date ?? '';
         $city = $request->city ?? '';
-        $customer_id = $request->customer_id ?? '';
+        $customer = $request->customer ?? '';
+        $zone = $request->zone ?? '';
+        $accountability_type = $request->accountability_type ?? '';
         
         $get_ids = $request->get('get_ids', []);
         // dd($request->get_export_labels);
@@ -404,7 +457,9 @@ public function inventory_list(Request $request)
             $request->get_export_labels,
             $request->get_ids,
             $request->city,
-            $request->customer_id
+            $request->customer ,
+            $request->zone ,
+            $request->accountability_type
         );
         return Excel::download($export, 'Inventory_' . date('d-m-Y') . '.xlsx');
 
@@ -419,7 +474,7 @@ public function inventory_list(Request $request)
     {
        
         $decrypt_id = decrypt($id);
-        $data = AssetVehicleInventory::with('assetVehicle')
+        $data = AssetVehicleInventory::with('assetVehicle' , 'assetVehicle.quality_check')
                 ->where('id', $decrypt_id)
                 ->first(); // Use first() instead of get()
                 
@@ -440,22 +495,23 @@ public function inventory_list(Request $request)
         $registration_types = RegistrationTypeMaster::where('status',1)->get();
         $vehicle_types = VehicleType::where('is_active', 1)->get();
         $inventory_locations = InventoryLocationMaster::where('status',1)->get();
-        $locations = LocationMaster::where('status',1)->get();
+        $locations = City::where('status', 1)
+        ->select('id', 'city_name')
+        ->get();
         $passed_chassis_numbers = AssetMasterVehicle::where('qc_status','pass')->get();
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         $telematics = TelemetricOEMMaster::where('status',1)->get();
         $colors = ColorMaster::where('status',1)->get();
+        $customers = CustomerMaster::where('status',1)->get();
         
               
-        return view('assetmaster::inventory.inventory_edit' , compact('data' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' , 'hypothecations' ,'registration_types' ,'vehicle_types' ,'locations' ,'vehicle_models' ,'passed_chassis_numbers' ,'inventory_locations' ,'telematics' ,'colors' ,'log_history'));
+        return view('assetmaster::inventory.inventory_edit' , compact('data' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' , 'hypothecations' ,'registration_types' ,'vehicle_types' ,'locations' ,'vehicle_models' ,'passed_chassis_numbers' ,'inventory_locations' ,'telematics' ,'colors' ,'log_history' , 'customers'));
        
     }
     
 
      public function update(Request $request)
     {
-              
-
 
         $validator = Validator::make($request->all(), [
        'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number,' . $request->id,
@@ -466,7 +522,7 @@ public function inventory_list(Request $request)
         'client' => 'nullable|string',
         'variant' => 'required|string',
         'color' => 'required|string',
-        'motor_number' => 'required|string',
+        'motor_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,motor_number,' . $request->id,
         'vehicle_id' => 'nullable|string',
         'tax_invoice_number' => 'nullable|string',
         'tax_invoice_date' => 'nullable|date',
@@ -494,11 +550,11 @@ public function inventory_list(Request $request)
         'fc_expiry_date' => 'nullable|date',
         'battery_type' => 'nullable|string',
         'battery_variant_name' => 'nullable|string',
-        'battery_serial_no' => 'nullable|string',
+        'battery_serial_no' => 'required|string|unique:ev_tbl_asset_master_vehicles,battery_serial_no,' . $request->id,
         'charger_variant_name' => 'nullable|string',
         'charger_serial_no' => 'nullable|string',
         'telematics_variant_name' => 'nullable|string',
-        'telematics_serial_no' => 'nullable|string',
+        'telematics_serial_no' => 'required|string|unique:ev_tbl_asset_master_vehicles,telematics_serial_no,' . $request->id,
         'vehicle_status' => 'nullable|string',
         'gd_hub_id_exiting' => 'nullable|string',
         'temporary_registration_number' => 'nullable|string',
@@ -525,8 +581,9 @@ public function inventory_list(Request $request)
         'telematics_serial_no_replacement3' => 'nullable|string',
         'telematics_serial_no_replacement4' => 'nullable|string',
         'telematics_serial_no_replacement5' => 'nullable|string',
-        'city_code' => 'nullable|string',
+        'city_code' => 'required',
          'telematics_oem' => 'nullable|string',
+         'zone_id' => 'required',
 
         // File validations
         'master_lease_agreement' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
@@ -536,6 +593,11 @@ public function inventory_list(Request $request)
         'hypothecation_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'temporary_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'hsrp_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+    ],
+    [
+       
+        'zone_id.required' => 'Please select a Zone. Zone field is mandatory.',
+        'city_code.required' => 'Please select a City. City field is mandatory.',
     ]);
 
     if ($validator->fails()) {
@@ -553,7 +615,7 @@ public function inventory_list(Request $request)
                 ->where('is_status', 'accepted')
                 ->first();
     
-    
+            $oldValues = $vehicle_update->getOriginal();
     
             // Handle file uploads
             // Tax Invoice Attachment
@@ -685,7 +747,7 @@ public function inventory_list(Request $request)
                 'tax_invoice_number' => $request->tax_invoice_number,
                 'tax_invoice_date' => $request->tax_invoice_date,
                 'tax_invoice_value' => floatval(preg_replace('/[^0-9.]/', '', $request->tax_invoice_value)),
-                'location' => $request->location,
+                'location' => $request->city_code,
                 'gd_hub_name' => $request->gd_hub_id,
                 'financing_type' => $request->financing_type,
                 'asset_ownership' => $request->asset_ownership,
@@ -744,9 +806,15 @@ public function inventory_list(Request $request)
                 'city_code' => $request->city_code
             ]);
             
-    
+            $changes = array_diff_assoc($vehicle_update->getDirty(), $oldValues);
+            
             $vehicle_update->save();
-    
+                
+            $quality_check = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
+                ->where('status', 'pass')
+                ->first();
+                
+            $this->handleLogsAndQcUpdate($vehicle_update, $changes , $request, $oldValues, $quality_check);
     
             // Generate remarks
             $remarks = "Inventory has been updated successfully.";
@@ -757,14 +825,14 @@ public function inventory_list(Request $request)
     
     
             // Log chassis transfer/update
-            VehicleTransferChassisLog::create([
-                'chassis_number' => $vehicle_update->chassis_number,
-                'vehicle_id' => $request->id,
-                'remarks' => $remarks,
-                'created_by' => auth()->id(),
-                'is_status' => 'updated' ,
-                'status' => 'updated',
-            ]);
+            // VehicleTransferChassisLog::create([
+            //     'chassis_number' => $vehicle_update->chassis_number,
+            //     'vehicle_id' => $request->id,
+            //     'remarks' => $remarks,
+            //     'created_by' => auth()->id(),
+            //     'is_status' => 'updated' ,
+            //     'status' => 'updated',
+            // ]);
             
 
     
@@ -779,13 +847,245 @@ public function inventory_list(Request $request)
     
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            \Log::error('Error in [YourFunctionName]: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
     
             return response()->json([
                 'success' => false,
-                'message' => 'Something went wrong! ' . $e->getMessage(),
+                'message' => 'Something went wrong! ',
             ]);
         }
 
     }
+    
+    
+    /**
+ * Handle Asset Master and QC log updates after saving vehicle data.
+ */
+private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $oldValues, $quality_check)
+{
+                
+    if (!empty($changes)) {
+
+        $fieldLabels = [
+            'chassis_number' => 'Chassis Number',
+            'vehicle_category' => 'Vehicle Category',
+            // 'vehicle_type' => 'Vehicle Type',
+            // 'make' => 'Make',
+            // 'model' => 'Model',
+            // 'variant' => 'Variant',
+            'color' => 'Color',
+            // 'client' => 'Client',
+            // 'motor_number' => 'Motor Number',
+            'vehicle_id' => 'Vehicle ID',
+            'tax_invoice_number' => 'Tax Invoice Number',
+            'tax_invoice_date' => 'Tax Invoice Date',
+            'tax_invoice_value' => 'Tax Invoice Value',
+            // 'location' => 'Location',
+            'gd_hub_name' => 'GD Hub Name',
+            'gd_hub_id' => 'GD Hub ID',
+            'financing_type' => 'Financing Type',
+            'asset_ownership' => 'Asset Ownership',
+            'lease_start_date' => 'Lease Start Date',
+            'lease_end_date' => 'Lease End Date',
+            'vehicle_delivery_date' => 'Vehicle Delivery Date',
+            'emi_lease_amount' => 'EMI Lease Amount',
+            'hypothecation' => 'Hypothecation',
+            'hypothecation_to' => 'Hypothecation To',
+            'insurer_name' => 'Insurer Name',
+            'insurance_type' => 'Insurance Type',
+            'insurance_number' => 'Insurance Number',
+            'insurance_start_date' => 'Insurance Start Date',
+            'insurance_expiry_date' => 'Insurance Expiry Date',
+            'registration_type' => 'Registration Type',
+            'registration_status' => 'Registration Status',
+            'permanent_reg_number' => 'Permanent Registration Number',
+            'permanent_reg_date' => 'Permanent Registration Date',
+            'reg_certificate_expiry_date' => 'Registration Certificate Expiry Date',
+            'fc_expiry_date' => 'FC Expiry Date',
+            'battery_type' => 'Battery Type',
+            'battery_variant_name' => 'Battery Variant Name',
+            // 'battery_serial_no' => 'Battery Serial Number',
+            'charger_variant_name' => 'Charger Variant Name',
+            'charger_serial_no' => 'Charger Serial Number',
+            'telematics_variant_name' => 'Telematics Variant Name',
+            // 'telematics_serial_no' => 'Telematics Serial Number',
+            'vehicle_status' => 'Vehicle Status',
+            'temproary_reg_number' => 'Temporary Registration Number',
+            'temproary_reg_date' => 'Temporary Registration Date',
+            'temproary_reg_expiry_date' => 'Temporary Registration Expiry Date',
+            'servicing_dates' => 'Servicing Dates',
+            'road_tax_applicable' => 'Road Tax Applicable',
+            'road_tax_amount' => 'Road Tax Amount',
+            'road_tax_renewal_frequency' => 'Road Tax Renewal Frequency',
+            'road_tax_next_renewal_date' => 'Next Road Tax Renewal Date',
+            'battery_serial_number1' => 'Battery Serial Number 1',
+            'battery_serial_number2' => 'Battery Serial Number 2',
+            'battery_serial_number3' => 'Battery Serial Number 3',
+            'battery_serial_number4' => 'Battery Serial Number 4',
+            'battery_serial_number5' => 'Battery Serial Number 5',
+            'charger_serial_number1' => 'Charger Serial Number 1',
+            'charger_serial_number2' => 'Charger Serial Number 2',
+            'charger_serial_number3' => 'Charger Serial Number 3',
+            'charger_serial_number4' => 'Charger Serial Number 4',
+            'charger_serial_number5' => 'Charger Serial Number 5',
+            'telematics_oem' => 'Telematics OEM',
+            'telematics_imei_number' => 'Telematics IMEI Number',
+            'telematics_serial_number1' => 'Telematics Serial Number 1',
+            'telematics_serial_number2' => 'Telematics Serial Number 2',
+            'telematics_serial_number3' => 'Telematics Serial Number 3',
+            'telematics_serial_number4' => 'Telematics Serial Number 4',
+            'telematics_serial_number5' => 'Telematics Serial Number 5',
+            // 'city_code' => 'City',
+        ];
+    
+    
+        $attachmentFields = [
+            'tax_invoice_attachment'     => 'Tax Invoice Attachment',
+            'master_lease_agreement'     => 'Master Lease Agreement',
+            'insurance_attachment'       => 'Insurance Attachment',
+            'reg_certificate_attachment' => 'Registration Certificate Attachment',
+            'fc_attachment'              => 'FC Attachment',
+            'hypothecation_document'     => 'Hypothecation Document',
+            'temproary_reg_attachment'   => 'Temporary Registration Attachment',
+            'hsrp_copy_attachment'       => 'HSRP Certificate Attachment',
+        ];
+
+
+        // Only include changed fields that exist in label map
+        $updatedReadable = [];
+        foreach ($changes as $key => $value) {
+            if (isset($fieldLabels[$key])) {
+                $updatedReadable[] = $fieldLabels[$key];
+            }
+        }
+        
+        foreach ($attachmentFields as $field => $label) {
+            if ($request->hasFile($field)) {
+                $updatedReadable[] = $label;
+            }
+        }
+    
+    
+    if ($quality_check) {
+            $qcFieldMap = [
+                'vehicle_type' => 'Vehicle Type',
+                'vehicle_model' => 'Model',
+                'motor_number' => 'Motor Number',
+                'battery_number' => 'Battery Number',
+                'telematics_number' => 'Telematics Number',
+                'location' => 'City',
+                'customer_id' => 'Customer',
+                'zone_id' => 'Zone',
+            ];
+            
+    
+            foreach ($qcFieldMap as $qcField => $label) {
+                $reqField = match ($qcField) {
+                    'vehicle_model' => 'model',
+                    'battery_number' => 'battery_serial_no',
+                    'telematics_number' => 'telematics_serial_no',
+                    'location' => 'city_code',
+                    'customer_id' => 'client',
+                    'zone_id' => 'zone_id', 
+                    default => $qcField,
+                };
+    
+            $newValue = $request->$reqField ?? null;
+
+            if ($qcField === 'zone_id') {
+                if ($quality_check->zone_id != $request->zone_id) {
+                    $updatedReadable[] = $label;
+                }
+            } elseif ($quality_check->$qcField != $newValue) {
+                $updatedReadable[] = $label;
+            }
+            }
+        }
+
+
+        if (!empty($updatedReadable)) {
+            $updatedText = implode(', ', $updatedReadable);
+            $remarks = "The following Inventory fields have been updated: {$updatedText}. These updates were applied successfully.";
+    
+
+            
+                VehicleTransferChassisLog::create([
+                'chassis_number' => $vehicle_update->chassis_number,
+                'vehicle_id' => $request->id,
+                'remarks' => $remarks,
+                'created_by' => auth()->id(),
+                'is_status' => 'updated' ,
+                'status' => 'updated',
+            ]);
+        }
+    }
+    
+
+    
+    $updatedFields = [];
+    $qcUpdates = [];
+    
+    if ($quality_check) {
+        if ($quality_check->vehicle_type != $request->vehicle_type) {
+            $updatedFields[] = 'Vehicle Type';
+            $qcUpdates['vehicle_type'] = $request->vehicle_type;
+        }
+        if ($quality_check->vehicle_model != $request->model) {
+            $updatedFields[] = 'Model';
+            $qcUpdates['vehicle_model'] = $request->model;
+        }
+        if ($quality_check->motor_number != $request->motor_number) {
+            $updatedFields[] = 'Motor Number';
+            $qcUpdates['motor_number'] = $request->motor_number;
+        }
+        if ($quality_check->battery_number != $request->battery_serial_no) {
+            $updatedFields[] = 'Battery Number';
+            $qcUpdates['battery_number'] = $request->battery_serial_no;
+        }
+        if ($quality_check->telematics_number != $request->telematics_serial_no) {
+            $updatedFields[] = 'Telematics Number';
+            $qcUpdates['telematics_number'] = $request->telematics_serial_no;
+        }
+        if ($quality_check->location != $request->city_code) {
+            $updatedFields[] = 'City';
+            $qcUpdates['location'] = $request->city_code;
+        }
+        if ($quality_check->zone_id != $request->zone_id) {
+            $updatedFields[] = 'Zone';
+            $qcUpdates['zone_id'] = $request->zone_id;
+        }
+        
+        if ($quality_check->accountability_type == 2 && $quality_check->customer_id != $request->client) {
+            $updatedFields[] = 'Customer';
+            $qcUpdates['customer_id'] = $request->client;
+        }
+    }
+    
+    
+    if (!empty($updatedFields)) {
+
+        $quality_check->update($qcUpdates);
+    
+        
+        $defaultRemark = "The following QC details were updated in Inventory";
+        
+        $remarks = "1) {$defaultRemark}\n2) Updated Fields: " . implode(', ', $updatedFields);
+    
+        QualityCheckReinitiate::create([
+            'qc_id' => $quality_check->id ?? null,
+            'status' => "updated",
+            'remarks' => $remarks,
+            'initiated_by' => auth()->id(),
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+    }
+    
+}
     
 }

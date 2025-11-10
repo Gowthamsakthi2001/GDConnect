@@ -1,0 +1,11 @@
+{
+    "name": "RecoveryManager",
+    "alias": "recoverymanager",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\RecoveryManager\\Providers\\RecoveryManagerServiceProvider"
+    ],
+    "files": []
+}
