@@ -580,6 +580,7 @@ public function quality_check_list(Request $request)
         }
     
     
+    
         // Custom Messages
          $messages['qc.required'] = 'QC Checklist is required.';
     
