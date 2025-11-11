@@ -170,12 +170,17 @@ public function quality_check_list(Request $request)
             $query = QualityCheck::with([
                 'vehicle_type_relation:id,name',
                 'vehicle_model_relation:id,vehicle_model',
-                'location_relation:id,name'
+                'location_relation:id,city_name' ,
+                'zone:id,name',
+                'accountability_type_relation:id,name',
             ])->where('delete_status', 0);
 
             // Apply filters
             $status = $request->input('status');
             $location = $request->input('location');
+            $zone_id = $request->input('zone');
+            $customer_id = $request->input('customer');
+            $accountability_type_id = $request->input('accountability_type');
             $timeline = $request->input('timeline');
             $from_date = $request->input('from_date');
             $to_date = $request->input('to_date');
@@ -191,6 +196,20 @@ public function quality_check_list(Request $request)
             // Location filter
             if (!empty($location)) {
                 $query->where('location', (int)$location);
+            }
+            
+            if (!empty($zone_id)) {
+                $query->where('zone_id', (int)$zone_id);
+            }
+            
+            // accountability type filter
+            if (!empty($accountability_type_id)) {
+                $query->where('accountability_type', (int)$accountability_type_id);
+            }
+            
+            // customer  filter
+            if (!empty($customer_id)) {
+                $query->where('customer_id', $customer_id);
             }
 
             // Timeline filters
@@ -245,8 +264,18 @@ public function quality_check_list(Request $request)
                           $q->where('vehicle_model', 'like', "%$search%");
                       })
                       ->orWhereHas('location_relation', function($q) use ($search) {
+                          $q->where('city_name', 'like', "%$search%");
+                      })
+                      
+                      ->orWhereHas('zone', function($q) use ($search) {
                           $q->where('name', 'like', "%$search%");
-                      });
+                      })
+                    ->orWhereHas('accountability_type_relation', function($q) use ($search) {
+                          $q->where('name', 'like', "%$search%");
+                          $q->where('name', 'like', "%$search%");
+
+                      
+                    });
                 });
             }
 
@@ -291,7 +320,9 @@ public function quality_check_list(Request $request)
                     'id' => $item->id,
                     'vehicle_type' => $item->vehicle_type_relation->name ?? '-',
                     'vehicle_model' => $item->vehicle_model_relation->vehicle_model ?? '-',
-                    'location' => $item->location_relation->name ?? '-',
+                    'location' => $item->location_relation->city_name ?? '-',
+                    'zone' => $item->zone->name ?? '-',
+                    'accountability_type' => $item->accountability_type_relation->name ?? '-',
                     'chassis_number' => $item->chassis_number,
                     'battery_number' => $item->battery_number,
                     'telematics_number' => $item->telematics_number,
@@ -338,10 +369,14 @@ public function quality_check_list(Request $request)
     }
 
     // For initial page load (non-AJAX)
-    $location_data = LocationMaster::where('status', 1)->get();
+      $location_data = City::where('status', 1)->get();
     if ($totalRecords === 0) {
         $totalRecords = QualityCheck::where('delete_status', 0)->count();
     }
+    
+    $accountablity_types = EvTblAccountabilityType::where('status', 1)->get();
+    $customers = CustomerMaster::where('status',1)->get();
+    $zones = Zones::where('status', 1)->get();
     
     return view('assetmaster::quality_check.index', [
         'datas' => collect(),
@@ -349,9 +384,15 @@ public function quality_check_list(Request $request)
         'from_date' => $request->from_date ?? '',
         'to_date' => $request->to_date ?? '',
         'timeline' => $request->timeline ?? '',
+       'accountablity_types' => $accountablity_types ,
+        'zone_data' => $zones ,
+        'customers' => $customers ,
         'location_data' => $location_data,
         'location' => $request->location ?? '',
-        'totalRecords'=>$totalRecords
+        'zone_id'  => $request->zone,
+        'customer_id' => $request->customer ,
+        'accountability_type' => $request->accountability_type,
+        'totalRecords'=>$totalRecords ,
     ]);
 }
     
@@ -391,7 +432,7 @@ public function quality_check_list(Request $request)
         
         $datas = QualityCheck::where('id', $qc_id)->first();
        $initiate_values = QualityCheckReinitiate::where('qc_id', $qc_id)
-       ->whereIn('status', ['pass', 'fail'])
+       ->whereIn('status', ['pass', 'fail' , 'updated'])
         ->orderBy('id', 'desc')
         ->get();
         
@@ -444,6 +485,9 @@ public function quality_check_list(Request $request)
         $to_date = $request->to_date;
          $timeline = $request->timeline;
          $location = $request->location;
+                           $zone = $request->zone;
+         $customer = $request->customer;
+         $accountability_type = $request->accountability_type;
          $fileName = 'quality_check-' . date('d-m-Y') . '.xlsx';
         $user     = Auth::user();
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
@@ -461,7 +505,7 @@ public function quality_check_list(Request $request)
             'ip_address'        => $request->ip(),
             'user_device'       => $request->userAgent()
         ]);
-          return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location), $fileName);
+          return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location , $zone , $customer , $accountability_type), $fileName);
        
     }
     
@@ -534,6 +578,7 @@ public function quality_check_list(Request $request)
         if ($checklists->count() > 0) {
             $rules['qc'] = 'required|array';
         }
+    
     
         // Custom Messages
          $messages['qc.required'] = 'QC Checklist is required.';
@@ -618,6 +663,7 @@ public function quality_check_list(Request $request)
                     'vehicle_type'=> $request->vehicle_type ?? '' ,
                     'motor_number' => $request->motor_number ?? '' ,
                     'location' => $request->location ?? '',
+                    'city_code' => $request->location ?? '',
                     'battery_serial_no'=> $request->battery_number ?? '',
                     'telematics_serial_no' => $request->telematics_number ?? '' ,
                     'model' => $request->vehicle_model ?? '' ,
