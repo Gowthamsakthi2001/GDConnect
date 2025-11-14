@@ -296,7 +296,7 @@
                 </h5>
 
                 <!-- Back Button -->
-                <a href="{{ route('admin.recovery_management.agent_list') }}" 
+                <a href="{{ url()->previous() }}" 
                    class="btn btn-dark btn-md mt-2 mt-md-0">
                     <i class="bi bi-arrow-left me-1"></i> Back
                 </a>
