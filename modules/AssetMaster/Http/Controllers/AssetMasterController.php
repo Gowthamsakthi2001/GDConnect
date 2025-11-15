@@ -3603,16 +3603,10 @@ public function asset_master_list(Request $request)
                     });
                 });
             }
-
-            // Get total records count (before pagination)
             $totalRecords = $query->count();
-
-            // Handle "Show All" option
             if ($length == -1) {
-                $length = $totalRecords; // Return all records
+                $length = $totalRecords; 
             }
-            
-            dd($query->toSql(),$query->getBindings());
 
             // Apply pagination and ordering
             $data = $query->orderBy('id', 'desc')
