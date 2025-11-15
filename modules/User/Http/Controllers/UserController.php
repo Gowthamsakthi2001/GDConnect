@@ -170,6 +170,32 @@ class UserController extends Controller
             $this->AgentstoreNotification($user);
         }
         
+        $user_id  = auth()->user()->id;
+        $roleName = auth()->user()->get_role->name ?? 'Unknown';
+        
+        $longDescription = 
+            "New Staff Account Created.\n" .
+            "Created By: " . auth()->user()->name . " (" . $roleName . ")\n" .
+            "Staff Name: " . $user->name . "\n" .
+            "Email: " . $user->email . "\n" .
+            "Phone: " . $user->phone . "\n" .
+            "Role: " . $role->name . "\n" .
+            "Employee ID: " . ($user->emp_id ?? 'N/A');
+        
+        audit_log_after_commit([
+            'module_id'         => 1,
+            'short_description' => 'New staff "' . $user->name . '" created by ' . auth()->user()->name,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => $user_id,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'staff.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
+        
 
         
         return response()->json(['success'=>true,'message'=>'New Staff account Created Successfully!']);
@@ -501,6 +527,14 @@ class UserController extends Controller
         } else {
             unset($data['password']);
         }
+        
+        $oldData = $user->only([
+            'name', 'email', 'phone', 'city_id', 'zone_id', 'login_type',
+            'status', 'age', 'address', 'gender'
+        ]);
+
+
+        
 
         if ($request->hasFile('avatar')) {
             $request->validate([
@@ -529,6 +563,22 @@ class UserController extends Controller
         
         $user->update($data);
         
+       $newData = $user->only([
+            'name', 'email', 'phone', 'city_id', 'zone_id', 'login_type',
+            'status', 'age', 'address', 'gender'
+        ]);
+
+        $changes = [];
+        foreach ($newData as $key => $value) {
+            if ($oldData[$key] != $value) {
+                $changes[] = ucfirst($key) . ': "' . $oldData[$key] . '" → "' . $value . '"';
+            }
+        }
+        
+        $changesText = empty($changes) ? "No changes detected." : implode("; ", $changes);
+
+
+        
         if (auth()->user()->id != $user->id) {
             $user->syncRoles($data['role']);
 
@@ -539,7 +589,10 @@ class UserController extends Controller
             // Session::flash('error', 'You Can\'t Updated Your User Account Status Or Role.');
             return response()->json(['success'=>false,'message'=>'You Can\'t Updated Your User Account Status Or Role.']);
         }
-
+        
+        $user_id  = auth()->user()->id;
+        $roleName = auth()->user()->get_role->name ?? 'Unknown';
+        
         if ($request->password) { //updated by Gowtham.s
             DB::table('users')
             ->where('id', $user->id)
@@ -548,6 +601,34 @@ class UserController extends Controller
             ]);
           $this->StaffPasswordUpdateNotify($request->phone,$user,$user->get_role->name);
           $this->StaffSentEmail($request->phone,$user,$user->get_role->name,'staff_password_update_notify');
+          
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Password for "' . $user->name . '" updated by ' . auth()->user()->name,
+                'long_description'  => "Password updated by " . auth()->user()->name . " (" . $roleName . ")",
+                'role'              => $roleName,
+                'user_id'           => $user_id,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'staff.password.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent(),
+            ]);
+
+        }else{
+             audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Staff "' . $user->name . '" updated by ' . auth()->user()->name,
+                'long_description'  => "Updated By: " . auth()->user()->name . " (" . $roleName . ")\n"
+                                        . "Changes: " . $changesText,
+                'role'              => $roleName,
+                'user_id'           => $user_id,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'staff.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
         }
 
         // flash message
@@ -595,11 +676,18 @@ class UserController extends Controller
      public function destroy(User $user)
     {
         if (auth()->user()->id == $user->id) {
-            Session::flash('error', 'You can\'t delete your account.');
-
-            return response()->error('', 'You can\'t delete your account.', 403);
+            return response()->error('', "You can't delete your account.",200);
         }
         
+        // Super Admin, Admin, Alab Tech Team cannot be deleted
+        if (in_array($user->role, [1, 13, 16])) {
+            return response()->error('', "You can't delete this account.",200);
+        }
+
+
+
+        $oldDeleteStatus = $user->delete_status;
+        $oldStatus       = $user->status;
         // dd($user->phone,$user,$user->get_role->name);
       
         $user->delete_status = $user->delete_status == 1 ? 0 : 1;
@@ -615,6 +703,28 @@ class UserController extends Controller
         $message = $user->delete_status == 1 ? 'Staff account Removed successfully' : 'Staff account Restored successfully';
         
         Session::flash('success', $message);
+        
+        $admin       = auth()->user();
+        $adminRole   = $admin->get_role->name ?? 'Unknown';
+        $actionType  = $user->delete_status == 1 ? 'Removed' : 'Restored';
+    
+        audit_log_after_commit([
+            'module_id'         => 1, 
+            'short_description' => "Staff account '{$user->name}' was {$actionType} by {$admin->name}",
+            
+            'long_description'  => 
+                "Staff account '{$user->name}' (ID: {$user->id}) was {$actionType} by {$admin->name} ({$adminRole}). "
+                . "Old delete status: '{$oldDeleteStatus}', New delete status: '{$user->delete_status}'. "
+                . "Old user status: '{$oldStatus}', New user status: '{$user->status}'.",
+    
+            'role'              => $adminRole,
+            'user_id'           => $admin->id,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'staff.destroy',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
 
         return response()->success('', $message, 200);
     }
@@ -694,18 +804,36 @@ class UserController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function statusUpdate(User $user, Request $request)
+   public function statusUpdate(User $user, Request $request)
     {
-        $status = $user->status;
-
-        if (\auth()->user()->id == $user->id) {
-            return \response()->error([], 'You can\'t update your account status.', 403);
+        $oldStatus = $user->status;   
+        $newStatus = $request->status;
+    
+        if (auth()->user()->id == $user->id) {
+            return response()->error([], "You can't update your own account status.", 403);
         }
-
-        $user->update(['status' => $request->status]);
-
-        return \response()->success($user, 'Staff Account Status Updated Successfully.', 200);
+    
+        $user->update(['status' => $newStatus]);
+    
+        $admin = auth()->user();
+        $roleName = $admin->get_role->name ?? 'Unknown';
+    
+        audit_log_after_commit([
+            'module_id'         => 1,
+            'short_description' => "Staff status updated: '{$user->name}' status changed from '{$oldStatus}' to '{$newStatus}' by {$admin->name}",
+            'long_description'  => "The Staff  '{$user->name}' (ID: {$user->id}) had their status updated from '{$oldStatus}' to '{$newStatus}' by {$admin->name} ({$roleName}).",
+            'role'              => $roleName,
+            'user_id'           => $admin->id,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'staff.status.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+    
+        return response()->success($user, 'Staff Account Status Updated Successfully.', 200);
     }
+
     
     
     public function user_data_export(Request $request, $id, $user_role)

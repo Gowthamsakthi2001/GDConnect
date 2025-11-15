@@ -117,6 +117,7 @@
     <script src="https://maps.googleapis.com/maps/api/js?key={{$apiKey}}&libraries=drawing,geometry,places"></script>
 
     <script>
+    alert("check");
         let map;
         let drawingManager;
         let allowedZone = null;
@@ -342,8 +343,7 @@
                 }
             });
         });
-
-
+    
     </script>
     @endsection
 </x-app-layout>

@@ -19,6 +19,7 @@ use Modules\Zones\Entities\Zones; //updated by Mugesh.B
 use Modules\MasterManagement\Entities\EvTblAccountabilityType;//updated by Mugesh.B
 use Modules\AssetMaster\Entities\QualityCheck;
 use Modules\AssetMaster\Entities\QualityCheckReinitiate;
+use Illuminate\Support\Facades\Auth; //updated by logesh
 
 use Modules\MasterManagement\Entities\FinancingTypeMaster;//updated by Mugesh.B
 use Modules\MasterManagement\Entities\AssetOwnershipMaster;//updated by Mugesh.B
@@ -461,6 +462,32 @@ public function inventory_list(Request $request)
             $request->zone ,
             $request->accountability_type
         );
+        
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
+
+        audit_log_after_commit([
+            'module_id'         => 4, // Asset Master / Inventory Module
+            'short_description' => 'Inventory Export Completed',
+            'long_description'  => sprintf(
+                    'Inventory export triggered. Filters -> Status: %s, From: %s, To: %s, Selected IDs: %d,City: %s, Customer: %s, Zone: %s, Accountability Type: %s',
+                    $status ?: 'all',
+                    $from_date ?: '-',
+                    $to_date ?: '-',
+                    is_array($get_ids) ? count($get_ids) : 0,
+                    $city ?: 'all',
+                    $customer ?: 'all',
+                    $zone ?: 'all',
+                    $accountability_type ?: 'all',
+                ),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.export_inventory_detail',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+    
         return Excel::download($export, 'Inventory_' . date('d-m-Y') . '.xlsx');
 
         
@@ -615,7 +642,7 @@ public function inventory_list(Request $request)
                 ->where('is_status', 'accepted')
                 ->first();
     
-            $oldValues = $vehicle_update->getOriginal();
+            $oldValues = $vehicle_update->toArray();
     
             // Handle file uploads
             // Tax Invoice Attachment
@@ -835,9 +862,47 @@ public function inventory_list(Request $request)
             // ]);
             
 
-    
+            
             DB::commit();
-    
+            
+            $changes = [];
+            $ignoreFields = ['created_at', 'updated_at'];
+            foreach ($oldValues as $field => $oldValue) {
+            
+                // Skip ignored fields automatically
+                if (in_array($field, $ignoreFields)) continue;
+            
+                $newValue = $request->$field ?? $vehicle_update->$field ?? null;
+            
+                if ((string)$oldValue !== (string)$newValue) {
+            
+                    // Format field names: chassis_number → Chassis Number
+                    $label = ucwords(str_replace('_', ' ', $field));
+            
+                    $old = $oldValue !== null && $oldValue !== '' ? $oldValue : 'N/A';
+                    $new = $newValue !== null && $newValue !== '' ? $newValue : 'N/A';
+            
+                    $changes[] = "{$label}: {$old} → {$new}";
+                }
+            }
+            
+            $changesText = empty($changes) 
+                ? 'No major field updates.' 
+                : implode('; ', $changes);
+            
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Re-Update Completed',
+                'long_description'  => "Inventory Updated Successfully (ID: {$vehicle_update->id}, chassis: {$vehicle_update->chassis_number}), status: {$request->status}.Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.reupdate_vehicle_data',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Inventory Updated Successfully!',

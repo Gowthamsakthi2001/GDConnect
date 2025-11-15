@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
 use Modules\City\Entities\City;
+use Modules\Zones\Entities\Zones;
 use Modules\B2B\Entities\B2BAgent;
 use Modules\B2B\Entities\B2BVehicleRequests; 
 use Modules\VehicleManagement\Entities\VehicleType; 
@@ -146,7 +148,89 @@ class B2BAgentController extends Controller
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
-    
+        
+        $formattedFields = [];
+            if (is_array($fields)) {
+                foreach ($fields as $item) {
+                    $name = null;
+        
+                    if (is_string($item) && trim($item) !== '') {
+                        $name = $item;
+                    } elseif (is_array($item)) {
+                        if (!empty($item['name']) && is_string($item['name'])) {
+                            $name = $item['name'];
+                        } elseif (!empty($item['field']) && is_string($item['field'])) {
+                            $name = $item['field'];
+                        } else {
+                            $first = reset($item);
+                            if (is_string($first) && trim($first) !== '') {
+                                $name = $first;
+                            }
+                        }
+                    }
+        
+                    if (empty($name) || !is_string($name)) {
+                        continue;
+                    }
+        
+                    $clean = str_replace('_', ' ', $name);
+                    $clean = ucwords(strtolower($clean));
+        
+                    // optional manual mapping for special labels
+                    $manual = [
+                        'Date Time' => 'Date & Time',
+                        'Qc Checklist' => 'QC Checklist',
+                        'Id' => 'ID'
+                    ];
+                    if (isset($manual[$clean])) {
+                        $clean = $manual[$clean];
+                    }
+        
+                    $formattedFields[] = $clean;
+                }
+            }
+            $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+        
+            // Resolve friendly names for zone/city if possible
+            $zoneName = null;
+            $cityName = null;
+            if (!empty($zone)) {
+                $zoneName = optional(Zones::find($zone))->name ?? $zone;
+            }
+            if (!empty($city)) {
+                $cityName = optional(City::find($city))->city_name ?? $city;
+            }
+        
+            // Prepare audit log
+            $fileName = 'agent_list-' . date('d-m-Y') . '.xlsx';
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        
+            $appliedFilters = [];
+            if (!is_null($from_date) && $from_date !== '') $appliedFilters[] = 'From: ' . $from_date;
+            if (!is_null($to_date) && $to_date !== '') $appliedFilters[] = 'To: ' . $to_date;
+            if (!is_null($zoneName) && $zoneName !== '') $appliedFilters[] = 'Zone: ' . $zoneName;
+            if (!is_null($cityName) && $cityName !== '') $appliedFilters[] = 'City: ' . $cityName;
+        
+            $filtersText = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
+            $selectedIdsText = empty($selectedIds) ? 'ALL' : implode(', ', array_map('strval', $selectedIds));
+        
+            $longDesc = "User initiated B2B Agent export. File: {$fileName} | Selected Fields: {$fieldsText} | Filters: {$filtersText} | Selected IDs: {$selectedIdsText}.";
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Agent Export Initiated',
+                'long_description'  => $longDesc,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'agent.export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+
+
         return Excel::download(
             new B2BAgentExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
             'agent_list-' . date('d-m-Y') . '.xlsx'
@@ -156,9 +240,34 @@ class B2BAgentController extends Controller
     public function updateStatus(Request $request)
     {
         $agent = B2BAgent::findOrFail($request->id);
+        $oldStatus = $agent->status;
+        $newStatus = $request->status;
         $agent->status = $request->status;
         $agent->save();
-    
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        if ((string)$oldStatus !== (string)$newStatus) {
+            
+            $oldLabel =  (string)$oldStatus;
+            $newLabel =  (string)$newStatus;
+
+            $agentName = $agent->name ?? ($agent->first_name ?? 'Agent');
+
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Agent Status Updated',
+                'long_description'  => "Agent ({$agent->id} - {$agentName}) status changed: {$oldLabel} → {$newLabel}",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'agent.update_status',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+        }
         return response()->json(['message' => 'Agent status updated successfully.']);
     }
 }

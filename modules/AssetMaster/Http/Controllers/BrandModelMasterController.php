@@ -8,6 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB; //updated by Mugesh.B
+use Illuminate\Support\Facades\Auth; //updated by Logesh
+
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -80,14 +82,32 @@ class BrandModelMasterController extends Controller
    
    public function export_brand_model_master(Request $request)
     {
-        
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
         
         $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
         $status = $request->status;
         $from_date = $request->from_date;
         $to_date = $request->to_date;
 
-        
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Brand Model Master Export',
+                'long_description'  => 'Brand Model Master exported successfully.',
+                'long_description'  => sprintf(
+                    'Brand Model Master export triggered. Filters -> Status: %s, From: %s, To: %s, Selected IDs: %d',
+                    $status ?: 'all',
+                    $from_date ?: '-',
+                    $to_date ?: '-',
+                    is_array($selectedIds) ? count($selectedIds) : 0
+                ),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'brand_model_master.export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent(),
+            ]);
           return Excel::download(new BrandModelMasterExport($status ,$from_date,$to_date , $selectedIds), 'brand-model-master-' . date('d-m-Y') . '.xlsx');
        
     }
@@ -107,11 +127,25 @@ class BrandModelMasterController extends Controller
     
         public function store(Request $request)
         {
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
             $validator = Validator::make($request->all(), [
                 'brand_model' => 'required|string|max:255',
             ]);
         
             if ($validator->fails()) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Brand Model Create Failed (Validation)',
+                    'long_description'  => 'Validation errors: ' . implode(', ', $validator->errors()->all()),
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'brand_model_master.store',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent(),
+                ]);
+
                 if ($request->ajax()) {
                     return response()->json([
                         'success' => false,
@@ -127,6 +161,19 @@ class BrandModelMasterController extends Controller
                 ->first();
         
             if ($existingBrand) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Brand Model Create Failed (Duplicate)',
+                    'long_description'  => 'Attempted to create duplicate brand model: ' . $request->brand_model,
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'brand_model_master.store',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent(),
+                ]);
+
                 if ($request->ajax()) {
                     return response()->json([
                         'success' => false,
@@ -144,7 +191,20 @@ class BrandModelMasterController extends Controller
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
-        
+            
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Brand Model Created',
+                'long_description'  => 'Brand model created successfully: ' . $request->brand_model,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'brand_model_master.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent(),
+            ]);
+
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -159,6 +219,7 @@ class BrandModelMasterController extends Controller
     
             public function update_data(Request $request)
         {
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
             $request->validate([
                 'brand_model' => 'required|string|max:255'
             ]);
@@ -173,6 +234,18 @@ class BrandModelMasterController extends Controller
                 
         
             if ($existingBrand) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Brand Model Update Failed (Duplicate)',
+                    'long_description'  => 'Attempted to update brand model to an existing name: ' . $request->brand_model,
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'brand_model_master.update_data',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
                 return redirect()->back()->withErrors([
                     'brand_model' => 'This brand model already exists.'
                 ])->withInput();
@@ -185,7 +258,20 @@ class BrandModelMasterController extends Controller
                     'brand_name' => $request->brand_model,
                     'updated_at' => now()
                 ]);
-        
+            
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Brand Model Updated',
+                    'long_description'  => 'Brand model updated successfully to: ' . $request->brand_model,
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'brand_model_master.update_data',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
+
             return redirect()->route('admin.asset_management.brand_model_master.list')
                 ->with('success', 'Brand model updated successfully.');
         }
@@ -194,21 +280,47 @@ class BrandModelMasterController extends Controller
         
         public function update_status(Request $request)
         {
+
             $request->validate([
                 'id' => 'required|integer',
                 'status' => 'required'
             ]);
-        
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
             $updated = DB::table('ev_tbl_brands')
                 ->where('id', $request->id)
                 ->update(['status' => $request->status]);
-        
+            $brand = DB::table('ev_tbl_brands')
+                ->where('id', $request->id)->first();
             if ($updated) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Brand Model Status Updated',
+                    'long_description'  => "Brand model '{$brand->brand_name}' status changed to: " . ($request->status ? 'Active' : 'Inactive'),
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'brand_model_master.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent(),
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'
                 ]);
             } else {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Brand Model Status Update Failed',
+                    'long_description'  => 'Attempted status change but brand model not found. ID: ' . $request->id,
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'brand_model_master.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent(),
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to update status.'

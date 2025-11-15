@@ -9,6 +9,7 @@ use Modules\AdhocManagement\DataTables\AdhocListDataTable;
 use Modules\AdhocManagement\DataTables\AdhocLogListDataTable;
 use Illuminate\Http\Response;
 use Modules\Deliveryman\Entities\Deliveryman;
+use App\Models\BusinessSetting; //updated by Mugesh.B
 use Modules\City\Entities\City;
 use Illuminate\Support\Facades\DB;
 use Modules\Zones\Entities\Zones;
@@ -447,7 +448,8 @@ class AdhocManagementController extends Controller
     
    public function admin_message_id_generate($dm)
     {
-        $phone = '919606945066';  
+        $phone = BusinessSetting::where('key_name', 'admin_whatsapp_no')->value('value') ?? '';
+        $phone = ltrim($phone, '+');
         if ($dm->work_status == 2) {
             $role = 'Adhoc Driver';
         } else {

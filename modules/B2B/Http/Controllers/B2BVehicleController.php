@@ -64,7 +64,12 @@ use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Writer;
 
-use App\Jobs\ProcessRiderCreationJob; //updated by Mugesh.B
+use App\Jobs\ProcessB2BRiderCreationJob; //updated by Mugesh.B
+use App\Jobs\ProcessVehicleRequestCreationJob; //updated by Mugesh.B
+use App\Jobs\SendWhatsappMessageJob; //updated by Mugesh.B
+use App\Jobs\ProcessB2BReturnRequestCreationJob; //updated by Mugesh.B
+use App\Jobs\ProcessB2BRecoveryRequestCreationJob; //updated by Mugesh.B
+use App\Jobs\ProcessB2BServiceRequestCreationJob; //updated by Mugesh.B
 
 class B2BVehicleController extends Controller
 {
@@ -268,22 +273,24 @@ class B2BVehicleController extends Controller
                     ->first();
                 
 
-                    $this->RiderCredencials_SentWhatsAppMessage($riderData, 'b2b_rider_account_created');
+                    // $this->RiderCredencials_SentWhatsAppMessage($riderData, 'b2b_rider_account_created');
                 
                 
-                    $this->riderWelcomeNotification($riderData);
+                    // $this->riderWelcomeNotification($riderData);
                 
                 
-                    $this->RiderCredencials_SentEmailNotify($riderData, 'b2b_rider_ac_emailNotify');
+                    // $this->RiderCredencials_SentEmailNotify($riderData, 'b2b_rider_ac_emailNotify');
                 
-                    if ($request->submission_type === 'terms') {
-                        $this->RiderTermsAndCondition_SentEmailNotify($riderData, 'b2b_rider_terms_emailNotify');
+                    // if ($request->submission_type === 'terms') {
+                    //     $this->RiderTermsAndCondition_SentEmailNotify($riderData, 'b2b_rider_terms_emailNotify');
                         
-                    }
+                    // }
                 
                 
                 // ProcessRiderCreationJob::dispatchAfterResponse($rider->id, $request->submission_type);
                 // ProcessRiderCreationJob::dispatch($rider->id, $request->submission_type);
+                ProcessB2BRiderCreationJob::dispatch($rider->id, $request->submission_type);
+                
                 Log::info('function is closed'.now());
                 return response()->json([
                     'success' => true,
@@ -634,17 +641,17 @@ class B2BVehicleController extends Controller
             $cc_Customers = $customerEmail;
     
             if(!empty($toRiders)){
-                CustomHandler::sendEmail($toRiders, $riderSubject, $riderBody,$cc_Customers);
+                CustomHandler::sendEmail('pmugesh735@gmail.com', $riderSubject, $riderBody,$cc_Customers);
             }
             
             $toCustomers = $customerLoginEmail;
             
             if(!empty($toCustomers)){
-                CustomHandler::sendEmail($toCustomers, $customerSubject, $customerBody,$cc_Customers);
+                CustomHandler::sendEmail('pmugesh735@gmail.com', $customerSubject, $customerBody,$cc_Customers);
             }
 
             if(!empty($toAdmins)){
-              CustomHandler::sendEmail($toAdmins, $adminSubject, $adminBody);   
+              CustomHandler::sendEmail(['mugesh@alabtechnology.com' , 'gowtham@alabtechnology.com'], $adminSubject, $adminBody);   
             }
              
         }
@@ -659,6 +666,94 @@ class B2BVehicleController extends Controller
             
         }
 
+
+        public function resend_mail(Request $request){
+            
+               try {
+       
+                $rider = B2BRider::with('customerLogin.customer_relation')->find($request->rider_id);
+        
+                if (!$rider) {
+                    return response()->json(['status' => false, 'message' => 'Rider not found.']);
+                }
+                
+                $customerEmail = $rider->customerLogin->customer_relation->email ?? 'N/A';
+                $customerLoginEmail = $rider->customerLogin->email ?? 'N/A';
+                
+                $customerSubject = "Action Required: Accept Terms & Conditions for Rider – {$rider->name}";
+                $encryptedRiderId = encrypt($rider->id);
+                $termsUrl = url("/customer/terms-and-conditions") . "?id={$encryptedRiderId}";
+                $customerName = $rider->customerLogin->customer_relation->name ?? 'Customer';
+                $riderPhone = $rider->mobile_no ?? 'N/A';
+                
+                $footerText = \App\Models\BusinessSetting::where('key_name', 'email_footer')->value('value');
+                $footerContentText = $footerText ?? "For any assistance, please reach out to Admin Support.
+                    <br>Email: support@greendrivemobility.com<br>Thank you,<br>GreenDriveConnect Team";
+                
+                $CustomerfooterContentText = "For any assistance, please reach out to Admin Support.
+                    <br>Email: {$customerEmail}<br>Thank you,<br>{$customerName}";
+                    
+                    
+                if (!$customerEmail || !$customerLoginEmail) {
+                return response()->json(['status' => false, 'message' => 'Customer email not available.']);
+                 }
+                
+                $Subject = "Action Required: Accept Terms & Conditions for Rider – {$rider->name}";
+                
+                $Body = "
+                <html>
+                <body style='font-family: Arial, sans-serif; background-color:#f7f7f7; padding:20px; color:#544e54;'>
+                    <table width='100%' cellpadding='0' cellspacing='0' style='max-width:600px; margin:auto; background:#fff; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1);'>
+                        <tr>
+                            <td style='padding:20px; text-align:center; background:#2196F3; color:#fff; border-top-left-radius:8px; border-top-right-radius:8px;'>
+                                <h2>Action Required: Accept Terms & Conditions</h2>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style='padding:20px; color:#544e54;'>
+                                <p>Hello <strong>{$customerName}</strong>,</p>
+                                <p>You have created a new rider <strong>{$rider->name}</strong> ({$riderPhone}) who does not have a Driving License (DL) or Learner’s License (LLR).</p>
+                                <p>Please review and accept the <strong>Terms & Conditions</strong> on behalf of this rider before they can proceed with onboarding.</p>
+                                
+                                <p style='margin-top:20px;'>
+                                    <a href='{$termsUrl}' style='background:#2196F3; color:#fff; text-decoration:none; padding:10px 20px; border-radius:5px; display:inline-block; font-weight:bold;'>Review & Accept Terms</a>
+                                </p>
+                
+                                <p style='margin-top:20px;'>Once you accept, the rider will be able to proceed with onboarding.</p>
+                
+                                <p style='margin-top:20px;'>{$footerContentText}</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style='text-align:center; padding:15px; font-size:12px; color:#544e54;'>
+                                &copy; " . date('Y') . " GreenDriveConnect Team. All rights reserved.
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>";
+            
+            
+                 // Send email via your custom handler
+                CustomHandler::sendEmail($customerLoginEmail, $Subject, $Body, $customerEmail);
+                
+        
+                \Log::info("Resent Terms & Conditions mail successfully", ['rider_id' => $rider->id]);
+        
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Mail sent successfully!'
+                ]);
+        
+            } catch (\Throwable $e) {
+                \Log::error("Resend mail failed", ['error' => $e->getMessage()]);
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Something went wrong: ' . $e->getMessage()
+                ]);
+            }
+            
+        }
         
         public function RiderCredencials_SentWhatsAppMessage($rider, $forward_type, $account_status = null)
         {
@@ -1180,25 +1275,7 @@ class B2BVehicleController extends Controller
         
             $customerEmail = $user->email ?? null;
             
-            // Merge recipients (Admins + Agents + Customer) and remove duplicates
-            $recipients = array_unique(array_filter(array_merge($admins, $agents, [$customerEmail])));
-            
-            // Send Admin mails
-            foreach($admins as $adminEmail) {
-                Mail::to($adminEmail)
-                    ->send(new B2BVehicleRequestMail($vehicleRequest, $rider, $user, 'admin'));
-            }
-            
-            // Send Agent mails
-            foreach($agents as $agentEmail) {
-                Mail::to($agentEmail)
-                    ->send(new B2BVehicleRequestMail($vehicleRequest, $rider, $user, 'agent'));
-            }
-            
-            // Send Customer mail (optional CC to logged-in user)
-            Mail::to($customerEmail)
-                ->cc($user->customer_relation->email ?? null)
-                ->send(new B2BVehicleRequestMail($vehicleRequest, $rider, $user, 'user'));
+      
     
             // End Mail Section
             
@@ -1213,10 +1290,24 @@ class B2BVehicleController extends Controller
             // $this->AutoRiderSendQrCodeWhatsApp($request->rider_id);
             // $this->AutoCustomerSendQrCodeWhatsApp($request->rider_id);
             $acTypeName = $vehicleRequest->accountAbilityRelation->name ?? 'N/A';
-            $this->AutoSendQrCodeWhatsApp($request->rider_id);
-            $this->pushRiderNotificationSent($rider,$requestId);
-            $this->AutoAgentSendQrCodeWhatsApp($agent_Arr,$request->rider_id);
-            $this->pushAgentNotificationSent($agent_Arr,$requestId,$acTypeName);
+            // $this->AutoSendQrCodeWhatsApp($request->rider_id);
+            // $this->pushRiderNotificationSent($rider,$requestId);
+            // $this->AutoAgentSendQrCodeWhatsApp($agent_Arr,$request->rider_id);
+            // $this->pushAgentNotificationSent($agent_Arr,$requestId,$acTypeName);
+            
+            ProcessVehicleRequestCreationJob::dispatch(
+                $admins,
+                $agents,
+                $customerEmail,
+                $user->customer_relation->email ?? null,
+                $vehicleRequest,
+                $rider,
+                $user,
+                $request->rider_id,
+                $requestId,
+                $agent_Arr,
+                $acTypeName
+            );
     
             return response()->json([
                 'success' => true,
@@ -1269,6 +1360,7 @@ class B2BVehicleController extends Controller
         $title = 'New Vehicle Request!';
         $image = null;
         $notifications = [];
+
 
         foreach ($agent_Arr as $agent) {
             $agentId    = $agent->id;
@@ -1333,6 +1425,7 @@ class B2BVehicleController extends Controller
                 "For any assistance, please reach out to Admin Support.\nEmail: support@greendrivemobility.com\nThank you,\nGreenDriveConnect Team";
         
             foreach ($agent_mobileArr as $agent) {
+                
                 $agentPhone = $agent->phone;
                 // clean phone number
                 $cleanedPhone = preg_replace('/\D+/', '', $agentPhone);
@@ -1365,34 +1458,36 @@ class B2BVehicleController extends Controller
                         ]
                     ]
                 ];
+                
+                SendWhatsappMessageJob::dispatch($agentPhone, $message);
         
-                $curl = curl_init();
-                curl_setopt_array($curl, [
-                    CURLOPT_URL => $url,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_POST => true,
-                    CURLOPT_POSTFIELDS => json_encode($postdata),
-                    CURLOPT_HTTPHEADER => [
-                        'Api-key: ' . $api_key,
-                        'Content-Type: application/json',
-                    ],
-                    CURLOPT_TIMEOUT => 30,
-                ]);
+                // $curl = curl_init();
+                // curl_setopt_array($curl, [
+                //     CURLOPT_URL => $url,
+                //     CURLOPT_RETURNTRANSFER => true,
+                //     CURLOPT_POST => true,
+                //     CURLOPT_POSTFIELDS => json_encode($postdata),
+                //     CURLOPT_HTTPHEADER => [
+                //         'Api-key: ' . $api_key,
+                //         'Content-Type: application/json',
+                //     ],
+                //     CURLOPT_TIMEOUT => 30,
+                // ]);
         
-                $response = curl_exec($curl);
-                $error = curl_error($curl);
-                curl_close($curl);
+                // $response = curl_exec($curl);
+                // $error = curl_error($curl);
+                // curl_close($curl);
         
-                if ($error) {
-                    Log::info("QR File - cURL Error for Agent {$agentPhone}: " . $error);
-                } else {
-                    $responseData = json_decode($response, true);
-                    if (!isset($responseData['success']) || $responseData['success'] != true) {
-                        Log::info("QR File - WhatsApp API Response for Agent {$agentPhone}: " . print_r($responseData, true));
-                    } else {
-                        Log::info("QR File : WhatsApp notification sent successfully to Agent {$agentPhone}");
-                    }
-                }
+                // if ($error) {
+                //     Log::info("QR File - cURL Error for Agent {$agentPhone}: " . $error);
+                // } else {
+                //     $responseData = json_decode($response, true);
+                //     if (!isset($responseData['success']) || $responseData['success'] != true) {
+                //         Log::info("QR File - WhatsApp API Response for Agent {$agentPhone}: " . print_r($responseData, true));
+                //     } else {
+                //         Log::info("QR File : WhatsApp notification sent successfully to Agent {$agentPhone}");
+                //     }
+                // }
             }
         
             return true;
@@ -2843,51 +2938,53 @@ class B2BVehicleController extends Controller
             ];
             
            
-            $apiUrl = 'https://webapi.fieldproxy.com/v3/zapier/sheetsRow';
-            $apiKey = env('FIELDPROXY_API_KEY', null); 
+            // $apiUrl = 'https://webapi.fieldproxy.com/v3/zapier/sheetsRow';
+            // $apiKey = env('FIELDPROXY_API_KEY', null); 
     
-            $ch = curl_init($apiUrl);
-            $payload = json_encode($apiData);
+            // $ch = curl_init($apiUrl);
+            // $payload = json_encode($apiData);
     
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                "x-api-key: {$apiKey}",
-                "Content-Type: application/json",
-                "Accept: application/json"
-            ]);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            // curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            //     "x-api-key: {$apiKey}",
+            //     "Content-Type: application/json",
+            //     "Accept: application/json"
+            // ]);
+            // curl_setopt($ch, CURLOPT_POST, true);
+            // curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     
-            $responseBody = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
+            // $responseBody = curl_exec($ch);
+            // $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            // $curlError = curl_error($ch);
+            // curl_close($ch);
     
-            $fieldproxyResult = null;
-            if ($curlError) {
-                Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-            } elseif ($httpCode >= 400) {
+            // $fieldproxyResult = null;
+            // if ($curlError) {
+            //     Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
+            // } elseif ($httpCode >= 400) {
                
-                Log::error('FieldProxy returned HTTP error', [
-                    'ticket_id' => $ticket_id,
-                    'http_code' => $httpCode,
-                    'body' => $responseBody
-                ]);
-            } else {
+            //     Log::error('FieldProxy returned HTTP error', [
+            //         'ticket_id' => $ticket_id,
+            //         'http_code' => $httpCode,
+            //         'body' => $responseBody
+            //     ]);
+            // } else {
                 
-                $decoded = json_decode($responseBody, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning('FieldProxy returned non-JSON response', [
-                        'ticket_id' => $ticket_id,
-                        'http_code' => $httpCode,
-                        'body' => $responseBody
-                    ]);
-                } else {
-                    $fieldproxyResult = $decoded;
-                    Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-                }
-            }
+            //     $decoded = json_decode($responseBody, true);
+            //     if (json_last_error() !== JSON_ERROR_NONE) {
+            //         Log::warning('FieldProxy returned non-JSON response', [
+            //             'ticket_id' => $ticket_id,
+            //             'http_code' => $httpCode,
+            //             'body' => $responseBody
+            //         ]);
+            //     } else {
+            //         $fieldproxyResult = $decoded;
+            //         Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
+            //     }
+            // }
+            
+            
             
             $customerName = $customer->customer_relation->name ?? 'Customer';  //updated by Gowtham.s
             $riderID = $assignment->rider->id;
@@ -2903,9 +3000,22 @@ class B2BVehicleController extends Controller
               'latitude'=>$lat,
               'longitude'=>$long
             ];
-            ServiceTicketHandler::pushRiderServiceTicketNotification($riderData, $ticket_id, $repairInfo,'create_by_customer', $customerName);//push notification
-            ServiceTicketHandler::AutoSendServiceRequestEmail($ticket_id,$riderID,$vehicleId,$repairInfo,'customer_create_ticket','create_by_customer'); //email
-            ServiceTicketHandler::AutoSendServiceRequestWhatsApp($ticket_id,$riderID,$vehicleId,$repairInfo,'customer_create_ticket','create_by_customer');//whatsapp
+            $tc_create_type = 'create_by_customer';
+            
+            
+            // ServiceTicketHandler::pushRiderServiceTicketNotification($riderData, $ticket_id, $repairInfo,'create_by_customer', $customerName);//push notification
+            // ServiceTicketHandler::AutoSendServiceRequestEmail($ticket_id,$riderID,$vehicleId,$repairInfo,'customer_create_ticket','create_by_customer'); //email
+            // ServiceTicketHandler::AutoSendServiceRequestWhatsApp($ticket_id,$riderID,$vehicleId,$repairInfo,'customer_create_ticket','create_by_customer');//whatsapp
+            
+            
+           ProcessB2BServiceRequestCreationJob::dispatch(
+                $ticket_id,
+                $riderData,
+                $vehicleId,
+                $repairInfo,
+                $tc_create_type,
+                $customerName
+            );
             
             DB::commit();
     
@@ -2977,6 +3087,31 @@ class B2BVehicleController extends Controller
                 $assignment->update([
                     'status' => 'return_request'
                 ]);
+                
+            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)->first();
+
+
+            $from_location_source = $inventory ? $inventory->transfer_status : null; 
+            
+                           
+            AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
+                    ->update(['transfer_status' => 29]);
+                    
+                                
+            $remarks = "Inventory status updated to 'Return Pending' due to customer return request.";
+        
+            // // Log this inventory action
+            VehicleTransferChassisLog::create([
+                'chassis_number' => $assignment->vehicle->chassis_number,
+                'from_location_source' => $from_location_source,
+                'to_location_destination' => 29,
+                'vehicle_id'     => $assignment->vehicle->id,
+                'status'         => 'updated',
+                'remarks'        => $remarks,
+                'created_by'     => $user->id,
+                'type'           => 'b2b-web-dashboard'
+            ]);
+            
             
             $vehicle_request = B2BVehicleRequests::where('req_id',$assignment->req_id)->where('is_active',1)->first();
                 // if ($vehicle_request) {
@@ -3007,11 +3142,13 @@ class B2BVehicleController extends Controller
             ->where('status', 'Active')
             ->get(['id', 'phone', 'mb_fcm_token']);
             
-        $this->AutoSendReturnRequestEmail($requestId, $rider->id, $vehicleData->id,$selectReason,$returnDescription);
-        $this->AutoReturnRequestSendWhatsApp($rider->id, $selectReason, $returnDescription);//done
-        $this->pushRiderReturnRequestNotificationSent($rider, $requestId, $selectReason, $returnDescription); //done
-        $this->pushAgentReturnRequestNotificationSent($agent_Arr, $requestId, $selectReason, $returnDescription); //done
-        $this->AutoAgentReturnRequestSendWhatsApp($agent_Arr, $rider->id, $selectReason, $returnDescription); //done
+        // $this->AutoSendReturnRequestEmail($requestId, $rider->id, $vehicleData->id,$selectReason,$returnDescription);
+        // $this->AutoReturnRequestSendWhatsApp($rider->id, $selectReason, $returnDescription);//done
+        // $this->pushRiderReturnRequestNotificationSent($rider, $requestId, $selectReason, $returnDescription); //done
+        // $this->pushAgentReturnRequestNotificationSent($agent_Arr, $requestId, $selectReason, $returnDescription); //done
+        // $this->AutoAgentReturnRequestSendWhatsApp($agent_Arr, $rider->id, $selectReason, $returnDescription); //done
+        
+        ProcessB2BReturnRequestCreationJob::dispatch($requestId, $rider->id, $vehicleData->id,$selectReason,$returnDescription ,$agent_Arr);
             
         return response()->json([
                 'status'  => 'success',
@@ -3865,6 +4002,31 @@ class B2BVehicleController extends Controller
                     $assignment->update([
                         'status' => 'recovery_request'
                     ]);
+                    
+                    
+                $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)->first();
+
+
+                $from_location_source = $inventory ? $inventory->transfer_status : null; 
+                
+                               
+                AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
+                        ->update(['transfer_status' => 28]);
+                        
+                                    
+                $remarks = "Inventory status updated to 'Recovery Pending' due to customer recovery request.";
+            
+                // // Log this inventory action
+                VehicleTransferChassisLog::create([
+                    'chassis_number' => $assignment->vehicle->chassis_number,
+                    'from_location_source' => $from_location_source,
+                    'to_location_destination' => 28,
+                    'vehicle_id'     => $assignment->vehicle->id,
+                    'status'         => 'updated',
+                    'remarks'        => $remarks,
+                    'created_by'     => $user->id,
+                    'type'           => ''
+                ]);
                 
                 // $vehicle_request = B2BVehicleRequests::where('req_id',$assignment->req_id)->where('is_active',1)->first();
                 //     if ($vehicle_request) {
@@ -3902,8 +4064,30 @@ class B2BVehicleController extends Controller
                 'recovery_description' => $request->description
             ];
             if(!empty($requestID)){
-                RecoveryNotifyHandler::AutoSendRecoveryRequestEmail($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
-                RecoveryNotifyHandler::AutoSendRecoveryRequestWhatsApp($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+                $requestID = $assignment->req_id;
+                $riderId   = $assignment->rider_id;
+                $vehicleId = $assignment->asset_vehicle_id;
+                $tc_create_type = 'b2b-web-dashboard';
+                $recoveryInfo = [
+                    'recovery_reason'      => $request->reason_for_recovery,
+                    'recovery_description' => $request->description,
+                ];
+                // RecoveryNotifyHandler::AutoSendRecoveryRequestEmail($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+                // RecoveryNotifyHandler::AutoSendRecoveryRequestWhatsApp($requestID, $rider_id, $vehicle_id, $recoveryInfo, $tc_create_type);
+                
+                ProcessB2BRecoveryRequestCreationJob::dispatch(
+                    $requestID,
+                    $riderId,
+                    $vehicleId,
+                    $recoveryInfo,
+                    $tc_create_type);
+                    
+                     \Log::info('ProcessB2BRecoveryRequestCreationJob dispatched successfully', [
+                        'request_id' => $requestID,
+                        'rider_id'   => $riderId,
+                        'vehicle_id' => $vehicleId,
+                        'type'       => $tc_create_type,
+                    ]);
             }
     
             return response()->json([

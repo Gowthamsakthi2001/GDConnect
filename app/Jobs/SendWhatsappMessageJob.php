@@ -31,6 +31,9 @@ class SendWhatsappMessageJob implements ShouldQueue
 
     public function handle(): void
     {
+        sleep(2);
+        
+        
         // Load creds each run (or cache them if you prefer)
         $apiKey = (string) BusinessSetting::where('key_name', 'whatshub_api_key')->value('value');
         $apiUrl = (string) BusinessSetting::where('key_name', 'whatshub_api_url')->value('value');
@@ -77,6 +80,7 @@ class SendWhatsappMessageJob implements ShouldQueue
             'error' => $e->getMessage(),
         ]);
     }
+    
 
     private function normalizeNumber(string $n): string
     {

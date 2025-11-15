@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB; 
+use Illuminate\Support\Facades\Auth; 
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Validation\Rule;
@@ -134,6 +135,18 @@ class RecoveryReasonMasterController extends Controller
         $createModel->status = $request->status;
         $createModel->save();
         
+        audit_log_after_commit([
+            'module_id'         => 1, 
+            'short_description' => 'Recovery Reason Created',
+            'long_description'  => "A new recovery reason '{$createModel->label_name}' was created (DB ID: {$createModel->id}). Status: {$createModel->status}.",
+            'role'              => optional(Auth::user())->role ?? 'admin',
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'recovery_reason_master.create',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
 
         return response()->json(['success' => true, 'message' => 'Reason created successfully']);
     }
@@ -166,14 +179,42 @@ class RecoveryReasonMasterController extends Controller
         if(!$updateModel){
             return response()->json(['success' => false, 'message' => 'Reason Not Found!']);
         }
+        $old = [
+            'label_name' => $updateModel->label_name,
+            'type'       => $updateModel->type,
+            'status'     => (string)$updateModel->status,
+        ];
         $updateModel->label_name = $request->reason_name;
         $updateModel->type = 'gdm';
         $updateModel->status = $request->status;
         $updateModel->save();
         
-
-        return response()->json(['success' => true, 'message' => 'Reason updated successfully']);
-    }
+        $changes = [];
+        if ($old['label_name'] !== $updateModel->label_name) {
+            $changes[] = "label_name: '{$old['label_name']}' -> '{$updateModel->label_name}'";
+        }
+        if ($old['type'] !== $updateModel->type) {
+            $changes[] = "type: '{$old['type']}' -> '{$updateModel->type}'";
+        }
+        if ((string)$old['status'] !== (string)$updateModel->status) {
+            $changes[] = "status: '{$old['status']}' -> '{$updateModel->status}'";
+        }
+        $changesText = empty($changes) ? 'No visible changes (values remained the same).' : implode('; ', $changes);
+        
+        audit_log_after_commit([
+            'module_id'         => 1, 
+            'short_description' => 'Recovery Reason Updated',
+            'long_description'  => "Recovery reason (DB ID: {$updateModel->id}) updated. Changes: {$changesText}",
+            'role'              => optional(Auth::user())->role ?? 'admin',
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'recovery_reason_master.update',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+            return response()->json(['success' => true, 'message' => 'Reason updated successfully']);
+        }
     
     public function status_update(Request $request)
     {
@@ -183,11 +224,25 @@ class RecoveryReasonMasterController extends Controller
                 'status' => 'required|boolean', 
             ]);
     
-    
-            $updated = RecoveryReasonMaster::where('id', $request->id)
-                ->update(['status' => $request->status]);
-    
-            if ($updated) {
+            
+            $model = RecoveryReasonMaster::where('id', $request->id)->first();
+                $model->update(['status' => $request->status]);
+            
+                $changesText = "status:'{$request->status}'";
+
+            if ($model) {
+                audit_log_after_commit([
+                    'module_id'         => 1, // adjust if you use a different module id
+                    'short_description' => 'Recovery Reason Status Updated',
+                    'long_description'  => "Recovery reason (DB ID: {$model->id}, label: '{$model->label_name}') status updated. Changes: {$changesText}",
+                    'role'              => optional(Auth::user())->role ?? 'admin',
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'recovery_reason_master.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'
@@ -215,6 +270,28 @@ class RecoveryReasonMasterController extends Controller
         $to_date = $request->to_date;
         $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
         
+        $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
+        $idsSample = $selectedCount > 0 ? implode(',', array_slice($selectedIds, 0, 5)) : '-';
+        $more = $selectedCount > 5 ? ' (+' . ($selectedCount - 5) . ' more)' : '';
+        audit_log_after_commit([
+            'module_id'         => 1, // same as your Recovery Reason Master module id
+            'short_description' => 'Recovery Reason Export Triggered',
+            'long_description'  => sprintf(
+                "Recovery Reason export initiated. Filters → Status: %s, From: %s, To: %s, Selected IDs: %s%s",
+                $status ?? '-',
+                $from_date ?? '-',
+                $to_date ?? '-',
+                $idsSample,
+                $more
+            ),
+            'role'              => optional(Auth::user())->role ?? 'admin',
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'recovery_reason_master.export',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
          return Excel::download(new RecoveryReasonMasterExport($status,$from_date,$to_date , $selectedIds), 'Recovery Reasons-' . date('d-m-Y') . '.xlsx');
        
     }

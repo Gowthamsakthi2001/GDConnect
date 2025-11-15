@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB; //updated by Mugesh.B
+use Illuminate\Support\Facades\Auth; //updated by Logesh
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -78,7 +79,22 @@ class AssetOwnershipMasterController extends Controller
             'status' => $validated['status'],
         ]);
         
-    
+        $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $model->status == 1 ? 'Active' : 'Inactive';
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Asset Ownership Created',
+                'long_description'  => "Asset ownership '{$model->name}' created (ID: {$model->id}). Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_ownership_master.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         return response()->json([
             'success' => true,
             'message' => 'Asset ownership master created successfully.',
@@ -105,15 +121,43 @@ class AssetOwnershipMasterController extends Controller
             'asset_owner_ship_name' => 'required|string|max:255|unique:ev_tbl_asset_ownership_master,name,' . $request->id,
             'status' => 'required',
         ]);
-    
+        
         $model = AssetOwnershipMaster::find($request->id);
+        $old = $model->getAttributes();
         $model->update([
             'name' => $request->asset_owner_ship_name,
             'status' => $request->status,
             'updated_at'=> now() 
         ]);
-    
-    
+        $new = $model->getAttributes();
+        
+        $changes = [];
+        if (($old['name'] ?? null) != ($new['name'] ?? null)) {
+            $changes[] = "Name: " . ($old['name'] ?? 'N/A') . " → " . ($new['name'] ?? 'N/A');
+        }
+        if ((string)($old['status'] ?? '') !== (string)($new['status'] ?? '')) {
+            $oldStatusText = isset($old['status']) ? (($old['status'] == 1) ? 'Active' : 'Inactive') : 'N/A';
+            $newStatusText = ($new['status'] == 1) ? 'Active' : 'Inactive';
+            $changes[] = "Status: {$oldStatusText} → {$newStatusText}";
+        }
+        $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
+
+        $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Asset Ownership Updated',
+                'long_description'  => "Asset ownership '{$model->name}' (ID: {$model->id}) updated. Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_ownership_master.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+                
+            ]);
         return response()->json(['success' => true, 'message' => 'Asset Ownership updated successfully.']);
   
         
@@ -129,9 +173,28 @@ class AssetOwnershipMasterController extends Controller
         ]);
     
         $record = AssetOwnershipMaster::find($request->id);
+        $oldStatus = (int) $record->status;
+        $newStatus = (int) $request->status;
         $record->status = $request->status;
         $record->save();
-    
+        
+        $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $newStatus == 1 ? 'Active' : 'Inactive';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Asset Ownership Status Updated',
+                    'long_description'  => "Asset ownership '{$record->name}' (ID: {$record->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_ownership_master.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
         return response()->json([
             'success' => true,
             'message' => 'Status updated successfully.',
@@ -148,6 +211,34 @@ class AssetOwnershipMasterController extends Controller
         $to_date = $request->to_date;
          $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
         
+         $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
+        $idsSample = $selectedCount > 0 ? implode(',', array_slice($selectedIds, 0, 5)) : '-';
+        $more = $selectedCount > 5 ? ' (+' . ($selectedCount - 5) . ' more)' : '';
+
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        $longDescription = sprintf(
+            "Asset Ownership export initiated. Filters → Status: %s | From: %s | To: %s | Selected IDs: %s%s",
+            $status ?? '-',
+            $from_date ?? '-',
+            $to_date ?? '-',
+            $idsSample,
+            $more
+        );
+         audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Asset Ownership Export Triggered',
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_ownership_master.export',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+                
+            ]);
         
           return Excel::download(new AssetOwnershipMasterExport($status,$from_date,$to_date , $selectedIds), 'asset-ownership-master-' . date('d-m-Y') . '.xlsx');
        

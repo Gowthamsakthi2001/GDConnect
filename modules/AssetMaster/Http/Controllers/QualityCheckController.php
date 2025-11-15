@@ -474,7 +474,7 @@ public function quality_check_list(Request $request)
     
        public function export_quality_check(Request $request)
     {
-        
+          try{
          $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
          $selectedFields = json_decode($request->query('fields'), true);
          
@@ -488,6 +488,60 @@ public function quality_check_list(Request $request)
                            $zone = $request->zone;
          $customer = $request->customer;
          $accountability_type = $request->accountability_type;
+         
+         $formattedFields = [];
+
+if (is_array($selectedFields)) {
+    foreach ($selectedFields as $item) {
+        $name = null;
+
+        // case: plain string
+        if (is_string($item)) {
+            $name = $item;
+        }
+
+        // case: associative array like ['name' => 'vehicle_type', 'value' => 'on']
+        elseif (is_array($item)) {
+            if (isset($item['name']) && is_string($item['name'])) {
+                $name = $item['name'];
+            } elseif (isset($item['field']) && is_string($item['field'])) {
+                $name = $item['field'];
+            } else {
+                // fallback: take first scalar value from the array
+                $first = reset($item);
+                if (is_string($first)) {
+                    $name = $first;
+                } elseif (is_array($first)) {
+                    $subFirst = reset($first);
+                    if (is_string($subFirst)) $name = $subFirst;
+                }
+            }
+        }
+
+        // skip if we didn't find a usable name
+        if (empty($name) || !is_string($name)) {
+            continue;
+        }
+
+        // format: replace underscores with spaces and title-case
+        $clean = str_replace('_', ' ', $name);
+        $clean = ucwords(strtolower($clean));
+
+        // optional: map specific keys to nicer labels
+        $map = [
+            'Qc Checklist' => 'QC Checklist', // 'Qc Checklist' -> 'QC Checklist'
+            'Date Time' => 'Date & Time',     // if you prefer
+        ];
+        if (isset($map[$clean])) {
+            $clean = $map[$clean];
+        }
+
+        $formattedFields[] = $clean;
+    }
+}
+
+$fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+
          $fileName = 'quality_check-' . date('d-m-Y') . '.xlsx';
         $user     = Auth::user();
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
@@ -496,7 +550,7 @@ public function quality_check_list(Request $request)
         audit_log_after_commit([
             'module_id'         => 4,
             'short_description' => 'Quality Check Export Initiated',
-            'long_description'  => "User initiated QC export. File: {$fileName}",
+            'long_description'  => "User initiated QC export. File: {$fileName}, Selected Fields: {$fieldsText}",
             'role'              => $roleName,
             'user_id'           => Auth::id(),
             'user_type'         => 'gdc_admin_dashboard',
@@ -505,8 +559,14 @@ public function quality_check_list(Request $request)
             'ip_address'        => $request->ip(),
             'user_device'       => $request->userAgent()
         ]);
-          return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location , $zone , $customer , $accountability_type), $fileName);
-       
+      
+            
+        
+         return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location , $zone , $customer , $accountability_type), $fileName);
+          
+        }catch(\Exception $e){
+            dd($e->getMessage);
+        }
     }
     
         public function Quality_Check_Excel_download(Request $request){
@@ -797,58 +857,87 @@ public function quality_check_list(Request $request)
     try {
         $existing = QualityCheck::findOrFail($id);
         
-        
+        $valToString = function ($v) {
+            if (is_null($v) || $v === '') return 'N/A';
+            if (is_bool($v)) return $v ? '1' : '0';
+            if (is_array($v)) return json_encode($v, JSON_UNESCAPED_UNICODE);
+            return (string)$v;
+        };
+            
             
         $imageName = null;
 
 
         // Track changed fields
         $changes = [];
-
+        $diffs = [];
         // Compare and track changes
         if ($existing->vehicle_type != $request->vehicle_type) {
             $changes[] = 'Vehicle Type';
+            $diffs[] = "Vehicle Type: " . $valToString($existing->vehicle_type) . " → " . $valToString($request->vehicle_type);
         }
         if ($existing->vehicle_model != $request->vehicle_model) {
             $changes[] = 'Vehicle Model';
+            $diffs[] = "Vehicle Model: " . $valToString($existing->vehicle_model) . " → " . $valToString($request->vehicle_model);
         }
         if ($existing->location != $request->location) {
             $changes[] = 'City';
+            $oldLoc = optional(City::find($existing->location))->city_name ?? $existing->location;
+            $newLoc = optional(City::find($request->location))->city_name ?? $request->location;
+            $diffs[] = "City: {$oldLoc} → {$newLoc}";
         }
         if ($existing->chassis_number != $request->chassis_number) {
             $changes[] = 'Chassis Number';
+            $diffs[] = "Chassis Number: " . $valToString($existing->chassis_number) . " → " . $valToString($request->chassis_number);
         }
         if ($existing->battery_number != $request->battery_number) {
             $changes[] = 'Battery Number';
+            $diffs[] = "Battery Number: " . $valToString($existing->battery_number) . " → " . $valToString($request->battery_number);
         }
         if ($existing->telematics_number != $request->telematics_number) {
             $changes[] = 'Telematics Number';
+            $diffs[] = "Telematics Number: " . $valToString($existing->telematics_number) . " → " . $valToString($request->telematics_number);
         }
         if ($existing->motor_number != $request->motor_number) {
             $changes[] = 'Motor Number';
+            $diffs[] = "Motor Number: " . $valToString($existing->motor_number) . " → " . $valToString($request->motor_number);
         }
         
         if ($existing->accountability_type != $request->accountability_type) {
             $changes[] = 'Accountability Type';
+            $oldAcc = optional(EvTblAccountabilityType::find($existing->accountability_type))->name ?? $existing->accountability_type;
+            $newAcc= optional(EvTblAccountabilityType::find($request->accountability_type))->name ?? $request->accountability_type;
+            $diffs[] = "Accountability Type: {$oldAcc} → {$newAcc}";
         }
         
         if ($existing->customer_id != $request->customer_id) {
             $changes[] = 'Customer';
+            $oldCust = optional(CustomerMaster::find($existing->customer_id))->name ?? $existing->customer_id;
+            $newCust = optional(CustomerMaster::find($request->customer_id))->name ?? $request->customer_id;
+            $diffs[] = "Customer: {$oldCust} → {$newCust}";
         }
         
         if ($existing->zone_id != $request->zone_id) {
             $changes[] = 'Zone';
+            $oldZone = optional(Zones::find($existing->zone_id))->name ?? $existing->zone_id;
+            $newZone = optional(Zones::find($request->zone_id))->name ?? $request->zone_id;
+            $diffs[] = "Zone: " . $valToString($oldZone) . " → " . $valToString($newZone);
         }
         
         // if ($existing->datetime != $request->datetime) {
         //     $changes[] = 'Datetime';
         // }
         if ($existing->status != $request->result) {
+            
             $changes[] = 'Status';
+            $diffs[] = "Status: " . $valToString($existing->status) . " → " . $valToString($request->result);
         }
         
         if ($existing->is_recoverable != $request->is_recoverable) {
             $changes[] = 'Is Recoverable';
+            $oldRec = $existing->is_recoverable ? 'Yes':'No';
+            $newRec =$request->is_recoverable ? 'Yes':'No';
+             $diffs[] = "Is Recoverable: " . $oldRec . " → " . $newRec;
         }
             
             
@@ -865,30 +954,75 @@ public function quality_check_list(Request $request)
         
         
         // Decode old checklist safely
+        // --------------------------
+        // Checklist comparison (with label lookups)
+        // --------------------------
+        
+        // Decode old checklist safely (may be JSON string or already array)
         $oldChecklist = json_decode($existing->check_lists ?? '[]', true);
-        if (!is_array($oldChecklist)) {
-            $oldChecklist = [];
-        }
+        if (!is_array($oldChecklist)) $oldChecklist = [];
         
-        // Ensure new checklist is an array
+        // Ensure new checklist is an array (request->qc may be stringified JSON)
         $newChecklist = $request->qc ?? [];
-        if (!is_array($newChecklist)) {
-            $newChecklist = [];
+        if (is_string($newChecklist)) {
+            $decoded = json_decode($newChecklist, true);
+            $newChecklist = is_array($decoded) ? $decoded : [$newChecklist];
+        }
+        if (!is_array($newChecklist)) $newChecklist = [];
+        
+        // Normalize keys to strings (some sources use numeric keys)
+        $oldKeys = array_keys($oldChecklist);
+        $newKeys = array_keys($newChecklist);
+        $allKeys = array_unique(array_merge($oldKeys, $newKeys));
+        
+        // If there are checklist IDs, load labels from QualityCheckMaster
+        $labelMap = [];
+        if (!empty($allKeys)) {
+            // cast keys to ints if your ids are ints in DB
+            $idsToLoad = array_map(function($k){ return (int)$k; }, $allKeys);
+            $labelMap = QualityCheckMaster::whereIn('id', $idsToLoad)
+                        ->pluck('label_name', 'id')
+                        ->toArray();
         }
         
+        // Helper to build labeled checklist array: [ "Seatbelt" => "ok", "Headlight" => "ok" ]
+        $labeledOld = [];
+        foreach ($oldChecklist as $k => $v) {
+            $id = (int)$k;
+            $label = $labelMap[$id] ?? (string)$k; // fallback to id string
+            $labeledOld[$label] = $v;
+        }
         
-        // Compare checklists
-        if ($oldChecklist !== $newChecklist) {
+        $labeledNew = [];
+        foreach ($newChecklist as $k => $v) {
+            $id = (int)$k;
+            $label = $labelMap[$id] ?? (string)$k;
+            $labeledNew[$label] = $v;
+        }
+        
+        // If labeled arrays differ, add to changes/diffs
+        if ($labeledOld !== $labeledNew) {
             $changes[] = 'Checklist';
+        
+            // Build readable inline representation: "Seatbelt: ok, Headlight: ok"
+            $oldParts = [];
+            foreach ($labeledOld as $label => $val) {
+                $value = ucwords(str_replace('_', ' ', $val));
+                $oldParts[] = "{$label}: {$value}";
+            }
+            $newParts = [];
+            foreach ($labeledNew as $label => $val) {
+                $value = ucwords(str_replace('_', ' ', $val));
+                $newParts[] = "{$label}: {$value}";
+            }
+        
+            $oldText = empty($oldParts) ? '[]' : '[' . implode(', ', $oldParts) . ']';
+            $newText = empty($newParts) ? '[]' : '[' . implode(', ', $newParts) . ']';
+        
+            $diffs[] = "Checklist: {$oldText} → {$newText}";
         }
-        
-        
-        
-         
             
             if ($request->hasFile('file')) {
-                
-                $changes[] = 'Image';
                 
                 $existing = QualityCheck::find($id);
                 
@@ -915,7 +1049,9 @@ public function quality_check_list(Request $request)
             
             
             $userRemark = trim($request->remarks ?? '');
-            $changeRemark = $changes ? 'Updated Fields: ' . implode(', ', $changes) : 'No major field updates.';
+            $changeRemark = empty($changes) ? 'No major field updates.' : 'Updated Fields: ' . implode(', ', $changes);
+            $detailedDiffText = empty($diffs) ? '' : implode('; ', $diffs);
+    
             $finalRemark = $userRemark
                 ? "1) $userRemark\n2) $changeRemark"
                 : $changeRemark;
@@ -934,7 +1070,7 @@ public function quality_check_list(Request $request)
                 'updated_at' => now()
             ]);
            
-            
+               
         
                 $updateData = [
                 'vehicle_type'       => $request->vehicle_type ?? '',
@@ -956,10 +1092,11 @@ public function quality_check_list(Request $request)
             ];
                 
                     $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                    $shortDiff = \Str::limit($detailedDiffText ?: $changeRemark, 800); // truncated
                     $qcAuditData = [
                         'module_id'         => 4,
                         'short_description' => 'QC Reinitiated/Updated',
-                        'long_description'  => "QC ({$id}) reinitiated/updated. New status: {$request->result}. {$changeRemark}",
+                        'long_description'  => "QC ({$id}) reinitiated/updated. New status: {$request->result}. Changes: {$shortDiff}",
                         'role'              => $roleName,
                         'user_id'           => Auth::id(),
                         'user_type'         => 'gdc_admin_dashboard',
@@ -975,8 +1112,8 @@ public function quality_check_list(Request $request)
             }
 
             
-            // dd($updateData);
             
+          
              QualityCheck::where('id', $request->qc_id)->update($updateData);
              
 
@@ -997,11 +1134,8 @@ public function quality_check_list(Request $request)
             }
             
             $Acode = 'VH' . $newNumber;
-           
-            
-            
-                
-                
+         
+              
             AssetMasterVehicle::create([
                 'id'=>$Acode ,
                 'qc_id' => $id,
@@ -1023,7 +1157,7 @@ public function quality_check_list(Request $request)
             $assetAudit = [
                 'module_id'         => 4,
                 'short_description' => 'Vehicle Asset Created (QC Pass)',
-                'long_description'  => "Asset ({$Acode}) created from QC ({$id}) after pass.",
+                'long_description'  => "Asset ({$Acode}) created from QC ({$id}),Chassis Number ({$request->chassis_number}) after pass.",
                 'role'              => $roleName,
                 'user_id'           => Auth::id(),
                 'user_type'         => 'gdc_admin_dashboard',
@@ -1035,7 +1169,7 @@ public function quality_check_list(Request $request)
             audit_log_after_commit($assetAudit);
             }
             
-            
+             
 
             
             // return redirect()->route('admin.asset_management.quality_check.list')->with('success', 'Quality check reinitiated successfully.');
@@ -1046,7 +1180,7 @@ public function quality_check_list(Request $request)
 
     } catch (\Exception $e) {
         DB::rollback(); // ❌ Rollback transaction
-        return response()->json(['error' => 'Something went wrong. Please try again.'], 500);
+        return response()->json(['error' => 'Something went wrong. Please try again.','error_message'=>$e->getMessage()], 500);
         // return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
     }
             

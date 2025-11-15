@@ -11,6 +11,8 @@ use Modules\B2B\Entities\B2BServiceRequest;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\B2BAdminServiceRequestExport;
 use Modules\MasterManagement\Entities\RepairTypeMaster;
+use Illuminate\Support\Facades\Auth;
+use Modules\Zones\Entities\Zones;
 use Illuminate\Http\Response;
 use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
 use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
@@ -311,6 +313,105 @@ class B2BServiceController extends Controller
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
+        
+        $formattedFields = [];
+    if (is_array($fields)) {
+        foreach ($fields as $item) {
+            $name = null;
+
+            // plain string
+            if (is_string($item) && trim($item) !== '') {
+                $name = $item;
+            }
+            // associative array like ['name' => 'vehicle_type', 'value' => 'on']
+            elseif (is_array($item)) {
+                if (!empty($item['name']) && is_string($item['name'])) {
+                    $name = $item['name'];
+                } elseif (!empty($item['field']) && is_string($item['field'])) {
+                    $name = $item['field'];
+                } else {
+                    // fallback: take first scalar value
+                    $first = reset($item);
+                    if (is_string($first) && trim($first) !== '') {
+                        $name = $first;
+                    }
+                }
+            }
+
+            if (empty($name) || !is_string($name)) {
+                continue;
+            }
+
+            $clean = str_replace('_', ' ', $name);
+            $clean = ucwords(strtolower($clean));
+
+            // manual friendly mappings
+            $manual = [
+                'Date Time' => 'Date & Time',
+                'Qc Checklist' => 'QC Checklist',
+                'Id' => 'ID',
+            ];
+            if (isset($manual[$clean])) {
+                $clean = $manual[$clean];
+            }
+
+            $formattedFields[] = $clean;
+        }
+    }
+
+    $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+
+    // -----------------------
+    // Resolve friendly names for zone, city, accountability_type, customer
+    // -----------------------
+    $zoneName = $zone ? (optional(Zones::find($zone))->name ?? $zone) : null;
+    $cityName = $city ? (optional(City::find($city))->city_name ?? $city) : null;
+
+    // accountability_type lookup (adjust model name if different)
+    $accountability_name = null;
+    if (!is_null($accountability_type) && $accountability_type !== '') {
+        $accountability_name = optional(EvTblAccountabilityType::find($accountability_type))->name ?? $accountability_type;
+    }
+
+    // customer name lookup (adjust model if your app uses a different model)
+    $customerName = null;
+    if (!is_null($customer_id) && $customer_id !== '') {
+        $customerName = optional(CustomerMaster::find($customer_id))->name ?? $customer_id;
+    }
+
+    // -----------------------
+    // Prepare audit log
+    // -----------------------
+    $fileName = 'service-request-list-' . date('d-m-Y') . '.xlsx';
+    $user = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+
+    $appliedFilters = [];
+    if (!is_null($status) && $status !== '') $appliedFilters[] = 'Status: ' . $status;
+    if (!is_null($from_date) && $from_date !== '') $appliedFilters[] = 'From: ' . $from_date;
+    if (!is_null($to_date) && $to_date !== '') $appliedFilters[] = 'To: ' . $to_date;
+    if (!is_null($zoneName) && $zoneName !== '') $appliedFilters[] = 'Zone: ' . $zoneName;
+    if (!is_null($cityName) && $cityName !== '') $appliedFilters[] = 'City: ' . $cityName;
+    if (!is_null($accountability_name) && $accountability_name !== '') $appliedFilters[] = 'Accountability Type: ' . $accountability_name;
+    if (!is_null($customerName) && $customerName !== '') $appliedFilters[] = 'Customer: ' . $customerName;
+
+    $filtersText = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
+    $selectedIdsText = empty($selectedIds) ? 'ALL' : implode(', ', array_map('strval', $selectedIds));
+
+    $longDesc = "User initiated Service Request export. File: {$fileName}. Selected Fields: {$fieldsText}. Filters: {$filtersText}. Selected IDs: {$selectedIdsText}.";
+
+    audit_log_after_commit([
+        'module_id'         => 5,
+        'short_description' => 'B2B Admin Service Request Export Initiated',
+        'long_description'  => $longDesc,
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'b2b_admin_service_request.export',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
     
         return Excel::download(
             new B2BAdminServiceRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),

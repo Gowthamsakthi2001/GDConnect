@@ -83,10 +83,10 @@
                     <div>
                         <img src="{{asset('admin-assets/icons/custom/deliveryman.jpg')}}" class="img-fluid rounded"><span class="ps-2">List of Rider</span>
                     </div>
-                    <a href="{{ route('admin.Green-Drive-Ev.delivery-man.create') }}" class="btn custom-btn-primary btn-sm">
-                            <i class="fa fa-plus-circle"></i>&nbsp;
-                            Add Rider
-                        </a>
+                    <!--<a href="{{ route('admin.Green-Drive-Ev.delivery-man.create') }}" class="btn custom-btn-primary btn-sm">-->
+                    <!--        <i class="fa fa-plus-circle"></i>&nbsp;-->
+                    <!--        Add Rider-->
+                    <!--    </a>-->
                </div>
             </h2>
         </div>

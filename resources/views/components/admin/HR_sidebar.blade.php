@@ -398,9 +398,9 @@
                         {{ localize('Adhoc') }}
                     </x-slot>
                         @if (module_active('permission') && can('list_of_adhoc'))
-                        <x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.adhocmanagement.create_adhoc') }}">
-                            {{ localize(' Create') }}
-                        </x-admin.nav-link>
+                        <!--<x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.adhocmanagement.create_adhoc') }}">-->
+                        <!--    {{ localize(' Create') }}-->
+                        <!--</x-admin.nav-link>-->
                         @endif
                          @if (module_active('permission') && can('list_of_adhoc'))
                         <x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.adhocmanagement.list_of_adhoc') }}">
@@ -443,9 +443,9 @@
                             </div>
                             {{ localize(' Rider') }}
                         </x-slot>
-                        <x-admin.nav-link href=" {{ route('admin.Green-Drive-Ev.delivery-man.create') }}">
-                            {{ localize(' Create') }}
-                        </x-admin.nav-link>
+                        <!--<x-admin.nav-link href=" {{ route('admin.Green-Drive-Ev.delivery-man.create') }}">-->
+                        <!--    {{ localize(' Create') }}-->
+                        <!--</x-admin.nav-link>-->
                         <x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.delivery-man.list') }}">
                             {{ localize(' List') }}
                         </x-admin.nav-link>
@@ -490,9 +490,9 @@
                             {{ localize('Employee Management') }}
                         </x-slot>
                         @if (module_active('permission') && can('employee_create'))
-                            <x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.employee_management.employee_create') }}">
-                                {{ localize('Create') }}
-                            </x-admin.nav-link>
+                            <!--<x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.employee_management.employee_create') }}">-->
+                            <!--    {{ localize('Create') }}-->
+                            <!--</x-admin.nav-link>-->
                         @endif
                         @if (module_active('permission') && can('employee_list'))
                             <x-admin.nav-link href="{{ route('admin.Green-Drive-Ev.employee_management.employee_list') }}">

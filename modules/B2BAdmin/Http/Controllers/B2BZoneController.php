@@ -12,6 +12,8 @@ use Modules\MasterManagement\Entities\CustomerMaster;
 use App\Exports\B2BAdminZonesExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\City\Entities\City;
+use Modules\Zones\Entities\Zones;
+use Illuminate\Support\Facades\Auth;
 class B2BZoneController extends Controller
 {
     public function zone_list(Request $request)
@@ -256,6 +258,80 @@ class B2BZoneController extends Controller
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
+        
+        $formattedFields = [];
+    if (is_array($fields)) {
+        foreach ($fields as $item) {
+            $name = null;
+
+            // plain string
+            if (is_string($item) && trim($item) !== '') {
+                $name = $item;
+            }
+            // associative array like ['name' => 'zone_name']
+            elseif (is_array($item)) {
+                if (!empty($item['name']) && is_string($item['name'])) {
+                    $name = $item['name'];
+                } elseif (!empty($item['field']) && is_string($item['field'])) {
+                    $name = $item['field'];
+                } else {
+                    $first = reset($item);
+                    if (is_string($first) && trim($first) !== '') {
+                        $name = $first;
+                    }
+                }
+            }
+
+            if (empty($name)) continue;
+
+            // Format snake_case → Title Case
+            $clean = ucwords(str_replace('_', ' ', strtolower($name)));
+
+            // Optional mapping
+            $manual = [
+                'Id' => 'ID',
+            ];
+            if (isset($manual[$clean])) {
+                $clean = $manual[$clean];
+            }
+
+            $formattedFields[] = $clean;
+        }
+    }
+
+    $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+
+    // -----------------------
+    // Resolve City Name (if provided)
+    // -----------------------
+    $cityName = $city ? (optional(City::find($city))->city_name ?? $city) : null;
+
+    // -----------------------
+    // Prepare audit log
+    // -----------------------
+    $fileName = 'zones-list-' . date('d-m-Y') . '.xlsx';
+    $user = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+
+    $filters = [];
+    if (!empty($cityName)) $filters[] = "City: {$cityName}";
+    $filtersText = empty($filters) ? 'No filters applied' : implode('; ', $filters);
+
+    $longDesc = "User initiated B2B Admin Zone export. File: {$fileName}. "
+              . "| Selected Fields: {$fieldsText}. | Filters: {$filtersText}.";
+
+    audit_log_after_commit([
+        'module_id'         => 5,
+        'short_description' => 'B2B Admin Zone Export Initiated',
+        'long_description'  => $longDesc,
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'b2b_admin_zone.export',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
     
         return Excel::download(
             new B2BAdminZonesExport($fields,$city),

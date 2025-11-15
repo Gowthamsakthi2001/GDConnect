@@ -10,7 +10,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Modules\B2B\Http\Controllers\B2BVehicleController; 
 
-class ProcessRiderCreationJob implements ShouldQueue
+class ProcessB2BRiderCreationJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -50,6 +50,8 @@ class ProcessRiderCreationJob implements ShouldQueue
             if ($this->submissionType === 'terms') {
                 $controller->RiderTermsAndCondition_SentEmailNotify($riderData, 'b2b_rider_terms_emailNotify');
             }
+            
+
 
             \Log::info('ProcessRiderCreationJob completed successfully', ['riderId' => $this->riderId]);
         } catch (\Throwable $e) {

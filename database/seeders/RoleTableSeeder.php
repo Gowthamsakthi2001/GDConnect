@@ -186,7 +186,8 @@ class RoleTableSeeder extends Seeder
                 'adhaar_log',
                 'license_log',
                 'bank_detail_log',
-                'pancard_log'
+                'pancard_log',
+                'user_activity_log'
             ],
             'Adhoc Management' => [
                 'adhoc_managment',

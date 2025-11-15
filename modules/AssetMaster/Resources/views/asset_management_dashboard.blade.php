@@ -1465,18 +1465,18 @@ function fetchDocumentTables() {
                     let totalToday = 0;
                     res.document_alerts.forEach(doc => {
                         // Same calculation as Blade (active_validity)
-                        let active_validity = doc.today && res.document_validity_count
-                            ? res.document_validity_count - doc.today
+                        let active_validity = doc.within_1_month && res.document_validity_count
+                            ? res.document_validity_count - doc.within_1_month
                             : res.document_validity_count;
                              
                           totalActiveValidity += Number(active_validity || 0);
-                          totalToday += Number(doc.today || 0);
+                          totalToday += Number(doc.within_1_month || 0);
   
                         validityRows += `
                             <tr>
                                 <td><small>${doc.document_type || ''}</small></td>
                                 <td><small>${active_validity ?? 0}</small></td>
-                                <td><small>${doc.today ?? 0}</small></td>
+                                <td><small>${doc.within_1_month ?? 0}</small></td>
                             </tr>
                         `;
                     });

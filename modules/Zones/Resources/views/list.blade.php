@@ -274,6 +274,74 @@
                 $('#loadingOverlay').hide();
             });
         });
+        
+
+    
+        $(document).on('change', '.toggle-status', function (e) {
+    e.preventDefault();
+
+    const checkbox = $(this);
+    const brandId = checkbox.data('id');
+    const url = checkbox.data('url');
+    const intendedStatus = checkbox.is(':checked') ? 1 : 0;
+    const previousState = !intendedStatus;
+
+    // Revert checkbox until confirmed
+    checkbox.prop('checked', previousState);
+
+    Swal.fire({
+        title: 'Are you sure?',
+        text: `You are about to ${intendedStatus ? 'activate' : 'deactivate'} this zone.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, confirm it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            checkbox.prop('checked', intendedStatus).prop('disabled', true);
+
+            $.ajax({
+                url: url,
+                method: 'POST',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    status: intendedStatus
+                },
+                success: function (response) {
+                    checkbox.prop('disabled', false);
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Updated!',
+                            text: response.message || 'Status updated successfully.',
+                            timer: 1200,
+                            showConfirmButton: false
+                        });
+                        $('#ZoneTable_List').DataTable().ajax.reload(null, false);
+                    } else {
+                        checkbox.prop('checked', previousState);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Failed!',
+                            text: response.message || 'Update failed.'
+                        });
+                    }
+                },
+                error: function () {
+                    checkbox.prop('disabled', false).prop('checked', previousState);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Oops!',
+                        text: 'Server error occurred.'
+                    });
+                }
+            });
+        } else {
+            checkbox.prop('checked', previousState);
+        }
+    });
+});
 
     </script>
     @endsection

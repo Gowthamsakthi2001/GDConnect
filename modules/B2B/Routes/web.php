@@ -41,6 +41,11 @@ Route::prefix('b2b')
         Route::get('/rider/details', [B2BVehicleController::class, 'getRiderDetails'])->name('get_rider_details');
         Route::get('/rider/list', [B2BVehicleController::class, 'rider_list'])->name('rider_list');
         Route::get('/rider/view/{id}', [B2BVehicleController::class, 'rider_view'])->name('rider_view');
+        
+        Route::post('/resend/terms-and-condition', [B2BVehicleController::class, 'resend_mail'])->name('rider.resend_mail');
+        
+        
+        
         Route::get('/riderlist/export', [B2BVehicleController::class, 'rider_export'])->name('rider_export');
         Route::get('/vehicle-list/export', [B2BVehicleController::class, 'export_vehicle_details'])->name('export_vehicle_details');
         Route::get('/settings/app-version-manage', [B2BController::class, 'app_version_manage_view'])->name('settings.app_version_manage');

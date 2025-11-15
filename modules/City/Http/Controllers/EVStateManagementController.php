@@ -9,7 +9,7 @@ use Illuminate\Http\Response;
 use App\Models\EVState;
 use App\Exports\EVStatesExport;
 use Maatwebsite\Excel\Facades\Excel;
-
+use Illuminate\Support\Facades\Auth; 
 
 class EVStateManagementController extends Controller
 {
@@ -96,7 +96,22 @@ class EVStateManagementController extends Controller
                     'state' => $state
                 ]);
             }
-        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $state->status == 1 ? 'Active' : 'Inactive';
+            
+            audit_log_after_commit([
+                'module_id'         => 1, // set proper module ID for State module
+                'short_description' => 'State Created',
+                'long_description'  => "State '{$state->state_name}' created (ID: {$state->id}). Code: {$state->state_code}. Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'state_master.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
             return redirect()->route('admin.Green-Drive-Ev.State.create')
                              ->with('success', 'State created successfully.');
         }
@@ -134,14 +149,36 @@ class EVStateManagementController extends Controller
                 }
                 return back()->with('error', 'Another state with same name or code already exists.');
             }
-        
+            
+            $oldName = $state->state_name;
+            $oldCode = $state->state_code;
+            $oldStatus = (int) $state->status;
             // Save original formatting
             $state->update([
                 'state_name' => $request->state_name,
                 'state_code' => $request->state_code,
                 'status'     => $request->status,
             ]);
-        
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $newStatus = (int) $state->status;
+            $oldStatusText = $oldStatus == 1 ? 'Active' : 'Inactive';
+            $newStatusText = $newStatus == 1 ? 'Active' : 'Inactive';
+            
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'State Updated',
+                'long_description'  => "State updated (ID: {$state->id}). Name: '{$oldName}' → '{$state->state_name}'; Code: '{$oldCode}' → '{$state->state_code}'; Status: {$oldStatusText} → {$newStatusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'state_master.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -158,8 +195,28 @@ class EVStateManagementController extends Controller
         {
             try {
                 $state = EVState::findOrFail($id);
+                $oldStatus = (int) $state->status;
+        
                 $state->status = $status;
                 $state->save();
+        
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $status == 1 ? 'Active' : 'Inactive';
+        
+                audit_log_after_commit([
+                    'module_id'         => 1, // replace with real module id for State
+                    'short_description' => 'State Status Updated',
+                    'long_description'  => "State '{$state->state_name}' (ID: {$state->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'state_master.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
         
                 // Verify the update worked
                 $updatedState = EVState::find($id);
@@ -167,7 +224,7 @@ class EVStateManagementController extends Controller
                 return response()->json([
                     'success' => true, 
                     'message' => 'Status updated successfully',
-                    'new_status' => $updatedState->status // Return the actual status from DB
+                    'new_status' => $oldStatus // Return the actual status from DB
                 ]);
             } catch (\Exception $e) {
                 return response()->json([
@@ -222,6 +279,28 @@ class EVStateManagementController extends Controller
                 
                 $fileName .= '.xlsx';
                 
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            
+                $longDescription = sprintf(
+                    "State Master export initiated. Filters → Status: %s | From: %s | To: %s",
+                    $status ?? '-',
+                    $fromDate ?? '-',
+                    $toDate ?? '-'
+                );
+            
+                audit_log_after_commit([
+                    'module_id'         => 1, // replace with the real module id for State Master
+                    'short_description' => 'State Master Export Triggered',
+                    'long_description'  => $longDescription,
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'state_master.export',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
                 // Return Excel download with filters applied
                 return Excel::download(new EVStatesExport($status, $fromDate, $toDate), $fileName);
             }

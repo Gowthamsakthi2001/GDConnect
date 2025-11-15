@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Modules\Deliveryman\Entities\Deliveryman;
 use Modules\City\Entities\City;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Modules\City\Entities\Area;
@@ -16,12 +17,15 @@ use App\Models\BgvComment;
 use App\Models\BgvDocument;
 use Modules\RiderType\Entities\RiderType;
 use App\Models\HrQuery;
+use App\Models\User;
 use App\Models\BusinessSetting;
 use Spatie\Permission\Models\Role; // Updated by logesh
 use Modules\Zones\Entities\Zones; // Updated by logesh
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Mail\RecoveryAgentChanged;
+use Illuminate\Support\Facades\Mail;
 
 class HRStatusController extends Controller
 {
@@ -854,11 +858,65 @@ class HRStatusController extends Controller
         $agent->team_type = $request->team_type;
         $agent->zone_id = $request->zone_id;
         $agent->save();
+        
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+ 
+        $candidateName = trim($agent->first_name . ' ' . ($agent->last_name ?? ''));
+        $applicationID = $agent->reg_application_id ?? 'N/A';
 
+        
+        // Conditional log messages
+        if (!empty($request->team_type)) {
+            $shortDescription = 'Candidate Assigned to Recovery Team';
+            $longDescription  = "User assigned candidate {$candidateName} (Application ID: {$applicationID}) to the Recovery Team through the HR Management.";
+        } else {
+            $shortDescription = 'Candidate Removed from Recovery Team';
+            $longDescription  = "User removed candidate {$candidateName} (Application ID: {$applicationID}) from the Recovery Team through the HR Management.";
+        }
+        
+        $managerEmails = User::where('role', 24)
+            ->where('city_id', $agent->current_city_id)
+            ->pluck('email')
+            ->toArray();
+        $adminEmails = User::whereIn('role', [1, 13])
+            ->pluck('email')
+            ->toArray();
+        // Store audit log
+        audit_log_after_commit([
+            'module_id'         => 2,
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'recruiters.assign_recovery_team',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent(),
+        ]);
+
+        if (!empty($agent->email)) {
+        $performedByName = optional(Auth::user())->name ?? 'System';
+        $action = !empty($request->team_type) ? 'assigned' : 'removed';
+    
+        try {
+            // Mail::to('gowthamsakthi2520@gmail.com')
+            Mail::to($agent->email)
+                ->cc([$managerEmails]) // optional: cc HR or other recipients
+                ->bcc([$adminEmails])
+                ->queue(new RecoveryAgentChanged($agent, $action, $performedByName, $roleName));
+        } catch (\Exception $e) {
+            // Optionally log mail sending failure — don't fail the whole request
+            \Log::error('AgentTeamChanged mail failed: ' . $e->getMessage());
+        }
+        
         return response()->json([
             'status' => true,
             'message' => 'Team updated successfully.'
         ]);
+    }
     }
     
             public function add_candidate(Request $request)
@@ -884,9 +942,10 @@ class HRStatusController extends Controller
     }
     
     
-            public function store_candidate(Request $request)
+           public function store_candidate(Request $request)
     {
         
+
 
         // Remove spaces from Aadhar number before validation
         $request->merge([
@@ -1119,6 +1178,31 @@ class HRStatusController extends Controller
     
     
             $dm->save();
+            
+            $readableWorkType = match ($dm->work_type) {
+                'in-house' => 'Employee',
+                'deliveryman' => 'Deliveryman',
+                'adhoc' => 'Adhoc',
+                'helper' => 'Helper',
+                default => ucfirst($dm->work_type),
+            };
+                
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+            audit_log_after_commit([
+                'module_id'         => 2,
+                'short_description' => 'New Candidate Created!',
+                'long_description'  => "A new candidate record was created through the HR Management module. The candidate was classified as a {$readableWorkType}, and the Application ID is {$dm->reg_application_id}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'recruiters.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent(),
+            ]);
+
     
             return response()->json([
                 'success' => true,
@@ -1350,9 +1434,65 @@ class HRStatusController extends Controller
                 $dm->reg_application_id = 'GDMAPP' .$riderType. $numberPart ;
             }
                          
+            $originalData = $dm->getOriginal();
+            // $dm->fill($request->all());
 
+
+            $changes = [];
+            $ignoredFields = ['updated_at', 'created_at', 'id'];
+            
+            foreach ($dm->getAttributes() as $field => $newValue) {
+                if (!in_array($field, $ignoredFields)) {
+                    $oldValue = $originalData[$field] ?? null;
+                        
+                    if (in_array($field, ['date_of_birth'])) {
+                        $oldValue = $oldValue ? date('Y-m-d', strtotime($oldValue)) : null;
+                        $newValue = $newValue ? date('Y-m-d', strtotime($newValue)) : null;
+                    }
+        
+        
+                    if ($oldValue != $newValue) {
+                        // Mask sensitive data
+                        if (in_array($field, ['aadhar_number', 'account_number'])) {
+                            $oldValue = $oldValue ? substr($oldValue, 0, 4) . '****' : 'N/A';
+                            $newValue = $newValue ? substr($newValue, 0, 4) . '****' : 'N/A';
+                        }
+            
+                        $oldValue = $oldValue ?? 'N/A';
+                        $newValue = $newValue ?? 'N/A';
+            
+                        $changes[] = ucfirst(str_replace('_', ' ', $field)) . " changed from '{$oldValue}' to '{$newValue}'";
+                    }
+                }
+            }
     
             $dm->save();
+            
+
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            
+
+            
+            $changesDescription = count($changes)
+                ? implode('; ', $changes)
+                : "Candidate details were updated with no significant data changes.";
+            
+          
+            audit_log_after_commit([
+                'module_id'         => 2,
+                'short_description' => 'Candidate Details Updated',
+                'long_description'  => "Candidate record (Application ID: {$dm->reg_application_id}) was updated in the HR Management module. {$changesDescription}",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'recruiters.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent(),
+            ]);
+
+
     
             return response()->json([
                 'success' => true,

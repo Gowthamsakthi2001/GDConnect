@@ -12,8 +12,12 @@ use Modules\Deliveryman\Entities\Deliveryman;
 use Illuminate\Support\Facades\DB;
 use Modules\AssetMaster\Entities\QualityCheck;
 use Modules\AssetMaster\Entities\QualityCheckMaster;
-class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, WithDrawings
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\Exportable;
+
+class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, WithDrawings, WithChunkReading
 {
+    use Exportable;
      protected $status;
      protected $from_date;
      protected $to_date;
@@ -288,5 +292,9 @@ public function drawings()
     return $drawings;
 }
 
+public function chunkSize(): int
+    {
+        return 1000;
+    }
 
 }

@@ -48,7 +48,8 @@ class CustomerMaster extends Model
     ];
     
     protected $casts = [
-      'id'=>'string'    
+      'id'=>'string'    ,
+      'accountability_type_id' => 'array'
     ];
     
     public function constitution_type()

@@ -15,6 +15,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Laravel\Fortify\Rules\Password;//updated by Mugesh.B
 use Modules\MasterManagement\Entities\CustomerLogin; //updated by Mugesh.B
+use Illuminate\Support\Facades\Auth;
 use Modules\City\Entities\City;
 use Illuminate\Support\Facades\Hash;//updated by Mugesh.B
 use Modules\MasterManagement\Entities\HypothecationMaster;
@@ -254,6 +255,8 @@ class CustomerMasterController extends Controller
                 );
                   
             }
+
+            
     
             // Basic info
             $customer->customer_type = $request->customer_type;
@@ -305,7 +308,20 @@ class CustomerMasterController extends Controller
             DB::commit();
             $customer['customer_id'] = $cCode;
             
-            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Customer Created',
+                'long_description'  => "Customer '{$customer->name}' created successfully. ID: {$customer->id}, Phone: {$customer->phone}, Email: {$customer->email}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'customer_master.create',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
             // $this->CustomerSentEmail($customer,'customer_create_notify'); //sent email
     
             return response()->json([
@@ -568,7 +584,7 @@ class CustomerMasterController extends Controller
                 'message' => 'Customer not found.'
             ]);
         }
-        
+        $oldValues = $update_customer_data->getAttributes();
     $rules = [
         'customer_type' => 'required|in:1,2',
         'business_type' => 'required|in:1,2',
@@ -817,7 +833,34 @@ class CustomerMasterController extends Controller
 
     
             DB::commit();
-    
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $newValues = $update_customer_data->getAttributes();
+            // Compare old vs new fields
+            $changes = [];
+            foreach ($newValues as $key => $newVal) {
+                $oldVal = $oldValues[$key] ?? null;
+                if ($oldVal != $newVal) {
+                    $changes[] = "{$key}: '{$oldVal}' → '{$newVal}'";
+                }
+            }
+            $changesText = empty($changes)
+                ? 'No visible changes detected.'
+                : implode('; ', $changes);
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Customer Updated',
+                'long_description'  => "Customer '{$update_customer_data->name}' (ID: {$update_customer_data->id}) updated. Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'customer_master.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Customer updated successfully.'
@@ -922,7 +965,22 @@ class CustomerMasterController extends Controller
         
                 ]);
             }
-           
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 1, // customer-related module id
+                'short_description' => 'Customer Login Created',
+                'long_description'  => "Login ({$CustomerLogin->type}) created for customer '{$customerName}' (Customer ID: {$customerId}). Login email: {$CustomerLogin->email}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'customer_login.create',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         
             return response()->json([
                 'success' => true,
@@ -1560,7 +1618,32 @@ class CustomerMasterController extends Controller
                         $changes[$key] = $value;
                     }
                 }
-            
+                
+                     // ✅ Human-readable column name formatting
+            $formattedChanges = [];
+            foreach ($changes as $key => $value) {
+                // Replace underscores with spaces
+                $label = str_replace('_', ' ', $key);
+                // Remove trailing "_id"
+                if (str_ends_with($label, ' id')) {
+                    $label = str_replace(' id', '', $label);
+                }
+                // Capitalize first letter
+                $label = ucfirst($label);
+        
+                // Format change text
+                if ($key === 'password') {
+                    $formattedChanges[] = "{$label}: Updated";
+                } else {
+                    $oldVal = $originalData[$key] ?? 'N/A';
+                    $formattedChanges[] = "{$label}: {$oldVal} → {$value}";
+                }
+            }
+        
+            $changesText = empty($formattedChanges)
+                ? 'No visible changes detected.'
+                : implode('; ', $formattedChanges);
+                
                 // Prepare customer info
                 $customerName   = $login->customer_relation->name ?? 'N/A';
                 $customerId     = $login->customer_relation->id ?? 'N/A';
@@ -1586,7 +1669,26 @@ class CustomerMasterController extends Controller
                         'customer_company_email'=>$CustomerComEmail
                     ]
                 ];
-                
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            // human friendly changes text
+            $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', array_map(function($k,$v){ return "{$k}: {$v}"; }, array_keys($changes), $changes));
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Customer Login Updated',
+                'long_description'  => "Login for customer '{$customerName}' (Customer ID: {$customerId}) updated. Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'customer_login.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
             if (!empty($data['password']) && $login->status == 1) {
                 $this->CustomerCredencials_SentWhatsAppMessage($customerData,'customer_login_account_password_notify', $accountStatus);
                 $this->CustomerCredencials_SentEmailNotify($customerData,'customer_login_account_password_EmailNotify', $accountStatus);
@@ -1615,6 +1717,8 @@ class CustomerMasterController extends Controller
     
         try {
             $login = CustomerLogin::findOrFail($request->id);
+            $oldStatus = $login->status== 1 ? 'Active' : 'Inactive';
+            $newStatus = $request->status== 1 ? 'Active' : 'Inactive';
             $login->status = $request->status;
             $login->save();
             
@@ -1662,6 +1766,21 @@ class CustomerMasterController extends Controller
                 ]);
             }
             
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Customer Login Status Updated',
+                    'long_description'  => "Login for customer '{$customerName}' (Customer ID: {$customerId}) status changed: '{$oldStatus}' -> '{$newStatus}'.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'customer_login.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
             return response()->json([
                 'success' => true,
                 'message' => 'Status updated successfully'
@@ -1724,11 +1843,29 @@ class CustomerMasterController extends Controller
                 'status' => 'required|boolean', 
             ]);
     
-    
-            $updated = CustomerMaster::where('id', $request->id)
-                ->update(['status' => $request->status]);
-    
+            
+            $updated = CustomerMaster::where('id', $request->id)->first();
+            $oldStatus = $updated->status ? 'Active':'Inactive';
+            $newStatus = $request->status ? 'Active':'Inactive';
+            $updated->update(['status' => $request->status]);
+            
             if ($updated) {
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Customer Status Updated',
+                    'long_description'  => "Customer '{$updated->name}' (ID: {$updated->id}) status changed: '{$oldStatus}' -> '{$newStatus}'.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'customer_master.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                    
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'
@@ -1757,8 +1894,52 @@ class CustomerMasterController extends Controller
         $timeline = $request->timeline;
        $selectedFields = json_decode($request->query('fields'), true);
         
-        
-
+        // Prepare sample of selected IDs for log (first few only)
+        $idsSample = empty($selectedIds)
+            ? 'All Records'
+            : implode(',', array_slice($selectedIds, 0, 5)) . (count($selectedIds) > 5 ? '...' : '');
+        if (is_array($selectedFields) && !empty($selectedFields)) {
+            $flatFields = [];
+            foreach ($selectedFields as $field) {
+                if (is_array($field)) {
+                    $value = $field['field'] ?? reset($field);
+                } else {
+                    $value =$field;
+                }
+                
+                $formatted = ucwords(str_replace('_', ' ', $value));
+                $flatFields[] = $formatted;
+            }
+            $fieldsText = implode(', ', $flatFields);
+        } else {
+            $fieldsText = 'All Default Fields';
+        }
+        // Fetch user and role for log
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        // Build long description
+        $longDescription = sprintf(
+            "Customer Master Export triggered. Filters → Status: %s | From: %s | To: %s | Timeline: %s | Selected IDs: %s | Fields: %s",
+            $status ?? '-',
+            $from_date ?? '-',
+            $to_date ?? '-',
+            $timeline ?? '-',
+            $idsSample,
+            $fieldsText
+        );
+        // ✅ Log after successful commit
+        audit_log_after_commit([
+            'module_id'         => 1,
+            'short_description' => 'Customer Master Export Initiated',
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => $user->id ?? null,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'customer_master.export',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
         
         // return Excel::download(new CustomerMasterExport($status ,$from_date,$to_date , $selectedIds), 'customer-master-export' . date('d-m-Y') . '.xlsx');
          return Excel::download(new MultiSheetExportCustomerMaster($status ,$from_date,$to_date ,$timeline, $selectedIds ,$selectedFields), 'customer-master-export-' . date('d-m-Y') . '.xlsx');

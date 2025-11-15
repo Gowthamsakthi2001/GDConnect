@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\AssetMasterVehicleImport; //updated by Gowtham.s
 use App\Exports\VehicleTransferExport;
+use Modules\Zones\Entities\Zones; 
 
 use Modules\AssetMaster\Entities\AmsLocationMaster; 
 use Modules\AssetMaster\Entities\AssetInsuranceDetails;
@@ -37,7 +38,7 @@ use Modules\VehicleManagement\Entities\VehicleType;
 use Modules\MasterManagement\Entities\CustomerMaster;
 use Modules\MasterManagement\Entities\InventoryLocationMaster;
 use Modules\MasterManagement\Entities\VehicleTransferType;
-
+use Illuminate\Support\Facades\Auth; //updated by logesh
 
 class VehicleTransferController extends Controller
 {
@@ -222,6 +223,67 @@ class VehicleTransferController extends Controller
                     'remarks'=>$remarks
                 ]);
             
+             $formatFieldName = function ($key) {
+            return ucwords(strtolower(str_replace('_', ' ', $key)));
+        };
+
+        // collect provided fields (only those present and not empty)
+        $providedFields = [];
+        $possibleFields = [
+            'transfer_type', 'transfer_date', 'from_location', 'to_location',
+            'customer_id', 'remarks', 'select_chessis_number', 'rider_id'
+        ];
+        foreach ($possibleFields as $f) {
+            if ($request->has($f) && $request->input($f) !== null && $request->input($f) !== '') {
+                $providedFields[] = $formatFieldName($f);
+            }
+        }
+
+        // build filters/details text
+       $transferTypeMap = [
+            1 => 'Internal Transfer',
+            2 => 'Customer Allocation',
+            3 => 'Rider Allocation'
+        ];
+        
+        $transferTypeText = $transferTypeMap[$request->transfer_type] ?? 'Unknown Transfer Type';
+        $fromLocationName = optional(InventoryLocationMaster::find($request->from_location))->name ?? $request->from_location;
+        $toLocationName = optional(InventoryLocationMaster::find($request->to_location))->name ?? $request->to_location;
+        $customerName = $request->transfer_type != 1 ? (optional(CustomerMaster::find($request->customer_id))->name ?? $request->customer_id) : 'N/A';
+        $processedChassisText = !empty($storedChassisnumbers) ? implode(', ', $storedChassisnumbers) : 'NONE';
+        $infoErrorsText = empty($InfoErrors) ? 'None' : implode('; ', array_map(function($k, $v){ return "{$k}: {$v}"; }, array_keys($InfoErrors), $InfoErrors));
+
+        $longDescriptionParts = [
+            "Vehicle transfer created (ID: {$ACode})",
+            "Provided Fields: " . (!empty($providedFields) ? implode(', ', $providedFields) : 'NONE'),
+            "Transfer Type: {$transferTypeText}",
+            "Transfer Date: " . ($request->transfer_date ?? 'N/A'),
+            "From: {$fromLocationName}",
+            "To: {$toLocationName}",
+            "Customer: {$customerName}",
+            "Selected Chassis: {$processedChassisText}",
+            "Info Errors: {$infoErrorsText}"
+        ];
+
+        $longDesc = implode('. ', $longDescriptionParts) . '.';
+
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        audit_log_after_commit([
+            'module_id' => 4,
+            'short_description' => 'Vehicle Transfer Initiated',
+            'long_description' => $longDesc,
+            'role' => $roleName,
+            'user_id' => $user->id ?? null,
+            'user_type' => 'gdc_admin_dashboard',
+            'dashboard_type' => 'web',
+            'page_name' => 'vehicle.transfer.initiate',
+            'ip_address' => $request->ip(),
+            'user_device' => $request->userAgent()
+        ]);
+
+
             DB::commit();
     
             return response()->json([
@@ -252,10 +314,11 @@ class VehicleTransferController extends Controller
             'return_remarks'=>'nullable'
         ];
 
-    
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
         $validator = Validator::make($request->all(), $rules);
     
         if ($validator->fails()) {
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
@@ -392,7 +455,47 @@ class VehicleTransferController extends Controller
             }
             
             DB::commit();
-    
+            
+            $rowsParsed    = count($transfer_details_ids);
+        $returnedCount = count($chassisNumbers);
+        $runningCount  = count($pendingChassis);
+        $sampleReturned = $returnedCount ? implode(', ', array_slice($chassisNumbers, 0, 5)) . ($returnedCount > 5 ? ' …' : '') : '-';
+        $sampleRunning  = $runningCount  ? implode(', ', array_slice($pendingChassis, 0, 5)) . ($runningCount  > 5 ? ' …' : '') : '-';
+        $transferTypeMap = [
+            1 => 'Internal Transfer',
+            2 => 'Customer Allocation',
+            3 => 'Rider Allocation'
+        ];
+        
+        $transferTypeText = $transferTypeMap[$request->transfer_type] ?? 'Unknown Transfer Type';
+        // $transferTypeText = $request->transfer_type;
+        $fromLocationName = optional(InventoryLocationMaster::find($vehicle_transfer->to_location_destination))->name ?? $vehicle_transfer->to_location_destination;
+        $toLocationName = optional(InventoryLocationMaster::find($request->to_location))->name ?? $request->to_location;
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Vehicle Return Transfer Processed',
+            'long_description'  => sprintf(
+                'Transfer ID: %s | Type: %s | Return Date: %s | From: %s | To: %s | Detail Rows: %d | Returned: %d (e.g., %s) | Result: %s',
+                $vehicle_transfer->id,
+                $transferTypeText,
+                $request->return_transfer_date,
+                $fromLocationName,
+                $toLocationName,
+                $rowsParsed,
+                $returnedCount,
+                $sampleReturned,
+                $return_type
+            ),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'vehicle_transfer.return_form',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
+        
             return response()->json([
                 'success' => true,
                 'message' => 'Vehicle Return transfer successfully',
@@ -517,7 +620,28 @@ class VehicleTransferController extends Controller
         if (!empty($warningArr)) {
             $warnings_message = 'The chassis numbers ' . implode(', ', $warningArr) . ' do not exist in inventory, and were not added.';
         }
-                
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
+        $sampleWarnings = empty($warningArr) ? '-' : implode(', ', array_slice($warningArr, 0, 5)) . (count($warningArr) > 5 ? ' …' : '');
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Bulk Transfer Get Details Fetched',
+            'long_description'  => sprintf(
+                'Transfer Type: %s. Parsed rows: %d. Matched: %d. Missing: %d. Missing sample: %s',
+                $request->transfer_type,
+                max(count($rows) - 1, 0),
+                count($results),
+                count($warningArr),
+                $sampleWarnings
+            ),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_transfer.get_bulk_details',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent(),
+        ]);
+        
         return response()->json([
             'success' => true,
             'message' => 'Vehicle Data fetched successfully!',
@@ -808,9 +932,20 @@ class VehicleTransferController extends Controller
         $from_date = $request->from_date ?? '';
         $to_date = $request->to_date ?? '';
         $get_ids = $request->get('get_ids', []);
-        $get_labels = array_filter($request->get('get_export_labels', []), function ($label) {
+        $rawLabels = array_filter($request->get('get_export_labels', []), function ($label) {
             return !is_null($label) && trim($label) !== '';
         });
+        $labels = [];
+    if (is_array($rawLabels)) {
+        foreach ($rawLabels as $val) {
+            if ($val === null) continue;
+            $val = (string) $val;
+            $val = trim($val);
+            if ($val === '') continue;
+            $labels[] = ucwords(str_replace('_', ' ', $val));
+        }
+    }
+    $labelsText = empty($labels) ? 'ALL' : implode(', ', $labels);
         
         $chassis_number = $request->chassis_number ?? '';
 
@@ -825,6 +960,28 @@ class VehicleTransferController extends Controller
             $chassis_number
             
         );
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Vehicle Transfer Export Generated',
+                'long_description'  => sprintf(
+                    'Vehicle Transfer export triggered. Filters -> Status: %s,Timeline: %s, From: %s, To: %s, Selected Fields:( %s ),  Selected IDs: %d',
+                    $status ?: 'all',
+                    $timeline ?: '-',
+                    $from_date ?: '-',
+                    $to_date ?: '-',
+                    $labelsText,
+                    is_array($get_ids) ? count($get_ids) : 0
+                ),
+                'role'              => $roleName ?? '',
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_management.vehicle_transfer.export_detail',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+            
         return Excel::download($export, 'Vehicle_Transfers-'.date('d-m-Y').'.xlsx');
     }
     

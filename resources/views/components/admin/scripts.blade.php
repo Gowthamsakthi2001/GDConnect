@@ -8,6 +8,8 @@
  
   <!-- Select2 cdn added by Gowtham.s-->
  <script src="{{ asset('public/admin-assets/js/select2.min.js') }}"></script>
+  <!-- AOW Animate cdn added by Gowtham.s-->
+ <script src="{{ asset('public/admin-assets/js/aow.js') }}"></script>
  
  <!-- DataTables cdn added by Gowtham.s-->
  <script src="{{ asset('public/admin-assets/js/jquery.dataTables.min.js') }}"></script>

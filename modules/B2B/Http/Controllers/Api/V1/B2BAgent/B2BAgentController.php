@@ -2135,6 +2135,7 @@ public function update_return_request(Request $request)
         $this->AutoSendAssignVehicleWhatsApp($user,$assignment->req_id,$rider->id,$vehicle->id,'agent_vehicle_returned_whatsapp_notify'); // whatsapp 
         $this->AutoSendAssignVehicleEmail($user, $assignment->req_id, $returnRequest->rider_id, $vehicle->id, 'agent_vehicle_return_email_notify');//email 
 
+
         return response()->json([
             'status'  => true,
             'message' => 'Return request updated & closed successfully',

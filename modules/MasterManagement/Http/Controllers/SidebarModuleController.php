@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB; 
+use Illuminate\Support\Facades\Auth; 
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Validation\Rule;
@@ -152,6 +153,22 @@ class SidebarModuleController extends Controller
         $createModel->status = $request->status;
         $createModel->save();
         
+         $rolesSummary = is_array($createModel->view_roles_id)
+        ? implode(',', $createModel->view_roles_id)
+        : (string) $createModel->view_roles_id;
+
+        audit_log_after_commit([
+            'module_id'         => 1, // keep your module_id mapping; change if you have a constant or dynamic value
+            'short_description' => 'Sidebar Module Created',
+            'long_description'  => "Sidebar module '{$createModel->module_name}' created (DB ID: {$createModel->id}). Route: {$createModel->route_name}. Status: {$createModel->status}. Roles: {$rolesSummary}.",
+            'role'              => optional(Auth::user())->role ?? 'admin',
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'sidebar_module.create',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
 
         return response()->json(['success' => true, 'message' => 'Module created successfully']);
     }
@@ -200,6 +217,13 @@ class SidebarModuleController extends Controller
         if(!$updateModel){
             return response()->json(['success' => false, 'message' => 'Module Not Found!']);
         }
+        $old = [
+            'module_name' => $updateModel->module_name,
+            'route_name'  => $updateModel->route_name,
+            'status'      => (string) $updateModel->status,
+            'view_roles'  => is_array($updateModel->view_roles_id) ? $updateModel->view_roles_id : json_decode($updateModel->view_roles_id, true) ?? [],
+            'image'       => $updateModel->image,
+        ];
         if (isset($request->image) && $request->hasFile('image')) {
             $old_file = $updateModel->image;
             $updateModel->image = CustomHandler::uploadFileImage(
@@ -216,6 +240,40 @@ class SidebarModuleController extends Controller
         $updateModel->status = $request->status;
         $updateModel->save();
         
+        $oldRolesSummary = is_array($old['view_roles']) ? implode(',', $old['view_roles']) : (string) $old['view_roles'];
+    $newRolesSummary = is_array($updateModel->view_roles_id) ? implode(',', $updateModel->view_roles_id) : (string) $updateModel->view_roles_id;
+
+    // Determine what changed (simple diff)
+        $changes = [];
+        if ($old['module_name'] !== $updateModel->module_name) {
+            $changes[] = "module_name: '{$old['module_name']}' -> '{$updateModel->module_name}'";
+        }
+        if ($old['route_name'] !== $updateModel->route_name) {
+            $changes[] = "route_name: '{$old['route_name']}' -> '{$updateModel->route_name}'";
+        }
+        if ((string)$old['status'] !== (string)$updateModel->status) {
+            $changes[] = "status: '{$old['status']}' -> '{$updateModel->status}'";
+        }
+        if ($oldRolesSummary !== $newRolesSummary) {
+            $changes[] = "roles: '{$oldRolesSummary}' -> '{$newRolesSummary}'";
+        }
+        if ($old['image'] !== $updateModel->image) {
+            $changes[] = "image: '{$old['image']}' -> '{$updateModel->image}'";
+        }
+
+        $changesText = empty($changes) ? 'No visible changes (values remained the same).' : implode('; ', $changes);
+        audit_log_after_commit([
+            'module_id'         => 1, // change if you want dynamic module mapping
+            'short_description' => 'Sidebar Module Updated',
+            'long_description'  => "Sidebar module (DB ID: {$updateModel->id}) updated. Changes: {$changesText}",
+            'role'              => optional(Auth::user())->role ?? 'admin',
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'sidebar_module.update',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
 
         return response()->json(['success' => true, 'message' => 'Module updated successfully']);
     }

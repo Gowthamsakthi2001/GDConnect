@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\DB;  
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
 use Modules\AssetMaster\Entities\AmsLocationMaster; 
@@ -126,13 +127,30 @@ class LocationMasterController extends Controller
         $from_date = $request->from_date;
         $to_date = $request->to_date;
         
-        
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
+
+        // ✅ Log Export Activity
+        audit_log([
+            'module_id'         => 4,
+            'short_description' => 'Location Master Exported',
+            'long_description'  => 'Location Master Data Export triggered with filters: Status = ' . ($status ?: 'All') .
+                                    ', From Date = ' . ($from_date ?: '-') .
+                                    ', To Date = ' . ($to_date ?: '-'),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'location_master.export_location_master',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
           return Excel::download(new LocationMasterExport($status,$from_date,$to_date), 'location-master-' . date('d-m-Y') . '.xlsx');
        
     }
     
     public function store_location_master(Request $request){
         
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
         $validator = Validator::make($request->all(), [
             'name' => 'required|unique:ev_tbl_location_master,name',
             'city' => 'required',
@@ -140,9 +158,27 @@ class LocationMasterController extends Controller
             'city_code'=>'required' ,
             'hub_name'=>'required|array'
         ]);
-        if ($validator->fails()) {
-            return response()->json([ 'success' => false, 'errors' => $validator->errors(),], 422);
-        }
+            if ($validator->fails()) {
+        
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Location Master Create Failed (Validation)',
+                'long_description'  => 'Validation errors: ' . implode(', ', $validator->errors()->all()),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'location_master.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+        
+        
+        return response()->json([
+            'success' => false,
+            'errors'  => $validator->errors(),
+        ], 422);
+    }
         
         $location = LocationMaster::create($request->only('name', 'city', 'state','city_code'));
         
@@ -156,6 +192,30 @@ class LocationMasterController extends Controller
             ]);
         }
         
+        $hubCount  = count($hubs);
+    $hubSample = $hubCount ? implode(', ', array_slice($hubs, 0, 5)) . ($hubCount > 5 ? ' …' : '') : '-';
+
+    audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => 'Location Master Created',
+        'long_description'  => sprintf(
+            'Location "%s" created (City: %s, State: %s, City Code: %s). Hubs added: %d. Sample: %s',
+            $location->name,
+            $location->city,
+            $location->state,
+            $location->city_code,
+            $hubCount,
+            $hubSample
+        ),
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'location_master.store',
+        'ip_address'        => request()->ip(),
+        'user_device'       => request()->userAgent()
+    ]);
+    
         return response()->json([
             'success' => true,
             'message' => 'Location Master added successfully.'
@@ -171,6 +231,7 @@ class LocationMasterController extends Controller
     
     public function edit_location_master(Request $request)
     {
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
         $validator = Validator::make($request->all(), [
             'name' => 'required|unique:ev_tbl_location_master,name,' . $request->location_id,
             'city' => 'required',
@@ -180,15 +241,41 @@ class LocationMasterController extends Controller
         ]);
     
         if ($validator->fails()) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Location Master Save Failed (Validation)',
+                    'long_description'  => 'Validation errors: ' . implode(', ', $validator->errors()->all()),
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'location_master.edit',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
+    
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
     
         if ($request->location_id) {
             $location = LocationMaster::find($request->location_id);
             if (!$location) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Location Master Save Failed (Not Found)',
+                    'long_description'  => 'Location not found for ID: ' . $request->location_id,
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'location_master.edit',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Location not found.'
@@ -230,6 +317,32 @@ class LocationMasterController extends Controller
         LocationMasterHub::where('location_id', $location->id)
             ->whereNotIn('id', $submittedHubIds)
             ->delete();
+        
+         $hubCount  = count($hubNames);
+    $hubSample = $hubCount ? implode(', ', array_slice($hubNames, 0, 5)) . ($hubCount > 5 ? ' …' : '') : '-';
+    $action    = $request->location_id ? 'Updated' : 'Created';
+
+    audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => "Location Master {$action}",
+        'long_description'  => sprintf(
+            'Location "%s" (City: %s, State: %s, City Code: %s) %s. Hubs: %d. Sample: %s',
+            $location->name,
+            $location->city,
+            $location->state,
+            $location->city_code,
+            strtolower($action),
+            $hubCount,
+            $hubSample
+        ),
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'location_master.edit',
+        'ip_address'        => request()->ip(),
+        'user_device'       => request()->userAgent()
+    ]);
     
         return response()->json([
             'success' => true,
@@ -245,16 +358,46 @@ class LocationMasterController extends Controller
                 'id' => 'required|integer',
                 'status' => 'required'
             ]);
-        
-            $updated = LocationMaster::where('id', $request->id)
-                ->update(['status' => $request->status]);
+            
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
+              
+            $updated = LocationMaster::where('id', $request->id)->first();
+            $locationName = $updated->name;
+            $oldStatus = $updated->status?'Active':'Inactive';
+            $newStatus = $request->status ?'Active':'Inactive';
+            $updated->update(['status' => $request->status]);
         
             if ($updated) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Location Status Updated',
+                    'long_description'  => 'Status of Location "' . $locationName . '" has been changed from ' . $oldStatus . ' to ' . $newStatus . '.',
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'location_master.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'
                 ]);
             } else {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Location Status Update Failed (Not Found)',
+                    'long_description'  => 'Location Master record not found for ID: ' . $request->id,
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'location_master.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
+        
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to update status.'

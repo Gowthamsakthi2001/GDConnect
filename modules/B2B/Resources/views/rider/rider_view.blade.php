@@ -54,11 +54,23 @@
                 KYC Info
             </button>
         </li>
+        
+    @if(!empty($rider->terms_condition) && $rider->terms_condition == 1 && $rider->terms_condition_status != 1)
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="resend-mail-tab" data-bs-toggle="tab" data-bs-target="#resend-mail" type="button" role="tab" aria-controls="resend-mail" aria-selected="false">
+                Resend Mail
+            </button>
+        </li>
+    @endif
     </ul>
 
     <!-- Tab Content -->
     <div class="tab-content" id="riderTabContent">
 
+
+
+            
+            
         <!-- Rider Info Tab -->
         <div class="tab-pane fade show active" id="rider-info" role="tabpanel" aria-labelledby="rider-info-tab">
             <div class="shadow-sm card p-3">
@@ -474,6 +486,42 @@
 
                   </div>
         </div>
+        
+        
+           @if(!empty($rider->terms_condition) && $rider->terms_condition == 1 && $rider->terms_condition_status != 1)
+            <div class="tab-pane fade" id="resend-mail" role="tabpanel" aria-labelledby="resend-mail-tab">
+                <div class="shadow-sm card p-4 text-center">
+                    <h5 class="mb-3">Resend Terms & Conditions Mail</h5>
+                    <p class="text-muted mb-4">
+                        This will resend the Terms & Conditions mail to 
+                        <a href="mailto:{{ $rider->customerLogin->customer_relation->email ?? '' }}" 
+                           style="text-decoration: none; color: #0d6efd; font-weight: 500;">
+                            {{ $rider->customerLogin->customer_relation->email ?? '' }}
+                        </a>.
+                        <br>
+                        <span class="text-danger fw-semibold">
+                            After resending, please contact 
+                            <a href="mailto:{{ $rider->customerLogin->customer_relation->email ?? '' }}" 
+                               style="text-decoration: none; color: inherit; font-weight: 600;">
+                                {{ $rider->customerLogin->customer_relation->email ?? '' }}
+                            </a> 
+                            to confirm they received it.
+                        </span>
+                    </p>
+            
+                    <button class="btn btn-primary px-4"
+                            id="resendMailBtn"
+                            onclick="resendMail('{{ $rider->id }}')">
+                        <i class="bi bi-envelope"></i> Resend Mail
+                    </button>
+            
+                    <div id="resendMailMsg" class="mt-3 text-success fw-bold d-none"></div>
+                </div>
+            </div>
+        @endif
+
+            
+            
     </div>
 </div>
 
@@ -620,5 +668,67 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script>
+function resendMail(riderId) {
+    Swal.fire({
+        title: 'Resend Mail?',
+        text: "This will resend the Terms & Conditions mail to the customer.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, send it!',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            fetch('{{ route("b2b.rider.resend_mail") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ rider_id: riderId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status) {
+                    Swal.fire({
+                        title: 'Mail Sent Successfully!',
+                        text: data.message,
+                        icon: 'success',
+                        position: 'top-end',
+                        toast: true,
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: data.message,
+                        icon: 'error',
+                        position: 'top-end',
+                        toast: true,
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
+            })
+            .catch(err => {
+                Swal.fire({
+                    title: 'Failed',
+                    text: 'Something went wrong!',
+                    icon: 'error',
+                    position: 'top-end',
+                    toast: true,
+                    showConfirmButton: false,
+                    timer: 3000
+                });
+            });
+        }
+    });
+}
+</script>
 
 @endsection

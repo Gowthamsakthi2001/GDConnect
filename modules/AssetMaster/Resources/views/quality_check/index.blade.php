@@ -432,7 +432,7 @@
                             <option value="">All</option>
                             @if(isset($accountablity_types))
                             @foreach($accountablity_types as $type)
-                            <option value="{{$type->id}}" {{ $accountability_type == $type->id ? 'selected' : '' }}>{{$type->name ?? ''}}</option>
+                            <option value="{{$type->id}}" >{{$type->name ?? ''}}</option>
                             @endforeach
                             @endif
                         </select>

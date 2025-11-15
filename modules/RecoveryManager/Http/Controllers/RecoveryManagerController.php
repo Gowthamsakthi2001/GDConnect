@@ -473,18 +473,6 @@ class RecoveryManagerController extends Controller
 
         public function view(Request $request , $id)
     {
-        audit_log([
-            'module_id'         => 12,
-            'short_description' => 'Order status updated',
-            'long_description'  => 'Order ID #8547 changed from Pending to Shipped by admin user.',
-            'role'              => 'admin',
-            'user_id'           => 7,
-            'user_type'         => 'Admin',
-            'dashboard_type'    => 'web',
-            'page_name'         => 'orders.update',
-            'ip_address'        => request()->ip(),
-            'user_device'       => request()->userAgent(),
-        ]);
        $recovery_id = decrypt($id);
        
        $data = B2BRecoveryRequest::with('rider','assignment','recovery_agent')->find($recovery_id);
@@ -502,13 +490,38 @@ class RecoveryManagerController extends Controller
             $zone = $request->input('zone_id')?? null;
             $city = $request->input('city_id')?? null;
             $status = $request->input('status')?? null;
-             $selectedIds = $request->input('selected_ids', []);
+            $selectedIds = $request->input('selected_ids', []);
     
         
             if (empty($fields)) {
                 return back()->with('error', 'Please select at least one field to export.');
             }
-        
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+               $formattedFields = array_map(function($f) {
+                return ucwords(str_replace('_', ' ', $f));
+            }, $fields);
+            
+            $fieldsText = implode(', ', $formattedFields ?: ['ALL']);
+            $zoneName = $zone ? Zones::where('id', $zone)->value('name') : 'N/A';
+            $cityName = $city ? City::where('id', $city)->value('city_name') : 'N/A';
+            $statusText = ucwords($status)??'All';
+            $longDesc = "Requested recovery request export. From: {$from_date}, To: {$to_date}, Fields: {$fieldsText}, Selected IDs: " . (empty($selectedIds) ? 'ALL' : implode(',', $selectedIds)) . ", City: " . ($cityName ?? 'N/A') . ", Zone: " . ($zoneName ?? 'N/A') . ", Status: " . ($statusText ?? 'N/A');
+
+    audit_log_after_commit([
+        'module_id'         => 7,
+        'short_description' => 'B2B Recovery Request Exported',
+        'long_description'  => $longDesc,
+        'role'              => $roleName,
+        'user_id'           => $user->id ?? null,
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'b2b_recovery_request.export',
+        'ip_address'        => request()->ip(),
+        'user_device'       => request()->userAgent()
+    ]);
+    
             return Excel::download(
                 new B2BRecoveryManagerRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status),
                 'recovery-request-list-' . date('d-m-Y') . '.xlsx'
@@ -674,6 +687,24 @@ class RecoveryManagerController extends Controller
         //     $subject = "Reassigned Recovery Request: #{$recovery->assign_id}";
         // }
         
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+        $agentName = $agent ? ($agent->first_name . ' ' . $agent->last_name) : 'N/A';
+        $remarksShort = \Str::limit($request->remarks, 300);
+        audit_log_after_commit([
+            'module_id'         => 7,
+            'short_description' => 'Recovery Agent Assigned',
+            'long_description'  => "Request ID: {$recovery->id}. Agent assigned: {$agentName} (ID: {$request->agent_id}). Remarks: " . ($remarksShort ?: 'N/A'),
+            'role'              => $roleName,
+            'user_id'           => $user->id ?? null,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'b2b_recovery_request.assignAgent',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
     
         // Send the email
         $this->sendDynamicEmailNotify($recipients, $subject, $body, false);
@@ -1024,6 +1055,7 @@ class RecoveryManagerController extends Controller
         if($recovery->status == 'closed'){
             return response()->json(['success' => false, 'message' => 'Request already been closed.']);
         }
+        $oldStatus = $recovery->status;
         $recovery->status = $request->update_status;
         
         if($request->update_status == 'closed' && $request->agent_id){
@@ -1393,7 +1425,38 @@ class RecoveryManagerController extends Controller
         </body>
         </html>';
 
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
 
+        $changeDetails = "Request ID: {$recovery->id}. Status: {$oldStatus} → {$recovery->status}.";
+        if (!empty($request->agent_id)) {
+            $changeDetails .= " Agent ID: {$request->agent_id}.";
+        }
+        if (!empty($request->remarks)) {
+            $shortRemarks = \Str::limit($request->remarks, 300);
+            $changeDetails .= " Remarks: \"{$shortRemarks}\".";
+        }
+
+        // If close caused inventory update, add a note
+        $vehicleID = $recovery->assignment->asset_vehicle_id ?? null;
+        if ($request->update_status == 'closed' && $vehicleID) {
+            $changeDetails .= " Vehicle ID {$vehicleID} marked Recovered - Pending QC and transfer_status updated.";
+        }
+
+        audit_log_after_commit([
+            'module_id'         => 7,
+            'short_description' => 'Recovery Request Status Updated',
+            'long_description'  => $changeDetails,
+            'role'              => $roleName,
+            'user_id'           => $user->id ?? null,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'b2b_recovery_request.updateStatus',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
+        
         $this->AutoSendWhatsAppMessage($recovery,'manager_status_update_whatsapp_notify',$request->update_status);
         if($recovery->is_agent_assigned){
             $this->sendDynamicEmailNotify($agentRecipients, $agentSubject, $agentBody, false);
@@ -1693,6 +1756,21 @@ class RecoveryManagerController extends Controller
     //             'vehicle_handovered' => '#6f42c1'
     //         ];
     // $statusColor = $statusColors[$remark->status] ?? '';
+    
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    $shortComment = \Str::limit($remark->comments, 300);
+    audit_log_after_commit([
+        'module_id'         => 7,
+        'short_description' => 'Recovery Comment Added',
+        'long_description'  => "Comment added for Request ID {$remark->req_id}. Comment: \"{$shortComment}\". Status: " . ($remark->status ?: 'N/A'),
+        'role'              => $roleName,
+        'user_id'           => $user->id ?? null,
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'b2b_recovery_request.addComment',
+        'ip_address'        => request()->ip(),
+        'user_device'       => request()->userAgent()
+    ]);
     return response()->json([
         'success' => true,
         'message' =>"Comments added successfully",
@@ -1731,13 +1809,37 @@ class RecoveryManagerController extends Controller
         $zone = $request->input('zone_id')?? null;
         $city = $request->input('city_id')?? null;
         $status = $request->input('status')?? null;
-         $selectedIds = $request->input('selected_ids', []);
+        $selectedIds = $request->input('selected_ids', []);
 
     
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
-    
+        
+         $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $formattedFields = array_map(function($f) {
+                return ucwords(str_replace('_', ' ', $f));
+            }, $fields);
+            
+            $fieldsText = implode(', ', $formattedFields ?: ['ALL']);
+            $zoneName = $zone ? Zones::where('id', $zone)->value('name') : 'N/A';
+            $cityName = $city ? City::where('id', $city)->value('city_name') : 'N/A';
+            $statusText = ucwords($status)?? 'All';
+            $longDesc = "Requested agent export. From: {$from_date}, To: {$to_date}, Fields: {$fieldsText}, Selected IDs: " . (empty($selectedIds) ? 'ALL' : implode(',', $selectedIds)) . ", City: " . ($cityName ?? 'N/A') . ", Zone: " . ($zoneName ?? 'N/A') . ", Status: " . ($statusText ?? 'N/A');
+        
+            audit_log_after_commit([
+                'module_id'         => 7,
+                'short_description' => 'B2B Recovery Agent Exported',
+                'long_description'  => $longDesc,
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_recovery_agent.export',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         return Excel::download(
             new B2BRecoveryAgentExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status),
             'recovery_agent_list-' . date('d-m-Y') . '.xlsx'

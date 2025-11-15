@@ -54,10 +54,11 @@
                     <div>
                         <img src="{{asset('admin-assets/icons/custom/employees-icon.webp')}}" class="img-fluid rounded"><span class="ps-2">List of Employee</span>
                     </div>
-                    <a href="{{ route('admin.Green-Drive-Ev.employee_management.employee_create') }}" class="btn custom-btn-primary btn-sm">
-                            <i class="fa fa-plus-circle"></i>&nbsp;
-                            Add Employee
-                        </a>
+                    <!--<a href="{{ route('admin.Green-Drive-Ev.employee_management.employee_create') }}" class="btn custom-btn-primary btn-sm">-->
+                    <!--        <i class="fa fa-plus-circle"></i>&nbsp;-->
+                    <!--        Add Employee-->
+                    <!--    </a>-->
+ 
                </div>
             </h2>
         </div>

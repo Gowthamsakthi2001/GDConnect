@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth; //updated by logesh
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\AssetMasterVehicleImport; //updated by Gowtham.s
@@ -646,106 +647,176 @@ class AssetMasterController extends Controller
         }
         
         
-        if (!empty($chart_type) && $chart_type == 'DocumentValidityTable') {
-            $insurance_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-                ->join('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-                ->selectRaw("'Insurance' as document_type")
-                ->selectRaw("SUM(CASE WHEN vh.insurance_expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 MONTH) THEN 1 ELSE 0 END) as within_1_month")
-                ->selectRaw("SUM(CASE WHEN vh.insurance_expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 15 DAY) THEN 1 ELSE 0 END) as within_15_days")
-                ->selectRaw("SUM(CASE WHEN vh.insurance_expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as within_7_days")
-                ->selectRaw("SUM(CASE WHEN vh.insurance_expiry_date = CURDATE() THEN 1 ELSE 0 END) as today")
+         if (!empty($chart_type) && $chart_type == 'DocumentValidityTable') {
+            
+                $startDate = null;
+                $endDate   = null;
+                
+               if (empty($timeline) && empty($from_date) && empty($to_date)) {
+                
+                    $startDate = now()->startOfMonth()->toDateString();
+                    $endDate   = now()->endOfMonth()->toDateString();
+                
+                } elseif ($timeline === 'today') {
+                
+                    $startDate = today()->toDateString();
+                    $endDate   = today()->toDateString();
+                
+                } elseif ($timeline === 'this_week') {
+                
+                    $startDate = now()->startOfWeek()->toDateString();
+                    $endDate   = now()->endOfWeek()->toDateString();
+                
+                } elseif ($timeline === 'this_month') {
+                
+                    $startDate = now()->startOfMonth()->toDateString();
+                    $endDate   = now()->endOfMonth()->toDateString();
+                
+                } elseif ($timeline === 'this_year') {
+                
+                    $startDate = now()->startOfYear()->toDateString();
+                    $endDate   = now()->endOfYear()->toDateString();
+                
+                } elseif (!empty($from_date) && !empty($to_date)) {
+                
+                    $startDate = $from_date;
+                    $endDate   = $to_date;
+                }
+                
+                
+                $insurance_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                    'Insurance' AS document_type,
+                    SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                    SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                    SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                    SUM(CASE WHEN vh.insurance_expiry_date = ? THEN 1 ELSE 0 END) AS today
+                ", [
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.insurance_expiry_date', [$startDate, $endDate])
                 ->where('vh.is_status', 'accepted')
+            
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
-                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
-                ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
-                    $query->whereBetween('vh.insurance_expiry_date', [$from_date, $to_date]);
-                });
-        
-            $fitness_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-                ->join('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-                ->selectRaw("'Fitness Certificate' as document_type")
-                ->selectRaw("SUM(CASE WHEN vh.fc_expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 MONTH) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.fc_expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 15 DAY) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.fc_expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.fc_expiry_date = CURDATE() THEN 1 ELSE 0 END)")
+                ->when($accountability_type_id !== 'all', fn($q) => 
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => 
+                    $q->where('vqc.customer_id', $customer_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => 
+                    $q->where('vh.client', $customer_id)
+                );
+
+            
+                $fitness_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                    'Fitness Certificate' AS document_type,
+                    SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                    SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                    SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                    SUM(CASE WHEN vh.fc_expiry_date = ? THEN 1 ELSE 0 END) AS today
+                ", [
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.fc_expiry_date', [$startDate, $endDate])
                 ->where('vh.is_status', 'accepted')
+            
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
-                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
-                ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
-                    $query->whereBetween('vh.fc_expiry_date', [$from_date, $to_date]);
-                });
-        
+                ->when($accountability_type_id !== 'all', fn($q) => 
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => 
+                    $q->where('vqc.customer_id', $customer_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => 
+                    $q->where('vh.client', $customer_id)
+                );
+    
             $roadTax_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-                ->join('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-                ->selectRaw("'Road Tax' as document_type")
-                ->selectRaw("SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 MONTH) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 15 DAY) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.road_tax_next_renewal_date = CURDATE() THEN 1 ELSE 0 END)")
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                    'Road Tax' AS document_type,
+                    SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                    SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                    SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                    SUM(CASE WHEN vh.road_tax_next_renewal_date = ? THEN 1 ELSE 0 END) AS today
+                ", [
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.road_tax_next_renewal_date', [$startDate, $endDate])
                 ->where('vh.is_status', 'accepted')
+            
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
-                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
-                ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
-                    $query->whereBetween('vh.road_tax_next_renewal_date', [$from_date, $to_date]);
-                });
+                ->when($accountability_type_id !== 'all', fn($q) => 
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => 
+                    $q->where('vqc.customer_id', $customer_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => 
+                    $q->where('vh.client', $customer_id)
+                );
         
-            $leaseAgreement_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-                ->join('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-                ->selectRaw("'Lease Agreement' as document_type")
-                ->selectRaw("SUM(CASE WHEN vh.lease_end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 1 MONTH) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.lease_end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 15 DAY) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.lease_end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END)")
-                ->selectRaw("SUM(CASE WHEN vh.lease_end_date = CURDATE() THEN 1 ELSE 0 END)")
+                
+                $leaseAgreement_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                    'Lease Agreement' AS document_type,
+                    SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                    SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                    SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                    SUM(CASE WHEN vh.lease_end_date = ? THEN 1 ELSE 0 END) AS today
+                ", [
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate, $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.lease_end_date', [$startDate, $endDate])
                 ->where('vh.is_status', 'accepted')
+            
                 ->when($location_id, function ($query, $location_id) {
                     $query->where('vqc.location', $location_id);
                 })
-                ->when($accountability_type_id !== 'all', fn($q) => $q->where('vqc.accountability_type', $accountability_type_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
-                ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
-                    $query->whereBetween('vh.lease_end_date', [$from_date, $to_date]);
-                });
+                ->when($accountability_type_id !== 'all', fn($q) => 
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => 
+                    $q->where('vqc.customer_id', $customer_id)
+                )
+                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => 
+                    $q->where('vh.client', $customer_id)
+                );
         
-            // Final UNION
             $document_alerts = $insurance_sql
                 ->unionAll($fitness_sql)
                 ->unionAll($roadTax_sql)
                 ->unionAll($leaseAgreement_sql)
                 ->get();
         
-            $document_validity = DB::table('ev_tbl_asset_master_vehicles as vh') //document validity
-                ->leftJoin('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
-                ->leftJoin('vehicle_qc_check_lists as qc', 'qc.id', '=', 'vh.qc_id')
-                ->select('qc.location', DB::raw('COUNT(qc.location) as vehicle_count'))
+            $document_validity_count = DB::table('asset_vehicle_inventories as inv')
+                ->join('ev_tbl_asset_master_vehicles as vh', 'vh.id', '=', 'inv.asset_vehicle_id')
                 ->where('vh.is_status', 'accepted')
-                ->when($location_id, function ($query, $location_id) {
-                    $query->where('qc.location', $location_id);
-                })
-                ->when($accountability_type_id !== 'all', fn($q) => $q->where('qc.accountability_type', $accountability_type_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 2, fn($q) => $q->where('qc.customer_id', $customer_id))
-                ->when($customer_id !== 'all' && $accountability_type_id == 1, fn($q) => $q->where('vh.client', $customer_id))
-                ->when($timeline == "custom" && $from_date && $to_date, function ($query) use ($from_date, $to_date) {
-                    $query->whereBetween('vh.created_at', [$from_date, $to_date]);
-                })
-                ->groupBy('qc.location')
-                ->get();
-        
-            $document_validity_count = $document_validity->sum('vehicle_count');
-        
-            // final response
+                ->count();
+
             return response()->json([
                 'document_alerts' => $document_alerts,
                 'document_validity_count' => $document_validity_count
@@ -1260,6 +1331,22 @@ class AssetMasterController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+    $user     = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+    // ✅ Log: create initiated (log this before validation so attempts are recorded)
+        audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => 'Asset Master Create Initiated',
+        'long_description'  => 'User started creating a Vehicle Asset Master record.',
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'asset_master.store',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
         // Define validation rules
         $rules = [
             'name' => 'required|string|max:255',
@@ -1301,6 +1388,19 @@ class AssetMasterController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
+            audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Create Failed (Validation)',
+            'long_description'  => 'Validation failed while creating Vehicle Asset Master.',
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+        
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
@@ -1315,7 +1415,20 @@ class AssetMasterController extends Controller
         
         // Save the model to the database
         $vehicle->save();
-    
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Created',
+            'long_description'  => "New Vehicle Asset Master record created successfully: {$vehicle->name}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+        
          return redirect()->route('admin.Green-Drive-Ev.asset-master.list')->with('success', 'Vehicle Record Added Successfully!');
     }
 
@@ -1345,6 +1458,9 @@ class AssetMasterController extends Controller
      */
     public function update(Request $request, $id): RedirectResponse
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        
         // dd($request->all());
         // exit;
         // Define the validation rules
@@ -1394,8 +1510,10 @@ class AssetMasterController extends Controller
         }
         
         $vehicle = ModalMasterVechile::find($id);
-
+        
+        $oldValues = $vehicle->getAttributes();
         if (!$vehicle) {
+            
             return redirect()->back()->with('error', 'Vehicle not found.');
         }
     
@@ -1404,6 +1522,60 @@ class AssetMasterController extends Controller
     
         // Save the updated vehicle record to the database
         $vehicle->save();
+        
+        $vehicle->refresh();
+        $newValues = $vehicle->getAttributes();
+        $ignore = ['created_at', 'updated_at', 'deleted_at'];
+
+    $changes = [];
+
+    // Compare keys present in oldValues (and newValues) excluding ignored fields
+    $allKeys = array_unique(array_merge(array_keys($oldValues), array_keys($newValues)));
+
+    foreach ($allKeys as $field) {
+        if (in_array($field, $ignore)) {
+            continue;
+        }
+
+        $old = array_key_exists($field, $oldValues) ? $oldValues[$field] : null;
+        $new = array_key_exists($field, $newValues) ? $newValues[$field] : null;
+
+        // Normalize boolean-like values to string '1'/'0' or 'true'/'false' consistently
+        if (is_bool($old)) $old = $old ? '1' : '0';
+        if (is_bool($new)) $new = $new ? '1' : '0';
+
+        // Cast JSON/array to readable string if needed
+        if (is_array($old)) $old = json_encode($old, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (is_array($new)) $new = json_encode($new, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        // Compare as strings to avoid type-strict mismatch
+        if ((string)$old !== (string)$new) {
+            // Human friendly label: vehicle_type -> Vehicle Type
+            $label = ucwords(str_replace('_', ' ', $field));
+
+            $oldText = ($old === null || $old === '') ? 'N/A' : (string)$old;
+            $newText = ($new === null || $new === '') ? 'N/A' : (string)$new;
+
+            $changes[] = "{$label}: {$oldText} → {$newText}";
+        }
+    }
+
+    $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
+
+    // --------- AUDIT LOG ----------
+    audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => 'Asset Master Updated',
+        'long_description'  => "Vehicle Asset Master updated successfully (ID: {$id}). Changes: " . Str::limit($changesText, 1000),
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'asset_master.update',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
+
         return redirect()->route('admin.Green-Drive-Ev.asset-master.list')->with('success', 'Vehicle record updated successfully!');
 
     }
@@ -1414,18 +1586,52 @@ class AssetMasterController extends Controller
     public function delete_ModalMasterVechile($id)
     {
         $ModalMasterVechile = ModalMasterVechile::findOrFail($id);
+        $name = $ModalMasterVechile->name;
         $ModalMasterVechile->delete();
+        
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
 
+        audit_log_after_commit([
+            'module_id'         => 4,  // Use module id for vehicle master module
+            'short_description' => 'Vehicle Model Master Deleted',
+            'long_description'  => 'Vehicle Model Master "' . $name . '" (ID: ' . $id . ') has been removed from the Vehicle Model Master list.',
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'vehicle_model_master.delete',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
+    
         return redirect()->route('admin.Green-Drive-Ev.asset-master.list')->with('success', 'ModalMasterVechile deleted successfully.');
     }
     
     // Change status of a city
     public function change_status($id, $status)
     {
+            $user     = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            $statusText = $status == 1 ? 'Active' : 'Inactive';
+    
         $ModalMasterVechile = ModalMasterVechile::findOrFail($id);
         $ModalMasterVechile->status = $status;
         $ModalMasterVechile->save();
-
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Status Updated',
+            'long_description'  => "Status updated to '{$statusText}' for Vehicle Asset Master (ID: {$id}).",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.change_status',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
+        
         return redirect()->route('admin.Green-Drive-Ev.asset-master.list')->with('success', 'ModalMasterVechile status updated successfully.');
     }
     
@@ -1439,6 +1645,23 @@ class AssetMasterController extends Controller
     }
     public function modal_master_battery_store(Request $request): RedirectResponse
     {
+    
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        // ✅ Log: create initiated
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Battery Model Create Initiated',
+            'long_description'  => 'User started creating a new Battery Model record.',
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'modal_master_battery.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         // Define the validation rules
     $rules = [
         'name' => 'required|string|max:255',
@@ -1472,6 +1695,19 @@ class AssetMasterController extends Controller
 
     // Check if validation fails
     if ($validator->fails()) {
+         audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Battery Model Create Validation Failed',
+            'long_description'  => 'Validation errors: ' . json_encode($validator->errors()->all()),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'modal_master_battery.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
         return redirect()->back()
             ->withErrors($validator)
             ->withInput();
@@ -1482,6 +1718,19 @@ class AssetMasterController extends Controller
     $battery->fill($validator->validated());
     $battery->save();
 
+    audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => 'Battery Model Created',
+        'long_description'  => "New Battery Model '{$battery->name}' has been successfully added.",
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'modal_master_battery.store',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
+
     // Redirect with success message
     return redirect()->route('admin.Green-Drive-Ev.asset-master.modal_master_battery_list')->with('success', 'ModalMasterBattery record added successfully!');
 
@@ -1489,16 +1738,51 @@ class AssetMasterController extends Controller
     
     public function modal_master_battery_change_status($id, $status)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
         $ModelMasterBattery = ModelMasterBattery::findOrFail($id);
         $ModelMasterBattery->status = $status;
         $ModelMasterBattery->save();
+
+        $statusText = $status == 1 ? 'Active' : 'Inactive';
+
+        // ✅ Log: Status Changed
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Battery Model Status Updated',
+            'long_description'  => "Battery Model '{$ModelMasterBattery->name}' (ID: {$ModelMasterBattery->id}) status changed to '{$statusText}'.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'modal_master_battery.change_status',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
 
         return redirect()->route('admin.Green-Drive-Ev.asset-master.modal_master_battery_list')->with('success', 'ModalMasterBattery status updated successfully.');
     }
     public function modal_master_battery_delete($id)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $ModelMasterBattery = ModelMasterBattery::findOrFail($id);
+        $batteryName = $ModelMasterBattery->name;
         $ModelMasterBattery->delete();
+
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Battery Model Deleted',
+            'long_description'  => "Battery Model '{$batteryName}' (ID: {$id}) has been deleted from the system.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'modal_master_battery.delete',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
 
         return redirect()->route('admin.Green-Drive-Ev.asset-master.modal_master_battery_list')->with('success', 'ModalMasterBattery deleted successfully.');
     }
@@ -1511,6 +1795,23 @@ class AssetMasterController extends Controller
     public function modal_master_battery_update(Request $request,$id): RedirectResponse
     {
         // Define the validation rules
+        $user     = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+    // ✅ Log: Update Start
+    audit_log_after_commit([
+        'module_id'         => 4,
+        'short_description' => 'Battery Model Update Initiated',
+        'long_description'  => "User started updating Battery Model ID: {$id}",
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'modal_master_battery.update',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
+
     $rules = [
         'name' => 'required|string|max:255',
         'manufacturer_name' => 'required|string|max:255',
@@ -1543,6 +1844,18 @@ class AssetMasterController extends Controller
 
     // Check if validation fails
     if ($validator->fails()) {
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Battery Model Update Validation Failed',
+            'long_description'  => 'Validation Errors: ' . json_encode($validator->errors()->all()),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'modal_master_battery.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         return redirect()->back()
             ->withErrors($validator)
             ->withInput();
@@ -1559,6 +1872,20 @@ class AssetMasterController extends Controller
     
         // Save the updated vehicle record to the database
         $battery->save();
+
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Battery Model Updated',
+            'long_description'  => "Battery Model '{$battery->name}' (ID: {$battery->id}) has been updated successfully.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'modal_master_battery.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
 
     // Redirect with success message
     return redirect()->route('admin.Green-Drive-Ev.asset-master.modal_master_battery_list')->with('success', 'ModalMasterBattery record added successfully!');
@@ -1577,6 +1904,22 @@ class AssetMasterController extends Controller
     
     public function model_master_charger_store(Request $request): RedirectResponse
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        // ✅ Log: create initiated
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Create Initiated',
+            'long_description'  => 'User started creating a new Charger Model record.',
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         // Define the validation rules
         $rules = [
             'name' => 'required|string|max:255',
@@ -1596,6 +1939,18 @@ class AssetMasterController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Charger Model Create Validation Failed',
+                'long_description'  => 'Validation errors: ' . json_encode($validator->errors()->all()),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'model_master_charger.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
@@ -1605,14 +1960,44 @@ class AssetMasterController extends Controller
         $charger = new ModelMasterCharger();
         $charger->fill($validator->validated());
         $charger->save();
-    
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Created',
+            'long_description'  => "New Charger Model '{$charger->name}' has been successfully added.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
+
         // Redirect with success message
         return redirect()->route('admin.Green-Drive-Ev.asset-master.model_master_charger_list')
             ->with('success', 'ModalMasterCharger record added successfully!');
     }
     
     public function model_master_charger_update(Request $request, $id): RedirectResponse
-    {
+    {   
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        // ✅ Log: Update initiated
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Update Initiated',
+            'long_description'  => "User started updating Charger Model (ID: {$id}).",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         // Define the validation rules
         $rules = [
             'name' => 'required|string|max:255',
@@ -1632,6 +2017,18 @@ class AssetMasterController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
+            audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Update Failed (Validation)',
+            'long_description'  => 'Validation Errors: ' . json_encode($validator->errors()->all()),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
@@ -1642,30 +2039,84 @@ class AssetMasterController extends Controller
     
         // If the charger record doesn't exist, redirect with an error message
         if (!$charger) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Charger Model Update Failed (Not Found)',
+                'long_description'  => "Charger Model (ID: {$id}) not found.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'model_master_charger.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->route('admin.Green-Drive-Ev.asset-master.model_master_charger_list')
                 ->with('error', 'Charger record not found.');
         }
     
         // Update the charger record with validated data
         $charger->update($validator->validated());
-    
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Updated Successfully',
+            'long_description'  => "Charger Model '{$charger->name}' (ID: {$charger->id}) has been successfully updated.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         // Redirect with success message
         return redirect()->route('admin.Green-Drive-Ev.asset-master.model_master_charger_list')
             ->with('success', 'ModalMasterCharger record updated successfully!');
     }
     
     public function model_master_charger_change_status(Request $request, $id,$status): RedirectResponse{
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $ModalMasterVechile = ModelMasterCharger::findOrFail($id);
         $ModalMasterVechile->status = $status;
         $ModalMasterVechile->save();
+        $statusText = $status == 1 ? 'Active' : 'Inactive';
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Status Updated Successfully',
+            'long_description'  => "Charger Model '{$ModalMasterVechile->name}' (ID: {$id}) status changed to '{$statusText}'.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.change_status',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         return redirect()->route('admin.Green-Drive-Ev.asset-master.model_master_charger_list')
             ->with('success', 'ModalMasterCharger status changed successfully!');
     }
     
     public function model_master_charger_delete($id)
-    {
+    {   
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $ModelMasterBattery = ModelMasterCharger::findOrFail($id);
+        $chargerName =$ModelMasterBattery->name;
         $ModelMasterBattery->delete();
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Charger Model Deleted Successfully',
+            'long_description'  => "Charger Model '{$chargerName}' (ID: {$id}) has been deleted.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'model_master_charger.delete',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
 
         return redirect()->route('admin.Green-Drive-Ev.asset-master.model_master_charger_list')->with('success', 'ModalMasterCharger deleted successfully.');
     }
@@ -1687,6 +2138,8 @@ class AssetMasterController extends Controller
     }
     public function manufacturer_master_store(Request $request): RedirectResponse
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         // Define the validation rules
         $rules = [
             'manufacturer_name' => 'required|string|max:255',
@@ -1706,15 +2159,40 @@ class AssetMasterController extends Controller
         
             // Check if validation fails
             if ($validator->fails()) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Manufacturer Create Validation Failed',
+                    'long_description'  => 'Validation errors: ' . json_encode($validator->errors()->all()),
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'manufacturer_master.store',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
                 return redirect()->back()
                     ->withErrors($validator)
                     ->withInput();
             }
         
             // Insert the validated data into the database
-            $charger = new ManufacturerMaster();
-            $charger->fill($validator->validated());
-            $charger->save();
+            $manufacturer = new ManufacturerMaster();
+            $manufacturer->fill($validator->validated());
+            $manufacturer->save();
+
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Manufacturer Created',
+                'long_description'  => "Manufacturer '{$manufacturer->manufacturer_name}' (ID: {$manufacturer->id}) created successfully.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'manufacturer_master.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
         // Redirect with success message
         return redirect()->route('admin.Green-Drive-Ev.asset-master.manufacturer_master_list')
             ->with('success', 'Manufacturer record added successfully!');
@@ -1722,17 +2200,49 @@ class AssetMasterController extends Controller
 
      public function manufacturer_master_delete($id)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $ManufacturerMaster = ManufacturerMaster::findOrFail($id);
+        $name = $ManufacturerMaster->manufacturer_name;
         $ManufacturerMaster->delete();
-
+      
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Manufacturer Deleted',
+            'long_description'  => "Manufacturer '{$name}' (ID: {$id}) deleted successfully.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'manufacturer_master.delete',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         return redirect()->route('admin.Green-Drive-Ev.asset-master.manufacturer_master_list')->with('success', 'ManufacturerMaster deleted successfully.');
     }
     
     public function manufacturer_master_change_status($id, $status)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
         $ManufacturerMaster = ManufacturerMaster::findOrFail($id);
         $ManufacturerMaster->status = $status;
         $ManufacturerMaster->save();
+        
+        $statusText = $status == 1 ? 'Active' : 'Inactive';
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Manufacturer Status Changed',
+            'long_description'  => "Manufacturer '{$ManufacturerMaster->manufacturer_name}' status changed to {$statusText}.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'manufacturer_master.change_status',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
 
        return redirect()->route('admin.Green-Drive-Ev.asset-master.manufacturer_master_list')->with('success', 'ManufacturerMaster Status Changed successfully.');
     }
@@ -1745,6 +2255,8 @@ class AssetMasterController extends Controller
     
     public function manufacturer_master_update(Request $request, $id): RedirectResponse
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         // Define the validation rules
         $rules = [
             'manufacturer_name' => 'required|string|max:255',
@@ -1764,6 +2276,18 @@ class AssetMasterController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Manufacturer Update Validation Failed',
+                'long_description'  => 'Validation errors: ' . json_encode($validator->errors()->all()),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'manufacturer_master.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
@@ -1774,13 +2298,38 @@ class AssetMasterController extends Controller
     
         // If the ManufacturerMaster record doesn't exist, redirect with an error message
         if (!$ManufacturerMaster) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Manufacturer Update Failed',
+                'long_description'  => "Manufacturer ID {$id} not found for update.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'manufacturer_master.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->route('admin.Green-Drive-Ev.asset-master.manufacturer_master_list')
                 ->with('error', 'Manufacturer record not found.');
         }
     
         // Update the ManufacturerMaster record with validated data
         $ManufacturerMaster->update($validator->validated());
-    
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Manufacturer Updated',
+            'long_description'  => "Manufacturer '{$ManufacturerMaster->manufacturer_name}' (ID: {$id}) updated successfully.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'manufacturer_master.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
         // Redirect with success message
         return redirect()->route('admin.Green-Drive-Ev.asset-master.manufacturer_master_list')
             ->with('success', 'Manufacturer record updated successfully!');
@@ -1794,6 +2343,8 @@ class AssetMasterController extends Controller
     
     public function po_table_store(Request $request){
          // Define validation rules
+         $user     = Auth::user();
+         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $rules = [
             'AMS_Location'   => 'required|string|max:255',
             'PO_Number'      => 'required|string|max:255',
@@ -1812,14 +2363,38 @@ class AssetMasterController extends Controller
         $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'PO Creation Failed - Validation Error',
+                'long_description'  => 'Validation failed while adding PO: ' . json_encode($validator->errors()->toArray()),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'po_table.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
         }
 
         // Insert data into the database
-        PoTable::create($request->all());
+        $po = PoTable::create($request->all());
 
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Purchase Order Created',
+            'long_description'  => "PO Number: {$po->PO_Number}, Supplier: {$po->Supplier_Name}, Quantity: {$po->Quantity}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'po_table.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         return redirect()->route('admin.Green-Drive-Ev.asset-master.po_table_list')
             ->with('success', 'po_table record Added successfully!');
     }
@@ -1831,18 +2406,51 @@ class AssetMasterController extends Controller
     
     public function po_table_delete($id)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $PoTable = PoTable::findOrFail($id);
+        $meta = "PO_Number: {$PoTable->PO_Number}, Supplier: {$PoTable->Supplier_Name}, Quantity: {$PoTable->Quantity}";
         $PoTable->delete();
+
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'PO Record Deleted',
+            'long_description'  => "The following Purchase Order was deleted → {$meta}.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'po_table.delete',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
 
         return redirect()->route('admin.Green-Drive-Ev.asset-master.po_table_list')->with('success', 'PoTable deleted successfully.');
     }
     
     public function po_table_change_status($id, $status)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $PoTable = PoTable::findOrFail($id);
         $PoTable->status = $status;
         $PoTable->save();
 
+        $statusText = $status == 1 ? 'Active' : 'Inactive';
+
+        $meta = "PO_Number: {$PoTable->PO_Number}, Supplier: {$PoTable->Supplier_Name}, Quantity: {$PoTable->Quantity}, New Status: {$statusText}";
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'PO Status Updated',
+            'long_description'  => "Purchase Order status updated → {$meta}.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'po_table.change_status',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
        return redirect()->route('admin.Green-Drive-Ev.asset-master.po_table_list')->with('success', 'PoTable Status Changed successfully.');
     }
     
@@ -1854,6 +2462,8 @@ class AssetMasterController extends Controller
     
     public function po_table_update(Request $request, $id): RedirectResponse
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         $rules = [
             'AMS_Location'   => 'required|string|max:255',
             'PO_Number'      => 'required|string|max:255',
@@ -1872,6 +2482,18 @@ class AssetMasterController extends Controller
         $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'PO Update Failed - Validation Error',
+                'long_description'  => "PO update validation failed for ID {$id}. Errors: " . json_encode($validator->errors()->toArray()),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'po_table.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
@@ -1882,13 +2504,52 @@ class AssetMasterController extends Controller
     
         // If the ManufacturerMaster record doesn't exist, redirect with an error message
         if (!$PoTable) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'PO Update Failed - Not Found',
+                'long_description'  => "PO record not found for update (ID: {$id}).",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'po_table.update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->route('admin.Green-Drive-Ev.asset-master.po_table_list')
                 ->with('error', 'po table record not found.');
         }
     
         // Update the ManufacturerMaster record with validated data
         $PoTable->update($validator->validated());
-    
+        
+        $changes = [];
+        foreach ($dirty as $field => $newVal) {
+            $oldVal = $old[$field] ?? null;
+
+            // stringify with small truncation
+            $sv = fn($v) => is_scalar($v) ? (string)$v : json_encode($v);
+            $t  = fn($s) => mb_strimwidth($s ?? '', 0, 120, '…');
+
+            $changes[] = "{$field}: '" . $t($sv($oldVal)) . "' => '" . $t($sv($newVal)) . "'";
+        }
+
+        $changeText = empty($changes) ? 'No fields changed.' : ('Updated Fields -> ' . implode('; ', $changes));
+        $meta = "PO_Number: {$po->PO_Number}, Supplier: {$po->Supplier_Name}, Quantity: {$po->Quantity}";
+
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'PO Updated',
+            'long_description'  => "{$meta}. {$changeText}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'po_table.update',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
         // Redirect with success message
         return redirect()->route('admin.Green-Drive-Ev.asset-master.po_table_list')
             ->with('success', 'po table record updated successfully!');
@@ -1921,6 +2582,8 @@ class AssetMasterController extends Controller
 
     public function ams_location_master_store(Request $request)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         // Define the validation rules
         $rules = [
             'Name' => 'required|string|max:255',
@@ -1936,14 +2599,38 @@ class AssetMasterController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'AMS Location Create Failed',
+                'long_description'  => 'Validation failed while creating AMS location. Errors: ' . json_encode($validator->errors()->all()),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'ams_location_master.store',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
         }
     
         // Create a new AmsLocationMaster record with the validated data
-        AmsLocationMaster::create($validator->validated());
-    
+        $location = AmsLocationMaster::create($validator->validated());
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'AMS Location Created',
+            'long_description'  => "New AMS location added: {$location->Name}, City/State: {$location->State}, {$location->Country}.",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'ams_location_master.store',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         // Redirect back or to a specific route with a success message
         return redirect()->route('admin.Green-Drive-Ev.asset-master.ams_location_master_list')->with('success', 'Location added successfully!');
     }
@@ -2925,7 +3612,7 @@ public function asset_master_list(Request $request)
                 $length = $totalRecords; // Return all records
             }
             
-            // dd($query->toSql(),$query->getBindings());
+            dd($query->toSql(),$query->getBindings());
 
             // Apply pagination and ordering
             $data = $query->orderBy('id', 'desc')
@@ -2941,12 +3628,13 @@ public function asset_master_list(Request $request)
                     : route('admin.asset_management.asset_master.view_asset_master', ['id' => $id_encode]);
                 
                 $statusBadge = $this->getStatusBadge($item->is_status);
+                
                 $lastQCDate = $item->quality_check->updated_at 
                     ? $item->quality_check->updated_at->format('d M Y') 
                     : 'N/A';
                 $lastQCTime = $item->quality_check->updated_at 
                     ? $item->quality_check->updated_at->format('h:i:s A') 
-                    : '';
+                    : 'N/A';
 
                 return [
                     'checkbox' => '<div class="form-check"><input class="form-check-input sr_checkbox" style="width:25px; height:25px;" name="is_select[]" type="checkbox" value="'.$item->id.'"></div>',
@@ -3044,7 +3732,8 @@ public function asset_master_list(Request $request)
     
         
     public function add_vehicle(Request $request){
-       
+        
+        
         $vehicle_types = VehicleType::where('is_active', 1)->get();
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         
@@ -3072,6 +3761,8 @@ public function asset_master_list(Request $request)
     public function store_vehicle(Request $request)
     {
         
+            $user     = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
     
         $validator = Validator::make($request->all(), [
         'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number',
@@ -3161,6 +3852,20 @@ public function asset_master_list(Request $request)
     ]);
 
     if ($validator->fails()) {
+        $errorsText = implode(', ', $validator->errors()->all());
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Upload Failed (Validation)',
+            'long_description'  => "Validation errors: {$errorsText}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.store_vehicle',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
         return response()->json([
             'success' => false,
             'message' => 'Validation failed.',
@@ -3175,6 +3880,18 @@ public function asset_master_list(Request $request)
                 ->first();
 
             if ($exist_vehicle_update) {
+                     audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Asset Master Upload Blocked (Already Uploaded)',
+                    'long_description'  => "Vehicle Asset already uploaded for chassis: {$request->chassis_number}.",
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_master.store_vehicle',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Vehicle Asset already Uploaded',
@@ -3183,7 +3900,26 @@ public function asset_master_list(Request $request)
             $vehicle_update = AssetMasterVehicle::where('id', $request->chassis_number)
                 ->where('is_status', 'pending')
                 ->first();
-                
+            
+            if (!$vehicle_update) {
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Upload Failed (Pending Not Found)',
+                'long_description'  => "Pending Asset Master record not found for chassis: {$request->chassis_number}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.store_vehicle',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Pending vehicle record not found.',
+            ], 404);
+        }   
                 
             $oldValues = $vehicle_update->getOriginal(); 
     
@@ -3192,6 +3928,18 @@ public function asset_master_list(Request $request)
                 ->first();
 
             if (!$QC_PassData) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Asset Master Upload Failed (QC Not Eligible)',
+                    'long_description'  => "QC pass not found for chassis: {$vehicle_update->chassis_number}.",
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_master.store_vehicle',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Quality check this Vehicle Failed Status. Vehicle not eligible.',
@@ -3338,6 +4086,7 @@ public function asset_master_list(Request $request)
             
             
             $vehicle_update->save();
+             
             
             $quality_check = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
                 ->where('status', 'pass')
@@ -3359,7 +4108,18 @@ public function asset_master_list(Request $request)
             
 
             DB::commit();
-    
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Upload Completed',
+                'long_description'  => "Asset Master uploaded successfully for chassis: {$vehicle_update->chassis_number}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.store_vehicle',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
             return response()->json([
                 'success' => true,
                 'message' => 'The Asset Master Vehicle Uploaded Successfully!',
@@ -3368,7 +4128,20 @@ public function asset_master_list(Request $request)
     
         } catch (\Exception $e) {
             DB::rollBack();
-    
+            
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Upload Failed (Exception)',
+            'long_description'  => 'Error: ' . substr($e->getMessage(), 0, 1000),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.store_vehicle',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+        
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong! ' . $e->getMessage(),
@@ -3384,6 +4157,23 @@ public function asset_master_list(Request $request)
     public function update_data(Request $request)
     {
         
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+        // ✅ Log: Update Initiated
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Update Initiated',
+            'long_description'  => "User started updating Asset Master Vehicle (ID: {$request->id}).",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.update_data',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+    
         $validator = Validator::make($request->all(), [
        'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number,' . $request->id,
         'vehicle_category' => 'nullable|string',
@@ -3472,6 +4262,21 @@ public function asset_master_list(Request $request)
     ]);
 
     if ($validator->fails()) {
+        $errorsText = implode(', ', $validator->errors()->all());
+
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Update Failed (Validation)',
+            'long_description'  => "Validation errors for ID {$request->id}: {$errorsText}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.update_data',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+        
         return response()->json([
             'success' => false,
             'message' => 'Validation failed.',
@@ -3486,6 +4291,18 @@ public function asset_master_list(Request $request)
                 ->first();
 
             if ($exist_vehicle_update) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Asset Master Update Blocked (Already Uploaded)',
+                    'long_description'  => "Record already uploaded for ID: {$request->id}.",
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_master.update_data',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Vehicle Asset already Uploaded',
@@ -3494,7 +4311,27 @@ public function asset_master_list(Request $request)
             $vehicle_update = AssetMasterVehicle::where('id', $request->id)
                 ->where('is_status', 'pending')
                 ->first();
-                
+            
+            if (!$vehicle_update) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Asset Master Update Failed (Pending Not Found)',
+                    'long_description'  => "Pending record not found for ID: {$request->id}.",
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_master.update_data',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
+    
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Pending vehicle record not found.',
+                ], 404);
+            }
+        
              $oldValues = $vehicle_update->getOriginal(); 
     
             $QC_PassData = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
@@ -3502,6 +4339,18 @@ public function asset_master_list(Request $request)
                 ->first();
 
             if (!$QC_PassData) {
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Asset Master Update Failed (QC Not Eligible)',
+                    'long_description'  => "QC pass not found for chassis: {$vehicle_update->chassis_number}.",
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_master.update_data',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Quality check this Vehicle Failed Status. Vehicle not eligible.',
@@ -3668,7 +4517,20 @@ public function asset_master_list(Request $request)
     
 
             DB::commit();
-    
+            
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Update Completed',
+                'long_description'  => "Asset Master updated successfully for chassis: {$vehicle_update->chassis_number} (ID: {$request->id}).",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.update_data',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+        
             return response()->json([
                 'success' => true,
                 'message' => 'The Asset Master Vehicle Updated Successfully!',
@@ -3677,7 +4539,20 @@ public function asset_master_list(Request $request)
     
         } catch (\Exception $e) {
             DB::rollBack();
-    
+            
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Update Failed (Exception)',
+                'long_description'  => 'Error: ' . substr($e->getMessage(), 0, 1000),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.update_data',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+        
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong! ' . $e->getMessage(),
@@ -3915,11 +4790,41 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     public function vehicle_bulk_upload_form_import(Request $request)
     {
      
-     
+         $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+    
+        // ✅ Initiated
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Vehicle Bulk Import Initiated',
+            'long_description'  => 'Asset Master Vehicles bulk upload form import has been initiated.',
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.vehicle_bulk_upload_form_import',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+    
         if ($request->hasFile('asset_vehicle_excel_file')) {
             $ext = strtolower($request->file('asset_vehicle_excel_file')->getClientOriginalExtension());
         
             if (!in_array($ext, ['xlsx', 'xls'])) {
+                
+                audit_log_after_commit([
+                    'module_id'         => 4,
+                    'short_description' => 'Vehicle Bulk Import Failed (Validation)',
+                    'long_description'  => 'Invalid file type for bulk import. Only xlsx/xls allowed.',
+                    'role'              => $roleName,
+                    'user_id'           => Auth::id(),
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'asset_master.vehicle_bulk_upload_form_import',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed.',
@@ -4800,6 +5705,57 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
         }
         
     
+        // Build summary for audit log
+        $importedCount   = isset($updatedChassisNumbers) ? count($updatedChassisNumbers) : 0;
+        $skippedCount    = isset($skippedCount) ? (int)$skippedCount : 0;
+        $errorCount      = isset($errorRows) ? count($errorRows) : 0;
+        
+        // Show up to 10 chassis numbers in preview
+        $chassisPreview  = $importedCount
+            ? implode(', ', array_slice($updatedChassisNumbers, 0, 10)) . ($importedCount > 10 ? ' …' : '')
+            : '-';
+        
+        // Show up to 5 error rows in preview
+        if (!empty($errorRows)) {
+            $errorPreviewList = array_slice($errorRows, 0, 5);
+            $errorPreview = implode(' | ', array_map(function ($err) {
+                $fields = is_array($err['fields'] ?? null) ? implode(', ', $err['fields']) : ($err['fields'] ?? '-');
+                $ch = $err['chassis_number'] ?? 'N/A';
+                $row = $err['row'] ?? '?';
+                return "Row {$row} ({$ch}): {$fields}";
+            }, $errorPreviewList));
+        } else {
+            $errorPreview = '-';
+        }
+        
+        // Compose long description (trim to keep logs tidy)
+        $longDescription = sprintf(
+            "Asset Master Vehicles bulk upload completed. Imported: %d, Skipped: %d, Errors: %d. " .
+            "Chassis (sample): %s. Error details (sample): %s",
+            $importedCount,
+            $skippedCount,
+            $errorCount,
+            $chassisPreview,
+            $errorPreview
+        );
+        
+        // (Optional) guard against extremely long logs
+        $longDescription = mb_strimwidth($longDescription, 0, 1000, '…');
+        
+        // Final audit call
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Vehicle Bulk Import Completed',
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.vehicle_bulk_upload_form_import',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+
         
         return response()->json([
         'success' => true,
@@ -4813,7 +5769,20 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
     } catch (\Exception $e) {
         Log::error('Bulk upload error: ' . $e->getMessage());
-    
+        
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Vehicle Bulk Import Failed (Exception)',
+            'long_description'  => 'Error during bulk import: ' . substr($e->getMessage(), 0, 1000),
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.vehicle_bulk_upload_form_import',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+        
         return response()->json([
             'success' => false,
             'message' => 'Something went wrong: ' . $e->getMessage()
@@ -5589,6 +6558,11 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
      public function reupdate_vehicle_data(Request $request)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+        // ✅ Log: Re-update Initiated
+    
         $vehicle_update = AssetMasterVehicle::where('id', $request->id)->first();
 
         if (!$vehicle_update) {
@@ -5598,7 +6572,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             ]);
         }
 
-
+        $oldValues = $vehicle_update->toArray();
 
 
         
@@ -5688,6 +6662,8 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
 
 
     if ($validator->fails()) {
+        $errorsText = implode(', ', $validator->errors()->all());
+        
         return response()->json([
             'success' => false,
             'message' => 'Validation failed.',
@@ -5955,7 +6931,44 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             }
     
             DB::commit();
-    
+            $changes = [];
+            $ignoreFields = ['created_at', 'updated_at'];
+            foreach ($oldValues as $field => $oldValue) {
+            
+                // Skip ignored fields automatically
+                if (in_array($field, $ignoreFields)) continue;
+            
+                $newValue = $request->$field ?? $vehicle_update->$field ?? null;
+            
+                if ((string)$oldValue !== (string)$newValue) {
+            
+                    // Format field names: chassis_number → Chassis Number
+                    $label = ucwords(str_replace('_', ' ', $field));
+            
+                    $old = $oldValue !== null && $oldValue !== '' ? $oldValue : 'N/A';
+                    $new = $newValue !== null && $newValue !== '' ? $newValue : 'N/A';
+            
+                    $changes[] = "{$label}: {$old} → {$new}";
+                }
+            }
+            
+            $changesText = empty($changes) 
+                ? 'No major field updates.' 
+                : implode('; ', $changes);
+                
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Re-Update Completed',
+                'long_description'  => "Vehicle re-updated successfully (ID: {$vehicle_update->id}, chassis: {$vehicle_update->chassis_number}), status: {$request->status}.Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.reupdate_vehicle_data',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+        
             return response()->json([
                 'success' => true,
                 'message' => 'The Asset Master Vehicle Updated Successfully!',
@@ -5964,7 +6977,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
         } catch (\Exception $e) {
             DB::rollBack();
-    
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong! ' . $e->getMessage(),
@@ -5975,13 +6988,15 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
     public function vehicle_status_update(Request $request)
     {
+            $user     = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
         
         $status = $request->status == "accepted" ? 'accepted' : 'rejected';
         $status_update = AssetMasterVehicle::where('id',$request->id)->where('is_status','uploaded')->first();
         
 
         if(!$status_update){
-            
+        
             return response()->json([
                 'success'=>false,
                 'message' => 'Asset Master Vehicle Not Found!',
@@ -6028,6 +7043,19 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             }
             DB::commit();
             
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Status Updated',
+                'long_description'  => "Status '{$status}' set for chassis: {$status_update->chassis_number} (ID: {$status_update->id}).",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.vehicle_status_update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+        
             $statusText = $request->status == "accepted" ? 'The Asset Master Vehicle Chassis Number ' . $status_update->chassis_number . ' Accepted Successfully!' : 'The Asset Master Vehicle Chassis Number ' . $status_update->chassis_number . ' Rejected Successfully!';
         
             return response()->json([
@@ -6036,6 +7064,20 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Status Update Failed (Exception)',
+                'long_description'  => 'Error: ' . substr($e->getMessage(), 0, 1000),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.vehicle_status_update',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+        
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong!',
@@ -6047,6 +7089,9 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
     public function bulk_vehicle_status_update(Request $request)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        
         $request->validate([
             'get_ids' => 'required|array',
             'status' => 'required|in:accepted,rejected',
@@ -6065,6 +7110,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             ->get();
         
         if ($vehicles->isEmpty()) {
+        
             return response()->json([
                 'success' => false,
                 'message' => 'No Asset Master Vehicles found. Please ensure the selected assets have been uploaded before using bulk operations.',
@@ -6138,7 +7184,22 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
         if (!empty($inventory_data)) {
             AssetVehicleInventory::insert($inventory_data);
         }
-    
+        
+        $idsSample = implode(',', array_slice($request->get_ids, 0, 10));
+        $more      = count($request->get_ids) > 10 ? '…' : '';
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Asset Master Bulk Status Update Completed',
+            'long_description'  => "Status '{$status}' applied to ".count($updated_chassis_numbers)." vehicles. IDs: {$idsSample}{$more}",
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.bulk_vehicle_status_update',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
+        
         return response()->json([
             'success' => true,
             'message' => 'Asset Master Bulk Update Successfully',
@@ -6634,7 +7695,35 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
             $customer , 
             $accountability_type
         );
-        return Excel::download($export, 'Asset_Master_Vehicles-'.date('d-m-Y').'.xlsx');
+        
+        $fileName= 'Asset_Master_Vehicles-' . date('d-m-Y') . '.xlsx';
+    
+        // ✅ Minimal log: just record that an export was done
+        audit_log_after_commit([
+            'module_id'         => 4,
+            'short_description' => 'Vehicle Detail Exported',
+            'long_description'  => sprintf(
+                    'Asset Master Vehicle detail export triggered. Filters -> Status: %s, From: %s, To: %s, Selected IDs: %d, Timeline: %s, City: %s, Zone: %s, Customer: %s, Accountability Type: %s',
+                    $status ?: 'all',
+                    $from_date ?: '-',
+                    $to_date ?: '-',
+                    is_array($get_ids) ? count($get_ids) : 0,
+                    $timeline ?: '-',
+                    $city ?: '-',
+                    $zone ?: '-',
+                    $customer ?: '-',
+                    $accountability_type ?: '-'
+                ),
+            'role'              => optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown',
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'asset_master.export_vehicle_detail',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
+    
+        return Excel::download($export, $fileName);
 
 
     }
@@ -6669,8 +7758,33 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
             
         );
         
+         $fileName = 'Asset_Vehicles_Log_&_History-' . date('d-m-Y') . '.xlsx';
+
+            // ✅ Simple log only
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Vehicle Log Exported',
+                'long_description'  => sprintf(
+                    'Asset Vehicle Log & History export triggered. Filters -> From: %s, To: %s, Selected IDs: %d, Timeline: %s, City: %s, Zone: %s, Customer: %s, Accountability Type: %s',
+                    $from_date ?: '-',
+                    $to_date ?: '-',
+                    is_array($get_ids) ? count($get_ids) : 0,
+                    $timeline ?: '-',
+                    $city ?: '-',
+                    $zone ?: '-',
+                    $customer ?: '-',
+                    $accountability_type ?: '-'
+                ),
+                'role'              => optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown',
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.export_vehicle_log_and_history',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         
-        return Excel::download($export, 'Asset_Vehicles_Log_&_History-'.date('d-m-Y').'.xlsx');
+        return Excel::download($export, $fileName);
 
 
     }
@@ -6706,7 +7820,9 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
         $remarks = $request->remarks;
     
         $qc = AssetMasterVehicle::find($id);
+        $chassisNumber = $qc ? $qc->chassis_number : 'N/A';
     
+         $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
         if ($qc) {
             // Update the specific QC record
             $qc->delete_status = 1;
@@ -6719,6 +7835,21 @@ private function getLogsCount($timeline, $from_date, $to_date, $city)
                 'user_id' => auth()->id(),
                 'remarks' => $remarks,
                 'status_type' => 'deleted',
+            ]);
+            
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Vehicle Deleted',
+                'long_description'  => 'Asset Master Vehicle Chassis Number '. $chassisNumber .' has been deleted. Reason: ' . $remarks,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.vehicle_delete',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
             ]);
     
             return response()->json(['success' => true, 'message' => 'Record deleted successfully.']);

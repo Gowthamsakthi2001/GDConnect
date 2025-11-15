@@ -10,6 +10,9 @@
 <!--Select2 cdn added by Gowtham.s-->
 <link href="{{ asset('public/admin-assets/css/select2.min.css') }}" rel="stylesheet">
 
+<!--AOW Animate cdn added by Gowtham.s-->
+<link href="{{ asset('public/admin-assets/css/aow.css') }}" rel="stylesheet">
+
 <!--Datatable cdn added by Gowtham.s-->
 <link href="{{ asset('public/admin-assets/css/jquery.dataTables.min.css') }}" rel="stylesheet">
 <link href="{{ asset('public/admin-assets/css/buttons.dataTables.min.css') }}" rel="stylesheet">
