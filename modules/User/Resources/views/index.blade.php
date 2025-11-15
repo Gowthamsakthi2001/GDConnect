@@ -40,7 +40,7 @@
                                                 false);
                                         }, 1000);
                                     } else {
-                                        Swal.fire('Error!', response.message, 'error');
+                                        Swal.fire('Warning!', response.message, 'warning');
                                     }
 
                                 },

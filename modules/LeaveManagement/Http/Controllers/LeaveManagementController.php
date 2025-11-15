@@ -15,6 +15,7 @@ use Modules\LeaveManagement\DataTables\ApprovedLeaveRequestDataTable;
 use Modules\LeaveManagement\DataTables\PermissionRequestDataTable;
 use Modules\LeaveManagement\DataTables\LeaveLogDataTable;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth; //updated by Mugesh.B
 
 class LeaveManagementController extends Controller
 {
@@ -59,6 +60,13 @@ class LeaveManagementController extends Controller
                 'errors' => $validator->errors(),
             ], 422);
         }
+        
+        $user = Auth::user();
+        $roleName    = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $performedBy = $user->name ?? 'Unknown User';
+        $pageName    = 'leave_type.add_or_update';
+    
+    
         if ($request->leave_id != null) {
             $leave = LeaveType::find($request->leave_id);
             if ($leave) {
@@ -69,12 +77,16 @@ class LeaveManagementController extends Controller
                     'days' => $request->days,
                 ]);
     
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Leave successfully updated!',
-                ]);
+    
+                $shortDescription = "Leave type updated ({$leave->leave_name})";
+                $longDescription  = "The leave type '{$leave->leave_name}' (Short: {$leave->short_name}) "
+                          . "was updated by {$performedBy} ({$roleName}). "
+                          . "Type: {$leave->leave_type}, Days: {$leave->days}.";
+                          
+                          
+                $message = 'Leave successfully updated!';
             }
-        }
+        }else{
         $leave = new LeaveType();
         $leave->leave_name = $request->leave_name;
         $leave->short_name = $request->short_name;
@@ -82,11 +94,34 @@ class LeaveManagementController extends Controller
         $leave->days = $request->days ?? '0';
         $leave->status = 1;
         $leave->save();
+        
+        $shortDescription = "Leave type created ({$leave->leave_name})";
+        $longDescription  = "A new leave type '{$leave->leave_name}' (Short: {$leave->short_name}) "
+                          . "was created by {$performedBy} ({$roleName}). "
+                          . "Type: {$leave->leave_type}, Days: {$leave->days}.";
+
+        $message = 'Leave successfully added!';
+        
+        }
     
+        audit_log_after_commit([
+            'module_id'         => 2, 
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => $pageName,
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+    
+        // 🔹 Return success response
         return response()->json([
             'success' => true,
-            'message' => 'Leave successfully added!',
-            'reset'=>true
+            'message' => $message,
+            'reset'   => true,
         ]);
     }
 
@@ -151,12 +186,39 @@ class LeaveManagementController extends Controller
     
     public function delete_leave($id)
     {
+ 
+        
         try {
             $leave = LeaveType::findOrFail($id);
             $leave->status = 0;
             $leave->save();
             // $leave->delete();
     
+            $user = Auth::user();
+            $roleName    = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $performedBy = $user->name ?? 'Unknown User';
+            $pageName    = 'leave_type.delete';
+    
+            // Prepare log details
+            $shortDescription = "Leave type deleted ({$leave->leave_name})";
+            $longDescription  = "The leave type '{$leave->leave_name}' (Short: {$leave->short_name}) "
+                              . "was deleted by {$performedBy} ({$roleName}). "
+                              . "Type: {$leave->leave_type}, Days: {$leave->days}.";
+    
+            // Save audit log
+            audit_log_after_commit([
+                'module_id'         => 2, // HR or Leave Management module ID
+                'short_description' => $shortDescription,
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => $pageName,
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent(),
+            ]);
+        
             return back()->with('success', 'Leave deleted successfully');
         } catch (Exception $e) {
             return back()->with('error', 'An error occurred while deleting: ' . $e->getMessage());
@@ -183,22 +245,59 @@ class LeaveManagementController extends Controller
         if (!$leave_req) {
             return response()->json(['success' => false, 'message' => 'Leave request not found'], 404);
         }
+        
+        $user = Auth::user();
+        $roleName    = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $performedBy = $user->name ?? 'Unknown User';
+        $pageName    = 'leave_request.approval';
+        
+        $employeeName = $leave_req->deliveryman->first_name . ' ' . $leave_req->deliveryman->last_name;
+
     
         if($request->status == 1) {
             $leave_req->approve_status = 1;
             $leave_req->is_paid = $request->is_paid; 
             $leave_req->reject_status = 0;
             $leave_req->rejection_reason = null;
+            
+
+            $statusText = $leave_req->is_paid ? 'Paid' : 'Unpaid';
+            $shortDescription = "Leave approved ({$employeeName} - {$statusText})";
+            $longDescription = "{$employeeName}'s leave request was approved as {$statusText} "
+                             . "by {$performedBy} ({$roleName}).";
+                             
+                             
+                             
         } else {
             $leave_req->reject_status = 1;
             $leave_req->rejection_reason = urldecode($request->remarks);
             $leave_req->approve_status = 0;
             $leave_req->is_paid = 0;
+            
+            $shortDescription = "Leave rejected ({$employeeName})";
+            $longDescription = "{$employeeName}'s leave request was rejected by {$performedBy} ({$roleName}). "
+                             . "Reason: {$leave_req->rejection_reason}.";
+                             
         }
         
         $leave_req->req_status = null;
         
         if ($leave_req->save()) {
+            
+            audit_log_after_commit([
+                'module_id'         => 2, // HR / Leave Management module
+                'short_description' => $shortDescription,
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => $pageName,
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent(),
+            ]);
+        
+        
             $message = $request->status == 1 
                 ? 'The Leave has been approved as ' . ($leave_req->is_paid ? 'Paid' : 'Unpaid') 
                 : 'The Leave has been rejected!';

@@ -14,7 +14,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\MasterManagement\Entities\HypothecationMaster;
 use App\Exports\HypothecationMasterExport;
-
+use Illuminate\Support\Facades\Auth;
 
 class HypothecationMasterController extends Controller
 {
@@ -66,7 +66,24 @@ class HypothecationMasterController extends Controller
             $data['status'] = $request->status;
     
             HypothecationMaster::create($data);
-    
+            
+            $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $statusText = $data['status'] == 1 ? 'Active' : 'Inactive';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Hypothecation Created',
+                    'long_description'  => "Hypothecation '{$model->name}' created (ID: {$model->id}). Status: {$statusText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'hypothecation_master.store',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
+                
             return response()->json([
                 'success' => true,
                 'message' => 'New Hypothecation Name Added Successfully!'
@@ -95,7 +112,40 @@ class HypothecationMasterController extends Controller
             $data['name'] = $request->hypothecation_name;
             $data['status'] = $request->status;
     
+            $old = $HYP_Master->getAttributes();
+
             $HYP_Master->update($data);
+
+            $new = $HYP_Master->getAttributes();
+
+            // Build changes text
+            $changes = [];
+            if (($old['name'] ?? null) != ($new['name'] ?? null)) {
+                $changes[] = "Name: " . ($old['name'] ?? 'N/A') . " → " . ($new['name'] ?? 'N/A');
+            }
+            if ((string)($old['status'] ?? '') !== (string)($new['status'] ?? '')) {
+                $oldStatus = isset($old['status']) ? (($old['status'] == 1) ? 'Active' : 'Inactive') : 'N/A';
+                $newStatus = ($new['status'] == 1) ? 'Active' : 'Inactive';
+                $changes[] = "Status: {$oldStatus} → {$newStatus}";
+            }
+            $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
+
+            $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Hypothecation Updated',
+                    'long_description'  => "Hypothecation '{$HYP_Master->name}' (ID: {$HYP_Master->id}) updated. Changes: {$changesText}",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'hypothecation_master.update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                    
+                ]);
     
             return response()->json([
                 'success' => true,
@@ -130,10 +180,31 @@ class HypothecationMasterController extends Controller
             ]);
     
     
-            $updated = HypothecationMaster::where('id', $request->id)
-                ->update(['status' => $request->status]);
+            $model = HypothecationMaster::where('id', $request->id)->first();
+            $model->update(['status' => $request->status]);
     
-            if ($updated) {
+            if ($model) {
+                 $oldStatus = (int) $model->status;
+                $newStatus = (int) $request->status;
+                
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $newStatus == 1 ? 'Active' : 'Inactive';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Hypothecation Status Updated',
+                    'long_description'  => "Hypothecation '{$model->name}' (ID: {$model->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'hypothecation_master.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'
@@ -161,6 +232,33 @@ class HypothecationMasterController extends Controller
         $to_date = $request->to_date;
         $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
         
+        $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
+        $idsSample = $selectedCount > 0 ? implode(',', array_slice($selectedIds, 0, 5)) : '-';
+        $more = $selectedCount > 5 ? ' (+' . ($selectedCount - 5) . ' more)' : '';
+
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        $longDescription = sprintf(
+            "Hypothecation export initiated. Filters → Status: %s | From: %s | To: %s | Selected IDs: %s%s",
+            $status ?? '-',
+            $from_date ?? '-',
+            $to_date ?? '-',
+            $idsSample,
+            $more
+        );
+        audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Hypothecation Export Triggered',
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'hypothecation_master.export',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
          return Excel::download(new HypothecationMasterExport($status,$from_date,$to_date , $selectedIds), 'Hypothecations-' . date('d-m-Y') . '.xlsx');
        
     }

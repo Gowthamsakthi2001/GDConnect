@@ -14,6 +14,7 @@ class ModalMasterVechileDataTable extends DataTable
 {
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
+        dd('hello');
         return (new EloquentDataTable($query))
             ->editColumn('status', function ($query) {
                 return $this->statusBtn($query);

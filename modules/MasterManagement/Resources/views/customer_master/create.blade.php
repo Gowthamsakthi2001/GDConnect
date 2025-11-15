@@ -610,9 +610,11 @@ table thead th {
             
     </div>
     
-   
+   @php 
+   $key = \App\Models\BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
+   @endphp
 @section('script_js')
-<script src="https://maps.googleapis.com/maps/api/js?key={{ env('MAP_KEY') }}&libraries=places"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ $key }}&libraries=places"></script>
 
 <script>
     function initAutocompleteOnly() {

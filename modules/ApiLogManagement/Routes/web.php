@@ -21,6 +21,7 @@ Route::prefix('admin/Green-Drive-Ev/api-log')->as('admin.Green-Drive-Ev.apilogma
     Route::get('/license-logs', 'license_api_logs')->name('license_api_log');
     Route::get('/bank-detail-logs', 'bank_detail_api_logs')->name('bankdetail_api_log');
     Route::get('/pancard-logs', 'pancard_api_logs')->name('pancard_api_log');
-
+    Route::get('/activity-logs', 'user_activity_api_logs')->name('user_activity_api_log');
+    Route::get('/get-user-activity', 'get_user_activity_logs')->name('get_user_activity_log');
    
 });

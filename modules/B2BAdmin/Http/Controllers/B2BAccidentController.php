@@ -12,6 +12,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\B2BAdminAccidentReportExport;
 use Modules\MasterManagement\Entities\EvTblAccountabilityType; // updated by logesh
 use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
+use Illuminate\Support\Facades\Auth;
+use Modules\Zones\Entities\Zones;
 
 class B2BAccidentController extends Controller
 {
@@ -284,7 +286,8 @@ public function updateStatus(Request $request)
     ]);
     
     $accident = B2BReportAccident::find($request->id);
-
+    $oldStatus = $accident->status;
+    $newStatus = $request->status;
     // Save the log
     $accident->logs()->create([
         'assignment_id' =>$request->assign_id,
@@ -295,10 +298,28 @@ public function updateStatus(Request $request)
         'request_type' => 'accident',
         'request_type_id' => $accident->accident_report_id,
     ]);
-
+    
     $accident->status = $request->status;
     $accident->save();
+    
+    $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $assignText = $request->assign_id ? "Assignment ID: {$request->assign_id}. " : '';
 
+        if ((string)$oldStatus !== (string)$newStatus) {
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'Accident Status Updated',
+                'long_description'  => "Accident ({$accident->id}) status changed: {$oldStatus} → {$newStatus}. {$assignText}Remarks: " . ($request->description ?? 'N/A'),
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_accident.update_status',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+        }
     return response()->json([
         'success' => true,
         'message' => 'Accident status updated successfully'
@@ -322,7 +343,99 @@ public function export(Request $request)
             if (empty($fields)) {
                 return back()->with('error', 'Please select at least one field to export.');
             }
+            
+            $formattedFields = [];
+            if (is_array($fields)) {
+                foreach ($fields as $item) {
+                    $name = null;
         
+                    if (is_string($item) && trim($item) !== '') {
+                        $name = $item;
+                    } elseif (is_array($item)) {
+                        if (!empty($item['name']) && is_string($item['name'])) {
+                            $name = $item['name'];
+                        } elseif (!empty($item['field']) && is_string($item['field'])) {
+                            $name = $item['field'];
+                        } else {
+                            $first = reset($item);
+                            if (is_string($first) && trim($first) !== '') {
+                                $name = $first;
+                            }
+                        }
+                    }
+        
+                    if (empty($name) || !is_string($name)) {
+                        continue;
+                    }
+        
+                    $clean = str_replace('_', ' ', $name);
+                    $clean = ucwords(strtolower($clean));
+        
+                    // manual friendly mappings
+                    $manual = [
+                        'Date Time' => 'Date & Time',
+                        'Qc Checklist' => 'QC Checklist',
+                        'Id' => 'ID',
+                    ];
+                    if (isset($manual[$clean])) {
+                        $clean = $manual[$clean];
+                    }
+        
+                    $formattedFields[] = $clean;
+                }
+            }
+            $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+        
+            // -----------------------
+            // Resolve friendly names for zone, city, accountability_type, customer
+            // -----------------------
+            $zoneName = $zone ? (optional(Zones::find($zone))->name ?? $zone) : null;
+            $cityName = $city ? (optional(City::find($city))->city_name ?? $city) : null;
+        
+            $accountability_name = null;
+            if (!is_null($accountability_type) && $accountability_type !== '') {
+                $accountability_name = optional(EvTblAccountabilityType::find($accountability_type))->name ?? $accountability_type;
+            }
+        
+            $customerName = null;
+            if (!is_null($customer_id) && $customer_id !== '') {
+                $customerName = optional(CustomerMaster::find($customer_id))->name ?? $customer_id;
+            }
+        
+            // -----------------------
+            // Prepare audit log
+            // -----------------------
+            $fileName = 'accident-report-list-' . date('d-m-Y') . '.xlsx';
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+        
+            $appliedFilters = [];
+            if (!is_null($status) && $status !== '') $appliedFilters[] = 'Status: ' . $status;
+            if (!is_null($from_date) && $from_date !== '') $appliedFilters[] = 'From: ' . $from_date;
+            if (!is_null($to_date) && $to_date !== '') $appliedFilters[] = 'To: ' . $to_date;
+            if (!is_null($zoneName) && $zoneName !== '') $appliedFilters[] = 'Zone: ' . $zoneName;
+            if (!is_null($cityName) && $cityName !== '') $appliedFilters[] = 'City: ' . $cityName;
+            if (!is_null($accountability_name) && $accountability_name !== '') $appliedFilters[] = 'Accountability Type: ' . $accountability_name;
+            if (!is_null($customerName) && $customerName !== '') $appliedFilters[] = 'Customer: ' . $customerName;
+        
+            $filtersText = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
+            $selectedIdsText = empty($selectedIds) ? 'ALL' : implode(', ', array_map('strval', $selectedIds));
+        
+            $longDesc = "B2B Admin Accident Report export triggered. File: {$fileName}. Selected Fields: {$fieldsText}. Filters: {$filtersText}. Selected IDs: {$selectedIdsText}.";
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Accident Report Export Initiated',
+                'long_description'  => $longDesc,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_accident.export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+    
             return Excel::download(
                 new B2BAdminAccidentReportExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),
                 'accident-report-list-' . date('d-m-Y') . '.xlsx'

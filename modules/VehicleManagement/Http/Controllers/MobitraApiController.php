@@ -8,6 +8,9 @@ use App\Models\EvMobitraApiSetting;
 use App\Models\MobitraApiLog;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+
 
 class MobitraApiController extends Controller
 {
@@ -51,15 +54,52 @@ class MobitraApiController extends Controller
             'FLEET_TRACKING_ENDPOINT' => $request->fleet_tracking_endpoint,
             'FLEET_NOTIFICATION_ENDPOINT' => $request->fleet_notification_endpoint,
         ];
-        
-        foreach ($settings as $key => $value) {
-            EvMobitraApiSetting::updateOrInsert(
-                ['key_name' => $key], // Search condition
-                ['value' => $value]   // Update/Insert data
-            );
-        }
 
-    
+    // Step 1: Fetch old settings
+    $oldSettingsRaw = EvMobitraApiSetting::whereIn('key_name', array_keys($settings))->get();
+    $oldSettings = $oldSettingsRaw->pluck('value', 'key_name')->toArray();
+
+    // Step 2: Update each setting
+    foreach ($settings as $key => $value) {
+        EvMobitraApiSetting::updateOrInsert(
+            ['key_name' => $key],
+            ['value' => $value]
+        );
+    }
+
+    // Step 3: Compute changed fields
+    $changes = [];
+    foreach ($settings as $key => $newValue) {
+        $oldValue = $oldSettings[$key] ?? null;
+
+        if ((string)$oldValue !== (string)$newValue) {
+            $oldText = ($oldValue === null || $oldValue === '') ? '-' : $oldValue;
+            $newText = ($newValue === null || $newValue === '') ? '-' : $newValue;
+            $changes[] = "{$key}: {$oldText} → {$newText}";
+        }
+    }
+
+    // Prepare log message
+    $longDescription = !empty($changes)
+        ? "Mobitra API Settings updated. Changes: " . implode("; ", $changes)
+        : "Mobitra API Settings updated. No changes detected.";
+        
+    $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+
+        audit_log_after_commit([
+            'module_id'         => 8,
+            'short_description' => 'Mobitra API Settings Updated',
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => optional($user)->id,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'mobitra_api_settings.update',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
+        
         return redirect()->back()->with('success', 'Settings updated successfully.');
     }
     
@@ -68,10 +108,31 @@ class MobitraApiController extends Controller
         // if($request->api_log_mode == false){
         //     return response()->json(['success'=>false,'message'=>'Api Club Mode field is required'],200);
         // }
+        $old = EvMobitraApiSetting::where('key_name', 'API_CLUB_MODE')->value('value');
+        $new = $request->api_log_mode;
         $updated = EvMobitraApiSetting::where('key_name', 'API_CLUB_MODE')->update([
             'value' => $request->api_log_mode
         ]);
         if ($updated) {
+            $oldText = ($old === null || $old === '') ? '-' : $old;
+            $newText = ($new === null || $new === '') ? '-' : $new;
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 8,
+                'short_description' => 'Mobitra API Mode Updated',
+                'long_description'  => "API_CLUB_MODE changed: {$oldText} → {$newText}.",
+                'role'              => $roleName,
+                'user_id'           => optional($user)->id,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'mobitra_api_settings.mode_update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
             return response()->json(['success' => true, 'message' => 'Settings updated successfully'], 200);
         } else {
             return response()->json(['success' => false, 'message' => 'Failed to update settings'], 200);

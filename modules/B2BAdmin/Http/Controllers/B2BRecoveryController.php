@@ -15,6 +15,8 @@ use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
 use Modules\B2B\Entities\B2BVehicleAssignmentLog; //updated by logesh
 use Modules\Role\Entities\Role; //updated by logesh
 use Modules\MasterManagement\Entities\RecoveryUpdatesMaster;
+use Illuminate\Support\Facades\Auth;
+use Modules\Zones\Entities\Zones;
 
 class B2BRecoveryController extends Controller
 {
@@ -357,7 +359,98 @@ class B2BRecoveryController extends Controller
             if (empty($fields)) {
                 return back()->with('error', 'Please select at least one field to export.');
             }
-        
+            
+             $formattedFields = [];
+    foreach ((array) $fields as $item) {
+        $name = null;
+
+        if (is_string($item) && trim($item) !== '') {
+            $name = $item;
+        } elseif (is_array($item)) {
+            if (!empty($item['name']))       $name = $item['name'];
+            elseif (!empty($item['field']))  $name = $item['field'];
+            else {
+                $first = reset($item);
+                if (is_string($first)) $name = $first;
+            }
+        }
+
+        if (!$name) continue;
+
+        $clean = ucwords(str_replace('_', ' ', strtolower($name)));
+
+        // Mapping special cases
+        $manual = [
+            'Id' => 'ID',
+            'Date Time' => 'Date & Time',
+        ];
+        if (isset($manual[$clean])) $clean = $manual[$clean];
+
+        $formattedFields[] = $clean;
+    }
+
+    $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+
+    // --------------------------------
+    // Resolve names for zone, city, accountability, customer
+    // --------------------------------
+    $zoneName = $zone ? (optional(Zones::find($zone))->name ?? $zone) : null;
+    $cityName = $city ? (optional(City::find($city))->city_name ?? $city) : null;
+
+    $accountabilityName = null;
+    if (!empty($accountability_type)) {
+        $accountabilityName = optional(EvTblAccountabilityType::find($accountability_type))->name ?? $accountability_type;
+    }
+
+    $customerName = null;
+    if (!empty($customer_id)) {
+        $customerName = optional(CustomerMaster::find($customer_id))->name ?? $customer_id;
+    }
+
+    // --------------------------------
+    // Applied filters text
+    // --------------------------------
+    $appliedFilters = [];
+
+    if (!empty($from_date)) $appliedFilters[] = "From: {$from_date}";
+    if (!empty($to_date)) $appliedFilters[]   = "To: {$to_date}";
+    if (!empty($status)) $appliedFilters[]    = "Status: {$status}";
+    if (!empty($zoneName)) $appliedFilters[]  = "Zone: {$zoneName}";
+    if (!empty($cityName)) $appliedFilters[]  = "City: {$cityName}";
+    if (!empty($accountabilityName)) $appliedFilters[] = "Accountability Type: {$accountabilityName}";
+    if (!empty($customerName)) $appliedFilters[]       = "Customer: {$customerName}";
+
+    $filtersText = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
+
+    $selectedIdsText = empty($selectedIds) ? 'ALL' : implode(', ', array_map('strval', $selectedIds));
+
+    // --------------------------------
+    // Audit Log
+    // --------------------------------
+    $fileName = 'recovery-request-list-' . date('d-m-Y') . '.xlsx';
+    $user     = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+    $longDesc = "B2B Admin Recovery Request export triggered. "
+              . "File: {$fileName}. "
+              . "Selected Fields: {$fieldsText}. "
+              . "Filters: {$filtersText}. "
+              . "Selected IDs: {$selectedIdsText}.";
+
+    audit_log_after_commit([
+        'module_id'         => 5,  
+        'short_description' => 'B2B Admin Recovery Request Export Initiated',
+        'long_description'  => $longDesc,
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'b2b_admin_recovery_request.export',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
+
+
             return Excel::download(
                 new B2BAdminRecoveryRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id),
                 'recovery-request-list-' . date('d-m-Y') . '.xlsx'

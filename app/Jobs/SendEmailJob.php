@@ -37,7 +37,7 @@ class SendEmailJob implements ShouldQueue
      */
     public function __construct($to, string $subject, string $htmlBody, $cc = null, $bcc = null)
     {
-        $this->onQueue('mail'); // optional dedicated queue
+        // $this->onQueue('mail');
         $this->to       = $to;
         $this->subject  = $subject;
         $this->htmlBody = $htmlBody;
@@ -48,6 +48,8 @@ class SendEmailJob implements ShouldQueue
     public function handle(): void
     {
         try {
+             sleep(2);
+             
             // Simple HTML email (no Mailable required)
             Mail::html($this->htmlBody, function ($message) {
                 $message->to((array) $this->to)

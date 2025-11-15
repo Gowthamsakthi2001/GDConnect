@@ -574,10 +574,12 @@ $("#ReturnVehicleTransferSubmitForm").submit(function(e) {
     var return_transfer_date = $("#transferDate").val();
     var return_remarks = $("#Remarks").val();
     var transfer_id = $("#ReturnTF_id").val();
+    var transfer_type = $("#transferType").val();
     var form = $(this)[0];
     var formData = new FormData();
     formData.append("_token", "{{ csrf_token() }}");
     formData.append("transfer_id",transfer_id);
+    formData.append("transfer_type",transfer_type);
     formData.append("to_location",to_location);
     formData.append("detail_ids", fetch_chassis_numbers);
     formData.append("return_remarks", return_remarks);

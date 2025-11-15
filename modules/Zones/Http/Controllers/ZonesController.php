@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use App\Models\EVState;
 use Modules\Zones\Entities\Zones;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Modules\City\Entities\City;
 
 class ZonesController extends Controller
@@ -17,7 +18,6 @@ class ZonesController extends Controller
      */
     public function index()
     {
-
         $states = EVState::where('status',1)->get();
         $cities = City::where('status',1)->get();
         
@@ -138,15 +138,23 @@ class ZonesController extends Controller
                     'cityName' => $item->city->city_name ?? 'N/A',
                     'status'   => '<div class="d-flex align-items-center gap-2"><i class="bi bi-circle-fill '.$colorClass.'"></i><span>'.$displayStatus.'</span></div>',
                     'statusToggleAction' => '<div class="form-check form-switch d-flex justify-content-center align-items-center m-0 p-0">
-                                                <input class="form-check-input toggle-status" data-id="'. $item->id .'" type="checkbox" role="switch" id="toggleSwitch'.$item->id.'" '.($item->status == 1 ? 'checked' : '').'>
-                                            </div>',
+                        <input 
+                            class="form-check-input toggle-status" 
+                            data-id="'. $item->id .'" 
+                            data-url="'. route('admin.Green-Drive-Ev.zone.toggle-status', ['id' => $item->id]) .'" 
+                            type="checkbox" 
+                            role="switch" 
+                            id="toggleSwitch'.$item->id.'" 
+                            '.($item->status == 1 ? 'checked' : '').'>
+                    </div>',
+
                     'ActionBtns' => '<div class="dropdown">
                                         <button type="button" class="btn btn-sm dropdown-toggle custom-dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="bi bi-three-dots"></i>
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end text-center p-1">
                                             <li>
-                                                <a href="'.route('admin.asset_management.quality_check.view_quality_check',['id'=>$item->id]).'" class="dropdown-item d-flex align-items-center justify-content-center">
+                                                <a href="'.route('admin.Green-Drive-Ev.zone.edit',['id'=>$item->id]).'" class="dropdown-item d-flex align-items-center justify-content-center">
                                                     <i class="bi bi-eye me-2 fs-5"></i> View
                                                 </a>
                                             </li>
@@ -246,7 +254,7 @@ class ZonesController extends Controller
 
     
         try {
-            DB::table('zones')->insert([
+            $record = DB::table('zones')->insert([
                 'state_id'   => $request->state,
                 'city_id'    => $request->city,
                 'address'    => $request->search_address,
@@ -258,7 +266,26 @@ class ZonesController extends Controller
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-    
+            $data = Zones::with('state','city')->where('id',$record->id)->first();
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $record->status == 1 ? 'Active' : 'Inactive';
+            $stateName = $data->state->state_name ?? $request->state;
+            $cityName = $data->city->city_name ?? $request->city;
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'Zone Created',
+                'long_description'  => "Zone '{$record->name}' created (ID: {$data->id}). City: {$cityName}. State: {$stateName}. Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'zone.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+
+
             return response()->json([
                 'success' => true,
                 'message' => 'Zone saved successfully.'
@@ -437,6 +464,7 @@ class ZonesController extends Controller
 
     
         try {
+            $old = Zones::with('state','city')->where('id', $id)->first();
             $data = [
                 'state_id'   => $request->state,
                 'city_id'    => $request->city,
@@ -449,8 +477,37 @@ class ZonesController extends Controller
                 'updated_at' => now(),
             ];
             
-            DB::table('zones')->where('id',$id)->update($data);
+            Zones::where('id',$id)->update($data);
+            
+            $record = Zones::with('state','city')->where('id', $id)->first();
+            
+            $oldName = $old->name ?? '-';
+            $oldCity = $old->city->city_name ?? $old->city_id;
+            $oldState = $old->state->state_name ?? $old->state_id;
+            $oldStatus = (int) ($old->status ?? 0);
+            $newStatus = (int) ($record->status ?? 0);
+            $newCity = $record->city->city_name ?? $record->city_id;
+            $newState = $record->state->state_name ?? $record->state_id;
+            $oldStatusText = $oldStatus == 1 ? 'Active' : 'Inactive';
+            $newStatusText = $newStatus == 1 ? 'Active' : 'Inactive';
     
+            // Audit log
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'Zone Updated',
+                'long_description'  => "Zone updated (ID: {$record->id}). Name: '{$oldName}' → '{$record->name}'; City ID: '{$oldCity}' → '{$record->city_id}'; Status: {$oldStatusText} → {$newStatusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'zone.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+        
             return response()->json([
                 'success' => true,
                 'message' => 'Zone Updated successfully.'
@@ -468,19 +525,69 @@ class ZonesController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function toggleStatus($id)
+     public function toggleStatus(Request $request, $id)
     {
-        $zone = Zones::findOrFail($id);
-        $zone->status = !$zone->status;
-        $zone->save();
+        try {
+            $zone = Zones::findOrFail($id);
+            $oldStatus = (int) $zone->status;
+            $zone->status = !$zone->status;
+            $zone->save();
     
-        return redirect()->back()->with('success', 'Zone status updated.');
+            $newStatus = (int) $zone->status;
+            $oldText = $oldStatus === 1 ? 'Active' : 'Inactive';
+            $newText = $newStatus === 1 ? 'Active' : 'Inactive';
+    
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'Zone Status Updated',
+                'long_description'  => "Zone '{$zone->name}' (ID: {$zone->id}) status changed: {$oldText} → {$newText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'zone.update_status',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+    
+            return response()->json([
+                'success' => true,
+                'message' => "Zone status updated successfully ({$oldText} → {$newText}).",
+                'new_status' => $newStatus
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update status: ' . $e->getMessage()
+            ], 500);
+        }
     }
+
     
     public function destroy($id)
     {
+        $zone = Zones::findOrFail($id);
+        $oldName = $zone->name;
         Zones::destroy($id);
-    
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        audit_log_after_commit([
+            'module_id'         => 5,
+            'short_description' => 'Zone Deleted',
+            'long_description'  => "Zone '{$oldName}' (ID: {$id}) was deleted.",
+            'role'              => $roleName,
+            'user_id'           => $user->id ?? null,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'zone.delete',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent()
+        ]);
         return redirect()->back()->with('success', 'Zone deleted.');
     }
 }

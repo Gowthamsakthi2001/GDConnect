@@ -23,6 +23,8 @@ use Modules\B2B\Entities\B2BRecoveryRequest;//updated by Mugesh.B
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Modules\Zones\Entities\Zones;
 class B2BReportController extends Controller
 {
     public function list()
@@ -374,6 +376,39 @@ class B2BReportController extends Controller
             $customer = $request->customer ?? null;
             $accountability_type = $request->accountability_type ?? null;
             
+            $fileName = 'deployment-report-' . date('d-m-Y') . '.xlsx';
+
+            // build applied filters
+            $applied = [];
+            if ($date_range) $applied[] = "Date Range: {$date_range}";
+            if ($from_date) $applied[] = "From: {$from_date}";
+            if ($to_date) $applied[] = "To: {$to_date}";
+            if ($vehicle_type) $applied[] = "Vehicle Type: {$vehicle_type}";
+            if ($zone) $applied[] = "Zone: {$zone}";
+            if ($city) $applied[] = "City: {$city}";
+            if ($vehicle_no) $applied[] = "Vehicle No: {$vehicle_no}";
+            if ($status) $applied[] = "Status: {$status}";
+            if ($customer) $applied[] = "Customer: {$customer}";
+            if ($accountability_type) $applied[] = "Accountability Type: {$accountability_type}";
+        
+            $filtersText = empty($applied) ? 'No filters applied' : implode('; ', $applied);
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Deployment Report Export Initiated',
+                'long_description'  => "B2B Admin Deployment report export triggered. File: {$fileName}. Filters: {$filtersText}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_deployment.report_export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+    
             return Excel::download(
                 new B2BAdminDeploymentReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $customer ,$accountability_type),
                 'deployment-report-' . date('d-m-Y') . '.xlsx'
@@ -619,6 +654,38 @@ class B2BReportController extends Controller
             $customer = $request->customer ?? null;
             $status   = $request->status ?? null;
             
+            $fileName = 'service-report-' . date('d-m-Y') . '.xlsx';
+
+            $applied = [];
+            if ($date_range) $applied[] = "Date Range: {$date_range}";
+            if ($from_date) $applied[] = "From: {$from_date}";
+            if ($to_date) $applied[] = "To: {$to_date}";
+            if ($vehicle_type) $applied[] = "Vehicle Type: {$vehicle_type}";
+            if ($zone) $applied[] = "Zone: {$zone}";
+            if ($city) $applied[] = "City: {$city}";
+            if ($vehicle_no) $applied[] = "Vehicle No: {$vehicle_no}";
+            if ($accountability_type) $applied[] = "Accountability Type: {$accountability_type}";
+            if ($customer) $applied[] = "Customer: {$customer}";
+            if ($status) $applied[] = "Status: {$status}";
+        
+            $filtersText = empty($applied) ? 'No filters applied' : implode('; ', $applied);
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Service Report Export Initiated',
+                'long_description'  => "B2B Admin Service report export triggered. File: {$fileName}. Filters: {$filtersText}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_service.report_export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+    
             return Excel::download(
                 new B2BAdminServiceReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $accountability_type , $customer ,$status),
                 'service-report-' . date('d-m-Y') . '.xlsx'
@@ -861,6 +928,38 @@ class B2BReportController extends Controller
             $customer = $request->customer ?? null;
             $status   = $request->status ?? null;
             
+            $fileName = 'accident-report-' . date('d-m-Y') . '.xlsx';
+
+            $applied = [];
+            if ($date_range) $applied[] = "Date Range: {$date_range}";
+            if ($from_date) $applied[] = "From: {$from_date}";
+            if ($to_date) $applied[] = "To: {$to_date}";
+            if ($vehicle_type) $applied[] = "Vehicle Type: {$vehicle_type}";
+            if ($zone) $applied[] = "Zone: {$zone}";
+            if ($city) $applied[] = "City: {$city}";
+            if ($vehicle_no) $applied[] = "Vehicle No: {$vehicle_no}";
+            if ($accountability_type) $applied[] = "Accountability Type: {$accountability_type}";
+            if ($customer) $applied[] = "Customer: {$customer}";
+            if ($status) $applied[] = "Status: {$status}";
+        
+            $filtersText = empty($applied) ? 'No filters applied' : implode('; ', $applied);
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Accident Summary Export Initiated',
+                'long_description'  => "B2B Admin Accident summary export triggered. File: {$fileName}. Filters: {$filtersText}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_accident.summary_export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+    
             return Excel::download(
                 new B2BAdminAccidentSummaryExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status ,$accountability_type ,$customer),
                 'accident-report-' . date('d-m-Y') . '.xlsx'
@@ -1069,6 +1168,38 @@ class B2BReportController extends Controller
             $accountability_type = $request->accountability_type ?? null;
             $customer = $request->customer ?? null;
             
+            $fileName = 'return-report-' . date('d-m-Y') . '.xlsx';
+
+            $applied = [];
+            if ($date_range) $applied[] = "Date Range: {$date_range}";
+            if ($from_date) $applied[] = "From: {$from_date}";
+            if ($to_date) $applied[] = "To: {$to_date}";
+            if ($vehicle_type) $applied[] = "Vehicle Type: {$vehicle_type}";
+            if ($zone) $applied[] = "Zone: {$zone}";
+            if ($city) $applied[] = "City: {$city}";
+            if ($vehicle_no) $applied[] = "Vehicle No: {$vehicle_no}";
+            if ($accountability_type) $applied[] = "Accountability Type: {$accountability_type}";
+            if ($customer) $applied[] = "Customer: {$customer}";
+        
+            $filtersText = empty($applied) ? 'No filters applied' : implode('; ', $applied);
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Return Report Export Initiated',
+                'long_description'  => "B2B Admin Return report export triggered. File: {$fileName}. Filters: {$filtersText}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_return.report_export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+
+
             return Excel::download(
                 new B2BAdminReturnReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no  ,$accountability_type ,$customer),
                 'return-report-' . date('d-m-Y') . '.xlsx'
@@ -1315,6 +1446,38 @@ class B2BReportController extends Controller
             $customer = $request->customer ?? null;
             $accountability_type = $request->accountability_type ?? null;
             
+            $fileName = 'recovery-report-' . date('d-m-Y') . '.xlsx';
+
+            $applied = [];
+            if ($date_range) $applied[] = "Date Range: {$date_range}";
+            if ($from_date) $applied[] = "From: {$from_date}";
+            if ($to_date) $applied[] = "To: {$to_date}";
+            if ($vehicle_type) $applied[] = "Vehicle Type: {$vehicle_type}";
+            if ($zone) $applied[] = "Zone: {$zone}";
+            if ($city) $applied[] = "City: {$city}";
+            if ($vehicle_no) $applied[] = "Vehicle No: {$vehicle_no}";
+            if ($status) $applied[] = "Status: {$status}";
+            if ($customer) $applied[] = "Customer: {$customer}";
+            if ($accountability_type) $applied[] = "Accountability Type: {$accountability_type}";
+        
+            $filtersText = empty($applied) ? 'No filters applied' : implode('; ', $applied);
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
+        
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => 'B2B Admin Recovery Report Export Initiated',
+                'long_description'  => "B2B Admin Recovery report export triggered. File: {$fileName}. Filters: {$filtersText}.",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2b_admin_recovery.report_export',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+    
             return Excel::download(
                 new B2BAdminRecoveryReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $customer ,$accountability_type),
                 'recovery-report-' . date('d-m-Y') . '.xlsx'

@@ -12,6 +12,8 @@ use App\Exports\B2BAdminDeployedAssetExport;
 use Modules\City\Entities\City;
 use Modules\VehicleManagement\Entities\VehicleType; //updated by Mugesh.B
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth; //updated by Mugesh.B
+use Modules\AssetMaster\Entities\VehicleTransferChassisLog;//updated by Mugesh.B
 use Illuminate\Support\Str;
 use Modules\AssetMaster\Entities\LocationMaster;
 use Modules\AssetMaster\Entities\AssetMasterVehicle;
@@ -38,6 +40,7 @@ use Modules\MasterManagement\Entities\CustomerMaster; //updated by logesh
 use Modules\B2B\Entities\B2BRecoveryRequest; //updated by Gowtham.S
 use Modules\RecoveryManager\Entities\RecoveryComment; //updated by Gowtham.S
 use App\Helpers\RecoveryNotifyHandler; //updated by Gowtham.S
+use Modules\Zones\Entities\Zones; // updated by logesh
 
 class DeployedAssetController extends Controller
 {
@@ -281,6 +284,7 @@ class DeployedAssetController extends Controller
             ], 401);
         }
         
+
             
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
            
@@ -338,12 +342,39 @@ class DeployedAssetController extends Controller
                 $recovery->created_by         = $user->id;
                 $recovery->created_by_type    = 'b2b-admin-dashboard';
                 // $recovery->accident_photos    = json_encode($uploadedFiles);
+
                 $recovery->save();
         
                 $assignment = B2BVehicleAssignment::find($request->id);
+                
                 if ($assignment) {
                     
                     $assignment->update(['status' => 'recovery_request']);
+                    
+                    
+                   $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)->first();
+
+
+                    $from_location_source = $inventory ? $inventory->transfer_status : null; 
+                    
+                                   
+                    AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
+                            ->update(['transfer_status' => 28]);
+                            
+                                        
+                    $remarks = "Inventory status updated to 'Recovery Pending' due to GDM recovery request.";
+                
+                    // // Log this inventory action
+                    VehicleTransferChassisLog::create([
+                        'chassis_number' => $assignment->vehicle->chassis_number,
+                        'from_location_source' => $from_location_source,
+                        'to_location_destination' => 28,
+                        'vehicle_id'     => $assignment->vehicle->id,
+                        'status'         => 'updated',
+                        'remarks'        => $remarks,
+                        'created_by'     => $user->id,
+                        'type'           => 'b2b-web-dashboard'
+                    ]);
         
                     // $vehicle_request = B2BVehicleRequests::where('req_id', $assignment->req_id)
                     //     // ->where('is_active', 1)
@@ -394,6 +425,35 @@ class DeployedAssetController extends Controller
                         $tc_create_type
                     );
                 }
+                
+                $user     = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $cityName = $assignment->vehicleRequest->city->city_name ?? "Unknown City";
+                $zoneName = $assignment->vehicleRequest->zone->name ?? "Unknown Zone";
+                $reason   = $recovery->recovery_reason_relation->label_name;
+                $vno      = $request->vehicle_number;
+        
+                $shortDescription = "Recovery Request #{$requestID} Created for Vehicle {$vno}";
+                
+
+                $longDescription =
+                    "A recovery request (#{$requestID}) has been created for vehicle {$vno} "
+                    . "in {$cityName} / {$zoneName}. "
+                    . "Reason: {$reason}. "
+                    . "Created by {$user->name} ({$roleName}).";
+        
+                audit_log_after_commit([
+                    'module_id'         => 5,
+                    'short_description' => $shortDescription,
+                    'long_description'  => $longDescription,
+                    'role'              => $roleName,
+                    'user_id'           => $user->id,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'b2badmin.recovery_request_create',
+                    'ip_address'        => $request->ip(),
+                    'user_device'       => $request->userAgent()
+                ]);
        
                 return response()->json([
                     'status'  => 'success',
@@ -859,7 +919,107 @@ class DeployedAssetController extends Controller
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
-    
+        
+        $formattedFields = [];
+    if (is_array($fields)) {
+        foreach ($fields as $item) {
+            $name = null;
+
+            // plain string
+            if (is_string($item) && trim($item) !== '') {
+                $name = $item;
+            }
+            // associative array like ['name' => 'vehicle_type', 'value' => 'on']
+            elseif (is_array($item)) {
+                if (!empty($item['name']) && is_string($item['name'])) {
+                    $name = $item['name'];
+                } elseif (!empty($item['field']) && is_string($item['field'])) {
+                    $name = $item['field'];
+                } else {
+                    // fallback: take first scalar value
+                    $first = reset($item);
+                    if (is_string($first) && trim($first) !== '') {
+                        $name = $first;
+                    }
+                }
+            }
+
+            if (empty($name) || !is_string($name)) {
+                continue;
+            }
+
+            $clean = str_replace('_', ' ', $name);
+            $clean = ucwords(strtolower($clean));
+
+            // optional manual mappings
+            $manual = [
+                'Date Time' => 'Date & Time',
+                'Qc Checklist' => 'QC Checklist',
+                'Id' => 'ID',
+            ];
+            if (isset($manual[$clean])) {
+                $clean = $manual[$clean];
+            }
+
+            $formattedFields[] = $clean;
+        }
+    }
+    $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+
+    // Resolve friendly names for zone/city/customer if possible
+    $zoneName = null;
+    $cityName = null;
+    $customerName = null;
+    if (!empty($zone)) {
+        $zoneName = optional(Zones::find($zone))->name ?? $zone;
+    }
+    if (!empty($city)) {
+        $cityName = optional(City::find($city))->city_name ?? $city;
+    }
+    if (!empty($customer_id)) {
+        // adjust model if your customer model differs
+        $customerName = optional(CustomerMaster::find($customer_id))->name 
+                        ?? optional(CustomerMaster::find($customer_id))->name 
+                        ?? 'Unknown Customer';
+    }
+    if (!empty($accountability_type)) {
+        // adjust model if your customer model differs
+        $accountability_name = optional(EvTblAccountabilityType::find($accountability_type))->name 
+                        ?? optional(EvTblAccountabilityType::find($accountability_type))->name 
+                        ?? 'Unknown Accountability';
+    }
+
+    // Prepare audit log
+    $fileName = 'Deployment-request-list-' . date('d-m-Y') . '.xlsx';
+    $user = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+    $appliedFilters = [];
+    if (!is_null($status) && $status !== '') $appliedFilters[] = 'Status: ' . $status;
+    if (!is_null($from_date) && $from_date !== '') $appliedFilters[] = 'From: ' . $from_date;
+    if (!is_null($to_date) && $to_date !== '') $appliedFilters[] = 'To: ' . $to_date;
+    if (!is_null($zoneName) && $zoneName !== '') $appliedFilters[] = 'Zone: ' . $zoneName;
+    if (!is_null($cityName) && $cityName !== '') $appliedFilters[] = 'City: ' . $cityName;
+    if (!is_null($accountability_name) && $accountability_name !== '') $appliedFilters[] = 'Accountability Type: ' . $accountability_name;
+    if (!is_null($customerName) && $customerName !== '') $appliedFilters[] = 'Customer: ' . $customerName;
+
+    $filtersText = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
+    $selectedIdsText = empty($selectedIds) ? 'ALL' : implode(', ', array_map('strval', $selectedIds));
+
+    $longDesc = "User initiated B2B Deployment Request export. File: {$fileName}. Selected Fields: {$fieldsText} | Filters: {$filtersText} | Selected IDs: {$selectedIdsText}.";
+
+    audit_log_after_commit([
+        'module_id'         => 5,
+        'short_description' => 'B2B Admin Deployment Request Export Initiated',
+        'long_description'  => $longDesc,
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => 'deployment_request.export',
+        'ip_address'        => $request->ip(),
+        'user_device'       => $request->userAgent()
+    ]);
         return Excel::download(
             new B2BAdminDeploymentRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone ,$status,$accountability_type,$customer_id),
             'Deployment-request-list-' . date('d-m-Y') . '.xlsx'
@@ -869,6 +1029,9 @@ class DeployedAssetController extends Controller
      //updated by logesh
       public function export_deployed_list(Request $request)
     {
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        
         
         $fields    = $request->input('fields', []);  
         $from_date = $request->input('from_date');
@@ -880,10 +1043,52 @@ class DeployedAssetController extends Controller
         $accountability_type = $request->input('accountability_type')?? null;
          $selectedIds = $request->input('selected_ids', []);
 
+
     
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
+        
+            $filterNames = [];
+        
+            if ($from_date)            $filterNames[] = "From Date";
+            if ($to_date)              $filterNames[] = "To Date";
+            if ($status)               $filterNames[] = "Status";
+            if ($city)                 $filterNames[] = "City";
+            if ($zone)                 $filterNames[] = "Zone";
+            if ($customer_id)          $filterNames[] = "Customer";
+            if ($accountability_type)  $filterNames[] = "Accountability Type";
+        
+            $filtersList = !empty($filterNames) ? implode(', ', $filterNames) : "None";
+        
+            // --------------------------------
+            // 2. FIELDS SELECTED (comma list)
+            // --------------------------------
+            $fieldsList = implode(', ', $fields);
+        
+            // Short Description
+            $shortDescription = "Exported deployed asset list";
+        
+            // Long Description
+            $longDescription =
+                "{$user->name} ({$roleName}) exported the deployed asset list. "
+                . "Fields exported: {$fieldsList}. "
+                . "Filters applied: {$filtersList}.";
+        
+            // Save Audit Log
+            audit_log_after_commit([
+                'module_id'         => 5,
+                'short_description' => $shortDescription,
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => $user->id,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'b2badmin.export_deployed_asset_list',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent()
+            ]);
+            
     
         return Excel::download(
             new B2BAdminDeployedAssetExport($from_date, $to_date, $selectedIds, $fields,$city,$zone ,$status,$accountability_type,$customer_id),

@@ -843,6 +843,24 @@
                             </x-admin.nav-link> 
                         @endif
                         
+                        @if (can('user_activity_log'))
+                        
+                            @php
+                            $UserActivityLogActive = request()->routeIs('admin.Green-Drive-Ev.apilogmanagement.user_activity_api_log');
+                            $fillColor_UserActivityLog = $UserActivityLogActive ? '#52c552' : '#bbbfc4';
+                            @endphp
+                        
+                            <li class="{{ $UserActivityLogActive ? 'mm-active' : '' }}">
+                                <a class="text-capitalize {{ $UserActivityLogActive == true ? 'submenu-activeclass' : '' }}"
+                                    style="color:{{$UserActivityLogActive == true ? '#52c552' : '#8a8e91'}}"
+                                    href="{{route('admin.Green-Drive-Ev.apilogmanagement.user_activity_api_log')}}" target="_self">
+                                   
+                                   User Activity Logs
+                                </a>
+                            </li>
+                        
+                        @endif
+                        
                     </x-admin.multi-nav>
                 @endif
                 

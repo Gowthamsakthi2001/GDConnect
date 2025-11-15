@@ -213,6 +213,8 @@ class RecoveryNotifyHandler
             </html>";
     
             CustomHandler::sendEmail($toCustomerEmails, $subject, $customerBody);
+            
+            
         }
     
         /** ------------------ MANAGER EMAIL (CC ADMINS) ------------------ **/

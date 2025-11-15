@@ -32,6 +32,7 @@ return [
     ],
     
     'audit' => [
+        'enabled'  => env('LOG_MODE', 0), 
         'base_url'   => env('SERVICES_AUDIT_BASE_URL'),
         'shared_key' => env('SERVICES_AUDIT_SHARED_KEY'),
         'issuer'     => env('SERVICES_AUDIT_ISSUER', 'my-main-app'),

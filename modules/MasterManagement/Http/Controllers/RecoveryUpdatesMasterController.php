@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\MasterManagement\Entities\RecoveryUpdatesMaster;
 use App\Exports\RecoveryUpdatesMasterExport; // create similar to ColorMasterExport
+use Illuminate\Support\Facades\Auth;
 
 class RecoveryUpdatesMasterController extends Controller
 {
@@ -50,7 +51,24 @@ class RecoveryUpdatesMasterController extends Controller
             'label_name'   => $validated['label_name'],
             'status' => (int) $validated['status'],
         ]);
+        
+         $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $model->status == 1 ? 'Active' : 'Inactive';
 
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Recovery Update Created',
+                'long_description'  => "Recovery update '{$model->label_name}' created (ID: {$model->id}). Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'recovery_updates_master.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
         return response()->json([
             'success' => true,
             'message' => 'New recovery update created successfully.',
@@ -65,8 +83,29 @@ class RecoveryUpdatesMasterController extends Controller
         ]);
 
         $record = RecoveryUpdatesMaster::find($request->id);
+        $oldStatus = (int) $record->status;
+        $newStatus = (int) $request->status;
         $record->status = (int) $request->status;
         $record->save();
+        
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $newStatus == 1 ? 'Active' : 'Inactive';
+                
+            audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Recovery Update Status Changed',
+                    'long_description'  => "Recovery update '{$record->label_name}' (ID: {$record->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'recovery_updates_master.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                
+                ]);
 
         return response()->json([
             'success' => true,
@@ -85,11 +124,40 @@ class RecoveryUpdatesMasterController extends Controller
         ]);
 
         $model = RecoveryUpdatesMaster::find($request->id);
+        $old = $model->getAttributes();
         $model->update([
             'label_name'      => $request->label_name,
             'status'    => (int) $request->status,
             'updated_at'=> now(),
         ]);
+        
+        $new = $model->getAttributes();
+         $changes = [];
+        if (($old['label_name'] ?? null) != ($new['label_name'] ?? null)) {
+            $changes[] = "Label Name: " . ($old['label_name'] ?? 'N/A') . " → " . ($new['label_name'] ?? 'N/A');
+        }
+        if ((string)($old['status'] ?? '') !== (string)($new['status'] ?? '')) {
+            $oldStatusText = isset($old['status']) ? (($old['status'] == 1) ? 'Active' : 'Inactive') : 'N/A';
+            $newStatusText = ($new['status'] == 1) ? 'Active' : 'Inactive';
+            $changes[] = "Status: {$oldStatusText} → {$newStatusText}";
+        }
+        $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Recovery Update Edited',
+                'long_description'  => "Recovery update '{$model->label_name}' (ID: {$model->id}) updated. Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'recovery_updates_master.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
 
         return response()->json([
             'success' => true,
@@ -106,6 +174,34 @@ class RecoveryUpdatesMasterController extends Controller
 
         // Create an export class similar to ColorMasterExport
         // e.g., app/Exports/RecoveryUpdatesMasterExport.php
+         $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
+        $idsSample = $selectedCount > 0 ? implode(',', array_slice($selectedIds, 0, 5)) : '-';
+        $more = $selectedCount > 5 ? ' (+' . ($selectedCount - 5) . ' more)' : '';
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        $longDescription = sprintf(
+            "Recovery Updates Master export initiated. Filters → Status: %s | From: %s | To: %s | Selected IDs: %s%s",
+            $status ?? '-',
+            $from_date ?? '-',
+            $to_date ?? '-',
+            $idsSample,
+            $more
+        );
+        
+            audit_log_after_commit([
+                'module_id'         => 7,
+                'short_description' => 'Recovery Updates Export Triggered',
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'recovery_updates_master.export',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         return Excel::download(
             new RecoveryUpdatesMasterExport($status, $from_date, $to_date, $selectedIds),
             'recovery-updates-master-' . date('d-m-Y') . '.xlsx'

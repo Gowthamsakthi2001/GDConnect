@@ -8,6 +8,7 @@
 /vendor
 /cron_job.log
 .env
+.htaccess
 .env.backup
 .env.production
 .phpunit.result.cache

@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Modules\LeaveManagement\DataTables\HolidayDataTable;
 use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Auth; //updated by Mugesh.B
 
 class HolidayManagementController extends Controller
 {
@@ -40,6 +41,8 @@ class HolidayManagementController extends Controller
         if ($request->has('holiday_id')) {
             $holiday = Holiday::find($request->holiday_id);
         }
+        
+
 
         return view('leavemanagement::holiday_management.manage', [
             'existingHolidays' => $existingHolidays,
@@ -114,6 +117,7 @@ class HolidayManagementController extends Controller
     
     public function save(Request $request)
 {
+    
     $validated = $request->validate([
         'id' => 'nullable|exists:ev_master_holidays,id',
         'title' => 'required|string|max:255',
@@ -125,6 +129,7 @@ class HolidayManagementController extends Controller
         // 'apply_to_years' => 'nullable|array'
     ]);
 
+    $pageName = 'holiday.save';
     if ($request->filled('id')) {
         // Update existing holiday
         $holiday = Holiday::find($request->id);
@@ -146,6 +151,9 @@ class HolidayManagementController extends Controller
                       'is_active' => $holiday->is_active
                   ]);
         }
+        
+        $actionType = 'updated';
+        $pageName = 'holiday.update';
     } else {
         // Create new holiday
         $recurringGroupId = $request->is_recurring ? Str::uuid() : null;
@@ -175,7 +183,39 @@ class HolidayManagementController extends Controller
                 }
             }
         }
+        $actionType = 'created';
+        $pageName = 'holiday.save';
     }
+    
+    
+    
+        
+    $user = Auth::user();
+    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    $performedBy = $user->name ?? 'Unknown User';
+
+    
+    $shortDescription = "Holiday {$actionType} ({$holiday->title})";
+
+    $longDescription = "The holiday titled '{$holiday->title}' dated "
+        . Carbon::parse($holiday->date)->format('d-m-Y')
+        . " was {$actionType} by {$performedBy} ({$roleName}). "
+        . "Type: {$holiday->type}. "
+        . ($holiday->is_recurring ? 'This holiday is set as recurring.' : 'This holiday is not recurring.');
+
+    
+    audit_log_after_commit([
+        'module_id'         => 2, 
+        'short_description' => $shortDescription,
+        'long_description'  => $longDescription,
+        'role'              => $roleName,
+        'user_id'           => Auth::id(),
+        'user_type'         => 'gdc_admin_dashboard',
+        'dashboard_type'    => 'web',
+        'page_name'         => $pageName,
+        'ip_address'        => request()->ip(),
+        'user_device'       => request()->userAgent(),
+    ]);
 
     return response()->json([
         'success' => true,
@@ -187,16 +227,52 @@ class HolidayManagementController extends Controller
 // Add this delete method to your controller
 public function destroy(Request $request)
 {
+
+    
     $id = $request->id;
     $holiday = Holiday::findOrFail($id);
     $recurringGroupId = $holiday->recurring_group_id;
     
+    
+    $user = Auth::user();
+    $roleName    = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    $performedBy = $user->name ?? 'Unknown User';
+    $pageName    = 'holiday.delete';
+        
+        
     // Delete all holidays in the same recurring group
     if ($recurringGroupId) {
         Holiday::where('recurring_group_id', $recurringGroupId)->delete();
     } else {
         $holiday->delete();
     }
+    
+    
+    if ($recurringGroupId) {
+        $shortDescription = "Recurring holiday group deleted ({$holiday->title})";
+        $longDescription  = "The recurring holiday series '{$holiday->title}' starting from "
+                          . Carbon::parse($holiday->date)->format('d M Y') . " was deleted by "
+                          . "{$performedBy} ({$roleName}).";
+    } else {
+        $shortDescription = "Holiday deleted ({$holiday->title})";
+        $longDescription  = "The holiday '{$holiday->title}' on "
+                          . Carbon::parse($holiday->date)->format('d M Y') . " was deleted by "
+                          . "{$performedBy} ({$roleName}). Type: {$holiday->type}.";
+    }
+
+        // Save audit log
+        audit_log_after_commit([
+            'module_id'         => 2, // HR / Leave Management module ID
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => $pageName,
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
     
     return response()->json([
         'success' => true,

@@ -5,6 +5,7 @@ namespace Modules\B2B\Entities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\Deliveryman\Entities\Deliveryman;
+use Modules\MasterManagement\Entities\RecoveryReasonMaster; //update by Mugesh.B
 
 class B2BRecoveryRequest extends Model
 {
@@ -64,6 +65,11 @@ class B2BRecoveryRequest extends Model
     public function assignment()
     {
         return $this->belongsTo(B2BVehicleAssignment::class, 'assign_id', 'id');
+    }
+    
+    public function recovery_reason_relation() //updated by Mugesh.B
+    {
+        return $this->belongsTo(RecoveryReasonMaster::class, 'reason');
     }
     
       public function user()

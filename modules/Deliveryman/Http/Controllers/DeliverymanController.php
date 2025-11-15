@@ -26,6 +26,7 @@ use Modules\AssetMaster\Entities\AssetMasterVehicle;
 use Modules\LeaveManagement\Entities\LeaveType; //updated by Gowtham.s
 use Modules\LeaveManagement\Entities\LeaveRequest;
 use App\Exports\LeavePermissionsExport;
+use Illuminate\Support\Facades\Auth; //updated by Mugesh.B
 use App\Exports\LeaveDaysExport;
 use App\Exports\exportLeaveRejectListExport;
 use App\Exports\DeliverymanOnboardlist;
@@ -491,7 +492,7 @@ class DeliverymanController extends Controller
     public function update(Request $request, $id)
     {
         
-        
+        dd('hjdsgdsjh');
         // exit;
         
         // Validate the incoming request using the Validator facade
@@ -816,8 +817,15 @@ class DeliverymanController extends Controller
                 $allowedFields = ['aadhar_verify', 'pan_verify', 'bank_verify', 'lisence_verify'];
             
                 if (in_array($field, $allowedFields)) {
+                    $fromStatus = $deliveryman->$field == 1 ? 'Verified' : 'Unverified';
+                    
                     $deliveryman->$field = $status;
                     $deliveryman->save();
+                    
+                    $toStatus = $status == 1 ? 'Verified' : 'Unverified';
+                    $fullName = trim($deliveryman->first_name . ' ' . $deliveryman->last_name);
+                    $entityType = ucfirst(strtolower($deliveryman->work_type ?? 'Deliveryman'));
+        
             
                     // Proper field name mapping
                     $fieldNames = [
@@ -829,6 +837,28 @@ class DeliverymanController extends Controller
             
                     $statusName = $fieldNames[$field] ?? ucfirst(str_replace('_', ' ', $field));
                     $statusText = $status == 1 ? 'verified' : 'unverified';
+                    
+                    $user = Auth::user();
+                    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+             
+                    // Build audit log message
+                    $shortDescription = "{$statusName} Verification Updated";
+                    $longDescription  = "Changed the {$statusName} verification status for {$entityType} {$fullName} from '{$fromStatus}' to '{$toStatus}'.";
+             
+                    // Store audit log
+                    audit_log_after_commit([
+                        'module_id'         => 2,
+                        'short_description' => $shortDescription,
+                        'long_description'  => $longDescription,
+                        'role'              => $roleName,
+                        'user_id'           => Auth::id(),
+                        'user_type'         => 'gdc_admin_dashboard',
+                        'dashboard_type'    => 'web',
+                        'page_name'         => 'deliveryman.verification_status',
+                        'ip_address'        => request()->ip(),
+                        'user_device'       => request()->userAgent(),
+                    ]);
+                    
             
                     return response()->json([
                         'success' => true,
@@ -1145,8 +1175,10 @@ class DeliverymanController extends Controller
     //     }
     // }
 
-    public function delete_dm($id) //updated by Gowtham Sakthi
+    public function delete_dm(Request $request ,$id) //updated by Gowtham Sakthi
     {
+   
+        
         try {
             $dm = Deliveryman::findOrFail($id);
             
@@ -1154,7 +1186,34 @@ class DeliverymanController extends Controller
             $dm->rider_status = $dm->delete_status == 1 ? 0 : $dm->rider_status;
             $dm->save();
 
-            $message = $dm->delete_status == 1 ? 'Removed successfully' : 'Restored successfully';
+            // $message = $dm->delete_status == 1 ? 'Removed successfully' : 'Restored successfully';
+            
+            $action = $dm->delete_status == 1 ? 'Removed' : 'Restored';
+            $message = "Candidate {$action} Successfully";
+        
+        
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                   
+            $candidateName = $dm->first_name . ' ' . ($dm->last_name ?? '');
+            $applicationID = $dm->reg_application_id ?? 'N/A';
+            
+             $longDescription = "Candidate record ({$candidateName}, Application ID: {$applicationID}) was {$action} through the HR Management.";
+    
+            audit_log_after_commit([
+                'module_id'         => 2,
+                'short_description' => "Candidate {$action}",
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name' => $dm->delete_status == 1 ? 'deliveryman.delete' : 'deliveryman.restore',
+                'ip_address'        => $request->ip(),
+                'user_device'       => $request->userAgent(),
+            ]);
+            
+            
             // dd($message);
             return response()->json(['success' => true, 'message' => 'Candidate Removed Successfully', 'status' => $dm->delete_status],200);
             
@@ -1204,29 +1263,60 @@ class DeliverymanController extends Controller
     {
         try {
             $dm = Deliveryman::findOrFail($dm_id);
+            
+            $fromStatus = $dm->rider_status == 1 ? 'Active' : 'Inactive';
+             
+             
             $dm->rider_status = $status;
             $dm->save();
     
+            $toStatus = $status == 1 ? 'Active' : 'Inactive';
             $fullName = trim($dm->first_name . ' ' . $dm->last_name);
+            
             $workType = strtolower($dm->work_type);
     
             switch ($workType) {
                 case 'deliveryman':
+                    $entityType = 'Rider';
                     $successText = "Rider status for {$fullName} has been updated successfully.";
                     break;
                 case 'in-house':
+                    $entityType = 'Employee';
                     $successText = "Employee status for {$fullName} has been updated successfully.";
                     break;
                 case 'adhoc':
+                    $entityType = 'Adhoc';
                     $successText = "Adhoc status for {$fullName} has been updated successfully.";
                     break;
                 default:
+                    $entityType = 'User';
                     $successText = "Status for {$fullName} has been updated successfully.";
             }
     
             if ($status == 1 && $dm->mobile_number) {
                 $this->sendActivationWhatsAppMessage($dm->mobile_number, $fullName);
             }
+    
+    
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        
+            $shortDescription = "{$entityType} Status Updated";
+            $longDescription = "Changed the {$entityType} status for {$fullName} from '{$fromStatus}' to '{$toStatus}'.";
+
+
+            audit_log_after_commit([
+                'module_id'         => 2,
+                'short_description' => $shortDescription,
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'deliveryman.rider_status',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent(),
+            ]);
     
             return response()->json([
                 'status' => true,
@@ -1633,6 +1723,39 @@ class DeliverymanController extends Controller
         $year = $request->input('year', date('Y'));
         $deliverymanId = $request->input('deliveryman_id');
         $dm = Deliveryman::where('id',$deliverymanId)->first();
+
+        
+        $success_text = $dm->work_type === 'in-house' ? 'Employee' : ucfirst($dm->work_type);
+        $pageName = strtolower($success_text) . '.export_leave_permissions';
+
+        $user = Auth::user();
+        $roleName   = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $exportedBy = $user->name ?? 'Unknown User';
+    
+
+    
+
+        $shortDescription = "{$success_text} Leave Permissions Exported ({$dm->reg_application_id})";
+    
+        $longDescription  = "{$success_text} leave permissions Excel file for {$dm->first_name} {$dm->last_name} "
+                          . "(Application ID: {$dm->reg_application_id}) for the year {$year} "
+                          . "was downloaded by {$exportedBy} ({$roleName}).";
+    
+
+        audit_log_after_commit([
+            'module_id'         => 2, 
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => $pageName,
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+        
+        
         return Excel::download(new LeavePermissionsExport($year, $deliverymanId), $dm->first_name.'-'.$dm->last_name.'-leave_permissions'.date('d-m-Y').'.xlsx');
     }
     
@@ -1641,6 +1764,38 @@ class DeliverymanController extends Controller
         $year = $request->input('year', date('Y'));
         $deliverymanId = $request->input('deliveryman_id');
         $dm = Deliveryman::where('id',$deliverymanId)->first();
+        
+        
+        $success_text = $dm->work_type === 'in-house' ? 'Employee' : ucfirst($dm->work_type);
+        $pageName = strtolower($success_text) . '.export_leave_days';
+
+        // Auth user details
+        $user = Auth::user();
+        $roleName   = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $exportedBy = $user->name ?? 'Unknown User';
+    
+    
+        $shortDescription = "{$success_text} Leave Days Exported ({$dm->reg_application_id})";
+
+        $longDescription = "{$success_text} leave days Excel file for {$dm->first_name} {$dm->last_name} "
+                         . "(Application ID: {$dm->reg_application_id}) for the year {$year} "
+                         . "was downloaded by {$exportedBy} ({$roleName}).";
+    
+        // Save audit log
+        audit_log_after_commit([
+            'module_id'         => 2, // Change if you have specific HR module ID
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => $pageName,
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+    
+    
         return Excel::download(new LeaveDaysExport($year, $deliverymanId), $dm->first_name.'-'.$dm->last_name.'-leave_days'.date('d-m-Y').'.xlsx');
     }
     
@@ -1649,6 +1804,38 @@ class DeliverymanController extends Controller
         $year = $request->input('year', date('Y'));
         $deliverymanId = $request->input('deliveryman_id');
         $dm = Deliveryman::where('id',$deliverymanId)->first();
+        
+        
+        $success_text = $dm->work_type === 'in-house' ? 'Employee' : ucfirst($dm->work_type);
+         $pageName = strtolower($success_text) . '.export_leave_reject_list';
+    
+
+        $user = Auth::user();
+        $roleName   = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $exportedBy = $user->name ?? 'Unknown User';
+    
+    
+
+        $shortDescription = "{$success_text} Leave Reject List Exported ({$dm->reg_application_id})";
+    
+        $longDescription = "{$success_text} leave reject list Excel file for {$dm->first_name} {$dm->last_name} "
+            . "(Application ID: {$dm->reg_application_id}) for the year {$year} "
+            . "was downloaded by {$exportedBy} ({$roleName}).";
+    
+
+        audit_log_after_commit([
+            'module_id'         => 2, 
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => $pageName,
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+        
         return Excel::download(new exportLeaveRejectListExport($year, $deliverymanId), $dm->first_name.'-'.$dm->last_name.'-reject-list'.date('d-m-Y').'.xlsx');
     }
 
@@ -2704,6 +2891,31 @@ class DeliverymanController extends Controller
         
         curl_close($curl);
         
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $senderName = $user->name ?? 'Unknown User';
+        $applicationId = $dm->reg_application_id ?? 'N/A';
+        $deliverymanName = trim($dm->first_name . ' ' . $dm->last_name);
+
+        $shortDescription = "WhatsApp Message Sent to {$deliverymanName}";
+        $longDescription  = "A WhatsApp message was successfully sent for Application ID '{$applicationId}' "
+                          . "to {$deliverymanName} ({$dm->mobile_number}) by {$senderName} ({$roleName}).";
+                          
+
+        audit_log_after_commit([
+            'module_id'         => 2,
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'deliveryman.whatsapp_message',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+        
             return [
                 'status' => 'success',
                 'message' => 'WhatsApp message sent successfully',
@@ -2717,6 +2929,60 @@ class DeliverymanController extends Controller
         $city_id = $request->city_id;
         $zone_id = $request->zone_id;
         $client_id = $request->client_id;
+        
+        switch ($type) {
+        case 'all':
+            $fileName = 'Deliveryman-all-list-' . date('d-m-Y') . '.xlsx';
+            $exportTypeText = 'All Deliverymen';
+            break;
+        case 'approve':
+            $fileName = 'Deliveryman-approved-list-' . date('d-m-Y') . '.xlsx';
+            $exportTypeText = 'Approved Deliverymen';
+            break;
+        case 'deny':
+            $fileName = 'Deliveryman-rejected-list-' . date('d-m-Y') . '.xlsx';
+            $exportTypeText = 'Rejected Deliverymen';
+            break;
+        default:
+            $fileName = 'Deliveryman-pending-list-' . date('d-m-Y') . '.xlsx';
+            $exportTypeText = 'Pending Deliverymen';
+            break;
+        }
+        
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $exportedBy = $user->name ?? 'Unknown User';
+
+       
+        $filters = [];
+        
+        $filters = [];
+        if ($city_id)   $filters[] = "City";
+        if ($zone_id)   $filters[] = "Zone";
+        if ($client_id) $filters[] = "Client";
+        
+        $filterText = !empty($filters) ? implode(', ', $filters) : 'No filters applied';
+   
+        $shortDescription = "{$exportTypeText} Excel Exported";
+        $longDescription  = "{$exportTypeText} Excel file was downloaded by {$exportedBy} ({$roleName}). "
+                          . "Applied Filters: {$filterText}.";
+
+        
+        audit_log_after_commit([
+            'module_id'         => 2,
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'deliveryman.export_verify_list',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+        
+        
         if($type == 'all'){
           return Excel::download(new DeliverymanOnboardlist($type,$city_id,$zone_id,$client_id), 'Deliveryman-all-list-' . date('d-m-Y') . '.xlsx');
         }
@@ -2727,6 +2993,10 @@ class DeliverymanController extends Controller
         }else{
              return Excel::download(new DeliverymanOnboardlist($type,$city_id,$zone_id,$client_id), 'Deliveryman-pending-list-' . date('d-m-Y') . '.xlsx');
         }
+        
+        
+        
+
     }
     
     private function get_adhoc_tempid_count($type){
@@ -2820,6 +3090,45 @@ class DeliverymanController extends Controller
         $summary_type = $request->get('summary_type', 'all');
         $from_date = $request->get('from_date');
         $to_date = $request->get('to_date');
+        
+
+    
+        // ===== Audit Log Section =====
+        $user = Auth::user();
+        $roleName   = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $exportedBy = $user->name ?? 'Unknown User';
+    
+        // Prepare filters (human-readable, no IDs)
+        $filters = [];
+        if ($city_id)      $filters[] = "City";
+        if ($zone_id)      $filters[] = "Zone";
+        if ($client_id)    $filters[] = "Client";
+        if ($summary_type) $filters[] = ucfirst($summary_type) . " Summary";
+        if ($from_date && $to_date) $filters[] = "Date Range: {$from_date} to {$to_date}";
+    
+        $filterText = !empty($filters) ? implode(', ', $filters) : 'No filters applied';
+    
+        // Prepare log descriptions
+        $shortDescription = "Deliveryman Log Excel Exported";
+        $longDescription  = "Deliveryman Log Excel file was downloaded by {$exportedBy} ({$roleName}). "
+                          . "Applied Filters: {$filterText}.";
+    
+        // Store audit log
+        audit_log_after_commit([
+            'module_id'         => 2,
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'deliveryman.export_dm_log_list',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+        // =============================
+    
+    
         return Excel::download(new DeliverymanLogExport($city_id,$zone_id,$client_id,$summary_type,$from_date,$to_date),'Deliveryman_Log_list.xlsx');
     }
 

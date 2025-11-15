@@ -26,6 +26,7 @@ use Modules\AssetMaster\DataTables\AssetMasterBatteryDataTable;
 use Modules\AssetMaster\DataTables\AssetMasterChargerDataTable;
 use Modules\AssetMaster\DataTables\AssetMasterVechileDataTables;
 use Modules\AssetMaster\DataTables\AssetStatusDataTable;
+use Illuminate\Support\Facades\Auth;
 
 class FinancingTypeMasterController extends Controller
 {
@@ -89,7 +90,24 @@ class FinancingTypeMasterController extends Controller
             'name' => $validated['financing_type_name'],
             'status' => $validated['status'],
         ]);
-    
+        
+        $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $model->status == 1 ? 'Active' : 'Inactive';
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Financing Type Created',
+                'long_description'  => "Financing Type '{$model->name}' created (ID: {$model->id}). Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'financing_type_master.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
         return response()->json([
             'success' => true,
             'message' => 'Financing Type Master created successfully.',
@@ -107,12 +125,42 @@ class FinancingTypeMasterController extends Controller
         ]);
     
         $model = FinancingTypeMaster::find($request->id);
+        $old = $model->getAttributes();
         $model->update([
             'name' => $request->financing_type_name,
             'status' => $request->status,
             'updated_at'=> now() 
         ]);
-    
+        
+        $new = $model->getAttributes();
+
+        // Build human-readable changes
+        $changes = [];
+        if (($old['name'] ?? null) != ($new['name'] ?? null)) {
+            $changes[] = "Name: " . ($old['name'] ?? 'N/A') . " → " . ($new['name'] ?? 'N/A');
+        }
+        if ((string)($old['status'] ?? '') !== (string)($new['status'] ?? '')) {
+            $oldStatusText = isset($old['status']) ? (($old['status'] == 1) ? 'Active' : 'Inactive') : 'N/A';
+            $newStatusText = ($new['status'] == 1) ? 'Active' : 'Inactive';
+            $changes[] = "Status: {$oldStatusText} → {$newStatusText}";
+        }
+        $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
+        
+        $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Financing Type Updated',
+                'long_description'  => "Financing Type '{$model->name}' (ID: {$model->id}) updated. Changes: {$changesText}",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'financing_type_master.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         return response()->json(['success' => true, 'message' => 'Financing type updated successfully.']);
     }
     
@@ -126,8 +174,28 @@ class FinancingTypeMasterController extends Controller
         ]);
     
         $record = FinancingTypeMaster::find($request->id);
+        $oldStatus = $record->status;
+        $newStatus = $request->status;
         $record->status = $request->status;
         $record->save();
+        
+        $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $newStatus == 1 ? 'Active' : 'Inactive';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Financing Type Status Updated',
+                    'long_description'  => "Financing Type '{$record->name}' (ID: {$record->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'financing_type_master.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
     
         return response()->json([
             'success' => true,
@@ -142,6 +210,34 @@ class FinancingTypeMasterController extends Controller
         $to_date = $request->to_date;
          $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
         
+        $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
+        $idsSample = $selectedCount > 0 ? implode(',', array_slice($selectedIds, 0, 5)) : '-';
+        $more = $selectedCount > 5 ? ' (+' . ($selectedCount - 5) . ' more)' : '';
+
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+        $longDescription = sprintf(
+            "Financing Type export initiated. Filters → Status: %s | From: %s | To: %s | Selected IDs: %s%s",
+            $status ?? '-',
+            $from_date ?? '-',
+            $to_date ?? '-',
+            $idsSample,
+            $more
+        );
+        
+        audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Financing Type Export Triggered',
+                'long_description'  => $longDescription,
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'financing_type_master.export',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
         
           return Excel::download(new FinancingTypeMasterExport($status,$from_date,$to_date , $selectedIds), 'financing-type-master-' . date('d-m-Y') . '.xlsx');
        

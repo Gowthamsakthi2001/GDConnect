@@ -10,6 +10,7 @@ use Modules\Employee\Entities\Department;
 use Modules\Employee\Entities\Employee;
 use Modules\Employee\Entities\Position;
 use Modules\Employee\Http\Requests\EmployeeRequest;
+use Illuminate\Support\Facades\Auth; //updated by Mugesh.B
 use Modules\City\Entities\City;
 use Modules\City\Entities\Area;
 use Modules\Zones\Entities\Zones;
@@ -181,6 +182,55 @@ class EmployeeController extends Controller
     {
         $city_id = $request->get('city_id');
         
+        switch ($type) {
+            case 'all':
+                $fileName = 'Employee-all-list-' . date('d-m-Y') . '.xlsx';
+                $exportTypeText = 'All Employees';
+                break;
+            case 'approve':
+                $fileName = 'Employee-approved-list-' . date('d-m-Y') . '.xlsx';
+                $exportTypeText = 'Approved Employees';
+                break;
+            case 'deny':
+                $fileName = 'Employee-rejected-list-' . date('d-m-Y') . '.xlsx';
+                $exportTypeText = 'Rejected Employees';
+                break;
+            default:
+                $fileName = 'Employee-pending-list-' . date('d-m-Y') . '.xlsx';
+                $exportTypeText = 'Pending Employees';
+                break;
+        }
+
+        // Auth user details
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $exportedBy = $user->name ?? 'Unknown User';
+    
+        // Filter summary
+        $filters = [];
+        if ($city_id) $filters[] = "City";
+        $filterText = !empty($filters) ? implode(', ', $filters) : 'No filters applied';
+    
+        // Log messages
+        $shortDescription = "{$exportTypeText} Excel Exported";
+        $longDescription  = "{$exportTypeText} Excel file was downloaded by {$exportedBy} ({$roleName}). "
+                          . "Applied Filters: {$filterText}.";
+                          
+    
+        // Store Audit Log
+        audit_log_after_commit([
+            'module_id'         => 2,
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'employee.export_verify_list',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+        
         if($type == 'all'){
           return Excel::download(new EmployeeOnboardList($type,$city_id), 'Employee-all-list-' . date('d-m-Y') . '.xlsx');
         }
@@ -280,6 +330,12 @@ class EmployeeController extends Controller
             ]);
         }
     
+    
+        $oldStatus = $dm->job_status ?? 'N/A';
+        $newStatus = $request->job_status;
+        $remarks   = $request->remarks ?? 'No remarks provided';
+    
+    
         $dm->job_status = $request->job_status;
         
     
@@ -296,12 +352,39 @@ class EmployeeController extends Controller
         }
     
         $dm->save();
+        
+        $user = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+        $updatedBy = $user->name ?? 'Unknown User';
+
     
+        $shortDescription = "Employee Job Status Updated";
+    
+        $longDescription = "Employee {$dm->name} (Application ID: {$dm->reg_application_id}) job status was changed "
+            . "from '{$oldStatus}' to '{$newStatus}' by {$updatedBy} ({$roleName}). "
+            . "Remarks: {$remarks}.";
+        
+        
+        audit_log_after_commit([
+            'module_id'         => 2,
+            'short_description' => $shortDescription,
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'employee.job_status_update',
+            'ip_address'        => request()->ip(),
+            'user_device'       => request()->userAgent(),
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Job status updated successfully.',
         ]);
     }
+    
+    
 
 
     

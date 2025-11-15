@@ -14,7 +14,7 @@ use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Modules\MasterManagement\Entities\InsuranceTypeMaster;
 use App\Exports\InsuranceTypeMasterExport;
-
+use Illuminate\Support\Facades\Auth;
 
 class InsuranceTypeMasterController extends Controller
 {
@@ -69,7 +69,24 @@ class InsuranceTypeMasterController extends Controller
             $data['status'] = $request->status;
     
             InsuranceTypeMaster::create($data);
-    
+            
+            $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $statusText = $model->status == 1 ? 'Active' : 'Inactive';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Insurance Type Created',
+                    'long_description'  => "Insurance Type '{$model->name}' created (ID: {$model->id}). Status: {$statusText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'insurance_type_master.store',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
+                
             return response()->json([
                 'success' => true,
                 'message' => 'New Insurance Type Added Successfully!'
@@ -98,7 +115,39 @@ class InsuranceTypeMasterController extends Controller
             $data['name'] = $request->insurance_type;
             $data['status'] = $request->status;
     
+            $old = $HYP_Master->getAttributes();
+
             $HYP_Master->update($data);
+
+            $new = $HYP_Master->getAttributes();
+
+            // Build changes text
+            $changes = [];
+            if (($old['name'] ?? null) != ($new['name'] ?? null)) {
+                $changes[] = "Name: " . ($old['name'] ?? 'N/A') . " → " . ($new['name'] ?? 'N/A');
+            }
+            if ((string)($old['status'] ?? '') !== (string)($new['status'] ?? '')) {
+                $oldStatus = isset($old['status']) ? (($old['status'] == 1) ? 'Active' : 'Inactive') : 'N/A';
+                $newStatus = ($new['status'] == 1) ? 'Active' : 'Inactive';
+                $changes[] = "Status: {$oldStatus} → {$newStatus}";
+            }
+            $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
+            
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Insurance Type Updated',
+                    'long_description'  => "Insurance Type '{$model->name}' (ID: {$model->id}) updated. Changes: {$changesText}",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'insurance_type_master.update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
     
             return response()->json([
                 'success' => true,
@@ -133,10 +182,30 @@ class InsuranceTypeMasterController extends Controller
             ]);
     
     
-            $updated = InsuranceTypeMaster::where('id', $request->id)
-                ->update(['status' => $request->status]);
+            $model = InsuranceTypeMaster::where('id', $request->id)->first();
+                $model->update(['status' => $request->status]);
     
-            if ($updated) {
+            if ($model) {
+                $oldStatus = (int) $model->status;
+                $newStatus = (int) $request->status;
+                
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $newStatus == 1 ? 'Active' : 'Inactive';
+
+                audit_log_after_commit([
+                    'module_id'         => 1,
+                    'short_description' => 'Insurance Type Status Updated',
+                    'long_description'  => "Insurance Type '{$model->name}' (ID: {$model->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'insurance_type_master.status_update',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'

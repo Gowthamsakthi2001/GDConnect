@@ -8,6 +8,7 @@ use Modules\VehicleManagement\DataTables\VehicleTypeDataTable;
 use Modules\VehicleManagement\Entities\VehicleType;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\VehicleTypeExport;
+use Illuminate\Support\Facades\Auth;
 
 class VehicleTypeController extends Controller
 {
@@ -104,8 +105,25 @@ class VehicleTypeController extends Controller
                 'status' => 'required|boolean',
             ]);
             $data['is_active'] = $request->status;
-            VehicleType::create($data);
-    
+            $vehicleType = VehicleType::create($data);
+            
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $vehicleType->is_active == 1 ? 'Active' : 'Inactive';
+
+            audit_log_after_commit([
+                'module_id'         => 7,
+                'short_description' => 'Vehicle Type Created',
+                'long_description'  => "Vehicle Type '{$vehicleType->name}' created (ID: {$vehicleType->id}). Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'vehicle_type.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'message' => 'New Vehicle Type Added Successfully!'
@@ -120,8 +138,29 @@ class VehicleTypeController extends Controller
                 'status' => 'required|boolean',
             ]);
             $data['is_active'] = $request->status;
+            $oldName = $vehicleType->name;
+            $oldDescription = $vehicleType->description;
+            $oldStatus = (int) $vehicleType->is_active;
+            $oldStatusText = $oldStatus == 1 ? 'Active' : 'Inactive';
+        
             $vehicleType->update($data);
-    
+            $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $newStatus = (int) $vehicleType->is_active;
+            $newStatusText = $newStatus == 1 ? 'Active' : 'Inactive';
+
+            audit_log_after_commit([
+                'module_id'         => 7,
+                'short_description' => 'Vehicle Type Updated',
+                'long_description'  => "Vehicle Type updated (ID: {$vehicleType->id}). Name: '{$oldName}' → '{$vehicleType->name}'; Description changed: " . ($oldDescription === $vehicleType->description ? 'No' : 'Yes') . "; Status: {$oldStatusText} → {$newStatusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'vehicle_type.update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
             return response()->json([
                 'success' => true,
                 'message' => 'Vehicle Type Updated Successfully!'
@@ -139,11 +178,31 @@ class VehicleTypeController extends Controller
             ]);
     
     
-            $updated = VehicleType::where('id', $request->id)
-                ->update(['is_active' => $request->status]);
+            $updated = VehicleType::where('id', $request->id)->first();
+            $oldStatus = (int) $updated->is_active;
+            $newStatus = (int) $request->status;
+            $updated->update(['is_active' => $request->status]);
     
             if ($updated) {
-                return response()->json([
+                $user = Auth::user();
+                $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+                $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
+                $newText = $newStatus == 1 ? 'Active' : 'Inactive';
+                
+                audit_log_after_commit([
+                    'module_id'         => 7,
+                    'short_description' => 'Vehicle Type Status Updated',
+                    'long_description'  => "Vehicle Type '{$updated->name}' (ID: {$updated->id}) status changed: {$oldText} → {$newText}.",
+                    'role'              => $roleName,
+                    'user_id'           => $user->id ?? null,
+                    'user_type'         => 'gdc_admin_dashboard',
+                    'dashboard_type'    => 'web',
+                    'page_name'         => 'vehicle_type.update_status',
+                    'ip_address'        => request()->ip(),
+                    'user_device'       => request()->userAgent()
+                ]);
+                
+                    return response()->json([
                     'success' => true,
                     'message' => 'Status updated successfully.'
                 ]);
