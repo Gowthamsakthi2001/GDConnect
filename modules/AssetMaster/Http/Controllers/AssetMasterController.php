@@ -3612,7 +3612,7 @@ public function asset_master_list(Request $request)
                 $length = $totalRecords; // Return all records
             }
             
-            dd($query->toSql(),$query->getBindings());
+            // dd($query->toSql(),$query->getBindings());
 
             // Apply pagination and ordering
             $data = $query->orderBy('id', 'desc')
