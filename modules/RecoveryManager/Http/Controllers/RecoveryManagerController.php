@@ -1175,7 +1175,7 @@ class RecoveryManagerController extends Controller
             ->toArray();
             $agentName = 'Agent'; 
             $agentPhone = 'N\A'; 
-            
+            $agentEmail = '';
             if($recovery->is_agent_assigned){
                 $agentName = $recovery->recovery_agent->first_name .' '. $recovery->recovery_agent->last_name ?? 'Agent'; 
             $agentPhone = $recovery->recovery_agent->mobile_number ?? 'N\A'; 
