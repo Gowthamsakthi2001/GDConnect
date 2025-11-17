@@ -218,4 +218,7 @@ return [
     */
 
     'test_mode' => env('TEST_MODE', false),
+    
+    'log_mode' => env('LOG_MODE', 0),
+
 ];

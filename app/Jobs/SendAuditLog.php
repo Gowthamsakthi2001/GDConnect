@@ -32,6 +32,10 @@ class SendAuditLog implements ShouldQueue
 
     public function handle(): void
     {
+        if (!config('app.log_mode')) {
+            logger()->info('Audit log skipped because LOG_MODE=0.');
+            return;
+        }
         $tokenHeader = config('services.audit.header', 'X-Audit-Token');
         $base        = rtrim(config('services.audit.base_url'), '/');
 
