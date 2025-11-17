@@ -889,7 +889,7 @@ public function inventory_list(Request $request)
             $changesText = empty($changes) 
                 ? 'No major field updates.' 
                 : implode('; ', $changes);
-            
+             $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
             audit_log_after_commit([
                 'module_id'         => 4,
                 'short_description' => 'Asset Master Re-Update Completed',
