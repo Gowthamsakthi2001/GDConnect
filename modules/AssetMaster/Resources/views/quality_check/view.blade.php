@@ -1197,7 +1197,7 @@ function getZones(CityID) {
     }
     
     $(document).ready(function () {
-    const existingCity = "{{ $datas->zone_id ?? '' }}";
+    const existingCity = "{{ $datas->location ?? '' }}";
         if (existingCity) {
             getZones(existingCity);
         }
