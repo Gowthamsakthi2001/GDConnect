@@ -84,7 +84,7 @@ class CustomHandler
     public static function admin_whatsapp_message($message)
     {
         $adminPhone = BusinessSetting::where('key_name', 'admin_whatsapp_no')->value('value') ?? '';
-        SendWhatsappMessageJob::dispatch('+917812880655', $message);
+        SendWhatsappMessageJob::dispatch($adminPhone, $message);
         Log::info("Queued WhatsApp message for Admin");
         return true;
     }
