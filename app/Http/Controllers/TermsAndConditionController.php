@@ -71,7 +71,12 @@ class TermsAndConditionController extends Controller
                         : 'You have rejected the Terms & Conditions.'
         ]);
     }
-    
+
+
+  public function b2b_rider_terms_condition(){
+
+        return view('terms-condition.b2b_rider');
+    }
     
     private function sendEmailNotify($rider, $response)
     {

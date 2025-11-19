@@ -125,3 +125,9 @@ Route::prefix('customer')
     });
 
 
+Route::prefix('b2b-rider/')
+->controller(TermsAndConditionController::class)
+->group(function () {
+    Route::get('/terms-condition', 'b2b_rider_terms_condition');
+});
+
