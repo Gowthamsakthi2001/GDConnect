@@ -243,7 +243,7 @@
                                     <option value="">Select</option>
                                     @if(isset($locations))
                                        @foreach($locations as $val)
-                                          <option value="{{$val->id}}" {{$vehicle_data->location == $val->id ? 'selected' : ''}}>{{$val->name}}</option>
+                                          <option value="{{$val->id}}" {{$vehicle_data->quality_check->location == $val->id ? 'selected' : ''}}>{{$val->name}}</option>
                                        @endforeach
                                     @endif
                                 </select>
@@ -256,7 +256,7 @@
                                     <option value="">Select</option>
                                     @if(isset($locations))
                                        @foreach($locations as $val)
-                                          <option value="{{$val->id}}" {{$vehicle_data->location == $val->id ? 'selected' : ''}}>{{$val->city_name}}</option>
+                                          <option value="{{$val->id}}" {{$vehicle_data->quality_check->location == $val->id ? 'selected' : ''}}>{{$val->city_name}}</option>
                                        @endforeach
                                     @endif
                                 </select>
@@ -1601,7 +1601,7 @@ $("#UpdateVehicle").on("click", function(e) {
         }
     }
     
-    getZones({{ $vehicle_data->location ?? 'null' }}, {{ $vehicle_data->quality_check->zone_id ?? 'null' }});
+    getZones({{ $vehicle_data->quality_check->location ?? 'null' }}, {{ $vehicle_data->quality_check->zone_id ?? 'null' }});
 
 let scale = 1;
 let rotation = 0;

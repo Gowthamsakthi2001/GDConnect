@@ -287,13 +287,25 @@
                                     <option value="">Select</option>
                                     @if(isset($locations))
                                        @foreach($locations as $val)
-                                          <option value="{{$val->id}}" {{$data->assetVehicle->location == $val->id ? 'selected' : ''}}>{{$val->name . ' - ' . $val->city_code}}</option>
+                                          <option value="{{$val->id}}" {{$data->assetVehicle->quality_check->location == $val->id ? 'selected' : ''}}>{{$val->city_name}}</option>
                                        @endforeach
                                     @endif
                                 </select>
                             </div>
                         </div>
                         
+                        
+                       <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label class="input-label mb-2 ms-1" for="zone_id">Zone <span class="text-danger fw-bold">*</span></label>
+                                
+                                    <select class="form-select border-0 border-bottom border-1 rounded-0 shadow-none custom-select2-field" id="zone_id" name="zone_id">
+                                        <option value="">Select a city first</option>
+                                      
+                                    </select>
+                              
+                            </div>
+                        </div>
                         
                         
                          <div class="col-md-6 mb-3">
@@ -1412,6 +1424,40 @@ function updateImageTransform() {
         img.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
     }
 }
+
+   function getZones(CityID, selectedZoneID = null) {
+        let ZoneDropdown = $('#zone_id');
+        ZoneDropdown.empty().append('<option value="">Loading...</option>');
+    
+        if (CityID) {
+            $.ajax({
+                url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+                type: "GET",
+                success: function (response) {
+                    ZoneDropdown.empty().append('<option value="">--Select Zone--</option>');
+    
+                    if (response.data && response.data.length > 0) {
+                        $.each(response.data, function (key, zone) {
+                            ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                        });
+    
+                        // 🔹 If a zone_id is provided, select it AFTER loading options
+                        if (selectedZoneID) {
+                            ZoneDropdown.val(selectedZoneID).trigger('change');
+                        }
+                    } else {
+                        ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                    }
+                },
+                error: function () {
+                    ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+                }
+            });
+        } else {
+            ZoneDropdown.empty().append('<option value="">Select a city first</option>');
+        }
+    }
+    getZones({{ $data->assetVehicle->quality_check->location ?? 'null' }}, {{ $data->assetVehicle->quality_check->zone_id ?? 'null' }});
     </script>
 
 

@@ -420,7 +420,7 @@ public function inventory_list(Request $request)
         $registration_types = RegistrationTypeMaster::where('status',1)->get();
         $vehicle_types = VehicleType::where('is_active', 1)->get();
         $inventory_locations = InventoryLocationMaster::where('status',1)->get();
-        $locations = LocationMaster::where('status',1)->get();
+        $locations = City::where('status',1)->get();
         $passed_chassis_numbers = AssetMasterVehicle::where('qc_status','pass')->get();
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         $telematics = TelemetricOEMMaster::where('status',1)->get();
@@ -468,17 +468,8 @@ public function inventory_list(Request $request)
         audit_log_after_commit([
             'module_id'         => 4, // Asset Master / Inventory Module
             'short_description' => 'Inventory Export Completed',
-            'long_description'  => sprintf(
-                    'Inventory export triggered. Filters -> Status: %s, From: %s, To: %s, Selected IDs: %d,City: %s, Customer: %s, Zone: %s, Accountability Type: %s',
-                    $status ?: 'all',
-                    $from_date ?: '-',
-                    $to_date ?: '-',
-                    is_array($get_ids) ? count($get_ids) : 0,
-                    $city ?: 'all',
-                    $customer ?: 'all',
-                    $zone ?: 'all',
-                    $accountability_type ?: 'all',
-                ),
+            'long_description'  => 'Inventory export has been successfully completed. Exported Items Count: ' 
+                                    . count($get_ids ?: []) . '. Selected Columns: ' . implode(', ', $get_labels),
             'role'              => $roleName,
             'user_id'           => Auth::id(),
             'user_type'         => 'gdc_admin_dashboard',
@@ -489,6 +480,7 @@ public function inventory_list(Request $request)
         ]);
     
         return Excel::download($export, 'Inventory_' . date('d-m-Y') . '.xlsx');
+        // return Excel::download($export, 'Inventory.csv', \Maatwebsite\Excel\Excel::CSV);
 
         
         
