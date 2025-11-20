@@ -3623,12 +3623,14 @@ public function asset_master_list(Request $request)
                 
                 $statusBadge = $this->getStatusBadge($item->is_status);
                 
-                $lastQCDate = $item->quality_check->updated_at 
-                    ? $item->quality_check->updated_at->format('d M Y') 
+                $lastQCDate = ($item->quality_check && $item->quality_check->updated_at)
+                    ? $item->quality_check->updated_at->format('d M Y')
                     : 'N/A';
-                $lastQCTime = $item->quality_check->updated_at 
-                    ? $item->quality_check->updated_at->format('h:i:s A') 
+                
+                $lastQCTime = ($item->quality_check && $item->quality_check->updated_at)
+                    ? $item->quality_check->updated_at->format('h:i:s A')
                     : 'N/A';
+
 
                 return [
                     'checkbox' => '<div class="form-check"><input class="form-check-input sr_checkbox" style="width:25px; height:25px;" name="is_select[]" type="checkbox" value="'.$item->id.'"></div>',
@@ -3675,7 +3677,7 @@ public function asset_master_list(Request $request)
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
-                'error' => 'An error occurred while processing your request.'
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -7091,114 +7093,113 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             'status' => 'required|in:accepted,rejected',
         ]);
     
-
-    
-        $status = $request->status;
-        $remarks_template = $status === 'accepted'
-            ? 'The Asset Master Vehicle Chassis Number :chassis has been Accepted'
-            : ($request->remarks ?? 'The Asset Master Vehicle Chassis Number :chassis has been Rejected');
-    
-        // Fetch all in a single query
-        $vehicles = AssetMasterVehicle::whereIn('id', $request->get_ids)
-            ->where('is_status', 'uploaded')
-            ->get();
+        DB::beginTransaction();
+        try {
+            $status = $request->status;
+            $remarks_template = $status === 'accepted'
+                ? 'The Asset Master Vehicle Chassis Number :chassis has been Accepted'
+                : ($request->remarks ?? 'The Asset Master Vehicle Chassis Number :chassis has been Rejected');
         
-        if ($vehicles->isEmpty()) {
+            $vehicles = AssetMasterVehicle::whereIn('id', $request->get_ids)
+                ->where('is_status', 'uploaded')
+                ->get();
+            
+            if ($vehicles->isEmpty()) {
+            
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No Asset Master Vehicles found. Please ensure the selected assets have been uploaded before using bulk operations.',
+                ]);
+            }
+    
+            
         
+            $inventory_data = [];
+            $log_data = [];
+            $updated_chassis_numbers = [];
+            
+            // Only if accepting, get last LOT number once
+            if ($status == 'accepted') {
+                $last = AssetVehicleInventory::selectRaw("CAST(SUBSTRING(id, 4) AS UNSIGNED) as lot_number")
+                    ->orderByDesc('lot_number')
+                    ->first();
+        
+                $lastNumber = $last ? (int)$last->lot_number : 1000;
+            }
+        
+            foreach ($vehicles as $vehicle) {
+                $vehicle->is_status = $status;
+                $vehicle->save();
+        
+                $remarks = str_replace(':chassis', $vehicle->chassis_number, $remarks_template);
+        
+                $log_data[] = [
+                    'asset_vehicle_id' => $vehicle->id,
+                    'user_id' => auth()->id(),
+                    'remarks' => $remarks,
+                    'status_type' => $status,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+        
+                $updated_chassis_numbers[] = $vehicle->chassis_number;
+                
+                if ($status == 'accepted') {
+                    $lastNumber++; 
+                     $gen_lot_id = $vehicle->chassis_number.'/'.$vehicle->permanent_reg_number;
+                     $inventory_data[] = [ 
+                        'id' => $gen_lot_id,
+                        'asset_vehicle_id' => $vehicle->id,
+                        'asset_vehicle_status' => 'accepted',
+                        'is_status' => 1,
+                        'transfer_status' => $vehicle->vehicle_status ?? 3,
+                        'user_id' => auth()->id(),
+                        'created_by' => auth()->id(), 
+                    ];
+                }
+            }
+    
+            if (!empty($log_data)) {
+                AssetMasterVehicleLogHistory::insert($log_data);
+            }
+            
+            if (!empty($inventory_data)) {
+                AssetVehicleInventory::insert($inventory_data);
+            }
+            
+            DB::commit();
+            
+            $idsSample = implode(',', array_slice($request->get_ids, 0, 10));
+            $more      = count($request->get_ids) > 10 ? '…' : '';
+            audit_log_after_commit([
+                'module_id'         => 4,
+                'short_description' => 'Asset Master Bulk Status Update Completed',
+                'long_description'  => "Status '{$status}' applied to ".count($updated_chassis_numbers)." vehicles. IDs: {$idsSample}{$more}",
+                'role'              => $roleName,
+                'user_id'           => Auth::id(),
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'asset_master.bulk_vehicle_status_update',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Asset Master Bulk Update Successfully',
+                'chassis_numbers' => $updated_chassis_numbers,
+            ]);
+        } catch (\Exception $e) {
+    
+            DB::rollBack(); 
+    
             return response()->json([
                 'success' => false,
-                'message' => 'No Asset Master Vehicles found. Please ensure the selected assets have been uploaded before using bulk operations.',
-            ]);
-        }
-
-        
-    
-        $inventory_data = [];
-        $log_data = [];
-        $updated_chassis_numbers = [];
-        
-        // Only if accepting, get last LOT number once
-        if ($status == 'accepted') {
-            $last = AssetVehicleInventory::selectRaw("CAST(SUBSTRING(id, 4) AS UNSIGNED) as lot_number")
-                ->orderByDesc('lot_number')
-                ->first();
-    
-            $lastNumber = $last ? (int)$last->lot_number : 1000;
-        }
-    
-        foreach ($vehicles as $vehicle) {
-            $vehicle->is_status = $status;
-            $vehicle->save();
-    
-            $remarks = str_replace(':chassis', $vehicle->chassis_number, $remarks_template);
-    
-            $log_data[] = [
-                'asset_vehicle_id' => $vehicle->id,
-                'user_id' => auth()->id(),
-                'remarks' => $remarks,
-                'status_type' => $status,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
-    
-            $updated_chassis_numbers[] = $vehicle->chassis_number;
-            
-            if ($status == 'accepted') {
-                $lastNumber++; 
-                // $gen_lot_id = 'LOT' . $lastNumber;
-                 $gen_lot_id = $vehicle->chassis_number.'/'.$vehicle->permanent_reg_number;
-                
-                // $inventory_data = [
-                //     'id' => $gen_lot_id,
-                //     'asset_vehicle_id' => $vehicle->id,
-                //     'asset_vehicle_status' => 'accepted',
-                //     'is_status' => 1,
-                //     'transfer_status'=>$vehicle->vehicle_status,
-                //     'user_id' => auth()->id(),
-                //     'created_by' => auth()->id(), 
-                // ];
-                
-             $inventory_data[] = [ // ✅ Append instead of overwrite
-                'id' => $gen_lot_id,
-                'asset_vehicle_id' => $vehicle->id,
-                'asset_vehicle_status' => 'accepted',
-                'is_status' => 1,
-                'transfer_status' => $vehicle->vehicle_status,
-                'user_id' => auth()->id(),
-                'created_by' => auth()->id(), 
-          ];
-            }
-        }
-
-        // Bulk insert logs
-        if (!empty($log_data)) {
-            AssetMasterVehicleLogHistory::insert($log_data);
+                'message' => 'Bulk update failed',
+                'error'=>$e->getMessage()
+            ], 500);
         }
         
-        if (!empty($inventory_data)) {
-            AssetVehicleInventory::insert($inventory_data);
-        }
-        
-        $idsSample = implode(',', array_slice($request->get_ids, 0, 10));
-        $more      = count($request->get_ids) > 10 ? '…' : '';
-        audit_log_after_commit([
-            'module_id'         => 4,
-            'short_description' => 'Asset Master Bulk Status Update Completed',
-            'long_description'  => "Status '{$status}' applied to ".count($updated_chassis_numbers)." vehicles. IDs: {$idsSample}{$more}",
-            'role'              => $roleName,
-            'user_id'           => Auth::id(),
-            'user_type'         => 'gdc_admin_dashboard',
-            'dashboard_type'    => 'web',
-            'page_name'         => 'asset_master.bulk_vehicle_status_update',
-            'ip_address'        => request()->ip(),
-            'user_device'       => request()->userAgent()
-        ]);
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Asset Master Bulk Update Successfully',
-            'chassis_numbers' => $updated_chassis_numbers,
-        ]);
     }
 
 
