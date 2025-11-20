@@ -16,12 +16,9 @@
           width: 100%; /* same width as input */
           z-index: 1050;
         }
-    .filter-btn.active {
-            font-weight: 600;
-            color: #0d6efd; /* Bootstrap primary, or your theme color */
-        }
+
     .vehicle-details-section{
-        height:50vh;
+        height:55vh;
         overflow-x: auto;
     }
     
@@ -47,7 +44,7 @@
     }
     
     .table-responsive,
-    .vehicle-list-container ,.vehicle-main-container {
+    .vehicle-list-container {
         -ms-overflow-style: none;
         scrollbar-width: none;
     }
@@ -253,7 +250,7 @@
 
     /* Main header */
     .main-header {
-        padding: 0 1rem;
+        padding: 0.75rem 1rem;
         height: 60px;
         z-index: 1000;
     }
@@ -263,14 +260,12 @@
         flex: 1;
         display: flex;
         overflow: hidden;
-        padding: 0.5rem 1rem 1rem 1rem;
+        padding: 1rem;
         gap: 1rem;
         background: #f8f9fa;
         height: calc(100vh - 110px);
     }
-    .shadow-sm{
-        border-radius:0px;
-    }
+    
     /* Sidebars */
     .vehicle-sidebar {
         width: 27.7vw;
@@ -615,7 +610,7 @@
         }
         
         .main-header {
-            /*padding: 0.5rem 0.75rem;*/
+            padding: 0.5rem 0.75rem;
             height: auto;
             min-height: 60px;
         }
@@ -644,19 +639,8 @@
             padding: 0.5rem;
         }
         
-        .main-container{
-            overflow:auto;
-        }
         .custom-navbar .navbar-brand {
             font-size: 1.1rem;
-        }
-        
-        .vehicle-sidebar,
-        .vehicle-details-sidebar
-         {
-            flex: 0 0 auto;
-            width: 100%;
-            height: 80vh;
         }
         
         .notification-btn {
@@ -683,18 +667,17 @@
             padding-right: 0.5rem;
             padding-bottom: 0.5rem;
             gap: 0.5rem;
-            overflow:auto;
         }
         
         .vehicle-sidebar,
         .vehicle-details-sidebar {
-            width: 100%;
-            height: 500px;
+            width: 27.7vw;
+            height: 80vh;
         }
         
         .map-container {
-            width: 100%;
-            height: 500px;
+            width: 37vw;
+            height: 80vh;
         }
         
         .filter-btn {
@@ -743,7 +726,7 @@
         }
         
         .main-header {
-            /*padding: 0.4rem 0.5rem;*/
+            padding: 0.4rem 0.5rem;
         }
         
         .main-header h5 {
@@ -807,7 +790,7 @@
             right: 0px;
         }
         
-        .vehicle-list-container, .vehicle-main-container{
+        .vehicle-list-container {
             max-height: 180px;
         }
         
@@ -979,7 +962,7 @@
             order: 3;
         }
         
-        .vehicle-list-container, .vehicle-main-container{
+        .vehicle-list-container {
             max-height: calc(100vh - 200px);
         }
     }
@@ -990,7 +973,6 @@
     @php
    
     $data = $results['data'] ?? [];
-     $api_key = \App\Models\BusinessSetting::where('key_name', 'google_map_api_key')->value('value');
     @endphp
 
     <div class="main-container">
@@ -1002,10 +984,10 @@
                 </div>
 
                 <div class="d-flex align-items-center ms-auto">
-                    <!--<button type="button" class="btn position-relative notification-btn me-3">-->
-                    <!--    <i class="bi bi-bell"></i>-->
+                    <button type="button" class="btn position-relative notification-btn me-3">
+                        <i class="bi bi-bell"></i>
                         <!--<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info">0</span>-->
-                    <!--</button>-->
+                    </button>
 
                     @php
                         
@@ -1062,19 +1044,19 @@
         </nav>
 
         <!-- Main header -->
-        <div class="main-header fixed-top mt-2 mb-2" style="top:60px;max-height:40px">
+        <div class="main-header fixed-top" style="top:60px;height: 6.25vh;">
             <div class="row align-items-center">
                 <div class="col">
                     <h5 class="mb-0 fw-semibold" style="font-size:16px">Vehicle Live Tracking View</h5>
                 </div>
                 <div class="col-auto">
-                    <div class="d-flex gap-3" >
-                        <a href="{{ route('admin.dashboard') }}" class="btn btn-dark d-flex align-items-center gap-2" style="height:40px;max-width:84px">
+                    <div class="d-flex gap-3" style="height:4.3vh;">
+                        <a href="{{ route('admin.dashboard') }}" class="btn btn-dark d-flex align-items-center gap-2" style="max-height:42px;max-width:84px">
                             <i class="bi bi-arrow-left"></i>
                             Back
                         </a>
                         @if(!isset($api_mode) || $api_mode==true)
-                        <button class="btn btn-primary d-flex align-items-center gap-2" id="refreshBtn" style="height:40px;max-width:104px"> 
+                        <button class="btn btn-primary d-flex align-items-center gap-2" id="refreshBtn" style="max-height:42px;max-width:104px"> 
                             <i class="bi bi-arrow-clockwise"></i>
                             Refresh
                         </button>
@@ -1085,7 +1067,7 @@
         </div>
         
         <!-- Content Area -->
-        <div class="content-area" style="margin-top:110px">
+        <div class="content-area" style="margin-top: calc(6.25vh + 60px)">
             <!-- Vehicle List Sidebar -->
             
              @if(!isset($api_mode) || $api_mode==false)
@@ -1116,23 +1098,23 @@
         
         <div class="filter-tabs-container mb-2" style="flex-shrink: 0;">
             <div class="d-flex flex-nowrap position-relative border rounded " style="overflow-x: scroll; -ms-overflow-style: none; scrollbar-width: none;">
-                <!--<div class="active-tab-indicator"></div>-->
+                <div class="active-tab-indicator"></div>
                 
                 <button class="btn filter-btn active flex-shrink-0 border-0" data-filter="all" style="font-size:12px">
                     Overall
-                    <span class="badge rounded-pill ms-1">{{ $vehicles->total() }}</span>
+                    <span class="badge rounded-pill ms-1">{{ count($data['vehicles']) }}</span>
                 </button>
                 <button class="btn filter-btn flex-shrink-0 border-0" data-filter="running" style="font-size:12px">
                     Running
-                    <span class="badge rounded-pill ms-1">{{ $vehicles->total() }}</span>
+                    <span class="badge rounded-pill ms-1">{{ count(array_filter($data['vehicles'], fn($v) => $v['vehicleStatus'] === 'running')) }}</span>
                 </button>
                 <button class="btn filter-btn flex-shrink-0 border-0" data-filter="stopped" style="font-size:12px">
                     Stopped
-                    <span class="badge rounded-pill ms-1">0</span>
+                    <span class="badge rounded-pill ms-1">{{ count(array_filter($data['vehicles'], fn($v) => $v['vehicleStatus'] === 'stopped')) }}</span>
                 </button>
                 <button class="btn filter-btn flex-shrink-0 border-0" data-filter="offline" style="font-size:12px">
                     Offline
-                    <span class="badge rounded-pill ms-1">0</span>
+                    <span class="badge rounded-pill ms-1">{{ count(array_filter($data['vehicles'], fn($v) => $v['vehicleStatus'] === 'offline')) }}</span>
                 </button>
             </div>
         </div>
@@ -1148,27 +1130,64 @@
             </ul>
         </div>
         
-        <div class="vehicle-list-container flex-grow-1" 
-             id="vehicleListContainer" 
-             style="overflow-y: auto; height:55vh; padding-top:5px">
         
-            {{-- Render only the first 50 vehicles from controller --}}
-            @forelse($vehicles as $vehicle)
-                @include('b2b::mobitra_api.vehicle_card', ['vehicle' => $vehicle])
-            @empty
-                <div id="emptyState" style="text-align:center; padding:10px;">
-                    <em>No vehicles found</em>
+        <!-- Scrollable Vehicle List Container -->
+        <div class="vehicle-list-container flex-grow-1" id="vehicleListContainer" style="overflow-y: auto;height:55vh;padding-top:5px">
+            @foreach($data['vehicles'] as $vehicle)
+                <div class="card vehicle-card position-relative"
+                     data-vehicle-id="{{ $vehicle['vehicleNumber'] }}"
+                     data-vehicle-status="{{ strtolower($vehicle['vehicleStatus']) }}"
+                     data-imei-number="{{ $vehicle['IMEINumber'] }}"
+                     data-latitude="{{ $vehicle['latitude'] }}"
+                     data-longitude="{{ $vehicle['longitude'] }}"
+                     data-vehicle-type="{{ $vehicle['vehicleType'] }}"
+                     data-last-updated="{{ $vehicle['lastDbTime'] }}"
+                     data-last-speed="{{ $vehicle['lastSpeed'] }}"
+                     data-distance-travelled="{{ $vehicle['distanceTravelled'] }}"
+                     data-battery="{{ $vehicle['battery'] }}"
+                     data-roleName="{{ $vehicle['roleName'] }}"
+                     data-prRoleName="{{ $vehicle['prRoleName'] }}"
+                     >
+                    
+                    <span class="status-badge 
+                        @if($vehicle['vehicleStatus'] == 'running') status-running
+                        @elseif($vehicle['vehicleStatus'] == 'stopped') status-stopped
+                        @else status-offline @endif">
+                        {{ ucfirst($vehicle['vehicleStatus']) }}
+                    </span>
+                    
+                    <!--<div class="status-indicator -->
+                    <!--    @if($vehicle['vehicleStatus'] == 'running') status-running-->
+                    <!--    @elseif($vehicle['vehicleStatus'] == 'stopped') status-stopped-->
+                    <!--    @else status-offline @endif">-->
+                    <!--</div>-->
+                    
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0" style="font-size:12px">{{ $vehicle['vehicleNumber'] }}</h6>
+                        </div>
+                        <p class="text-muted small mb-2" style="font-size:12px">
+                            Type: {{ $vehicle['vehicleType'] }} | 
+                            Last Updated On: {{ date('d M Y, H:i:s', $vehicle['lastDbTime'] / 1000000000) }}
+                        </p>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class=" px-2 py-1 {{ number_format($vehicle['lastSpeed'], 2) > 0.00 ? 'status-speed' : 'bg-white text-secondary border border-dark' }}" style="font-size:12px ;border-radius:6.4px;">
+                                Speed: {{ number_format($vehicle['lastSpeed'], 2) }} Km/h
+                            </span>
+                            <span class=" px-2 py-1 {{ number_format($vehicle['distanceTravelled'], 2) > 0.00 ? 'status-distance': 'bg-white text-secondary border border-dark' }}" style="font-size:12px ;border-radius:6.4px;">
+                                Today Distance: {{ number_format($vehicle['distanceTravelled'], 2) }} Km
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-link p-0 text-decoration-none text-primary view-location-btn" style="font-size:12px">
+                                <img height = 16 width = 18 src="{{ asset("admin-assets/img/chevron_left.svg") }}"> View Vehicle Current Location
+                            </button>
+                            <!--<span class="text-muted small">IMEI: {{ $vehicle['IMEINumber'] }}</span>-->
+                        </div>
+                    </div>
                 </div>
-            @endforelse
-      
-         <div id="loadingIndicator" style="text-align:center; padding:10px; display:none;">
-                <em>Loading vehicles...</em>
-            </div> 
-             <div id="emptyState" style="display:none"><em>No vehicles found</em></div>
+            @endforeach
         </div>
-        
-        
-
     </div>
 </div>
 
@@ -1184,16 +1203,16 @@
             </div>
             
             <!-- Vehicle Details Sidebar -->
-            <div class="vehicle-sidebar">
+            <div class="vehicle-details-sidebar">
                 <div class="sidebar-content">
-                    <div class="vehicle-status-container" style="flex-shrink: 1;">
+                    <div class="vehicle-status-container" style="flex-shrink: 0;">
                         <div class="text-center text-muted py-5">
                             <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
                             <p class="mt-2">Select a vehicle to view status</p>
                         </div>
                     </div>
                     
-                    <div class="vehicle-details-section" style="flex-shrink: 1;margin-top:15px">
+                    <div class="vehicle-details-section" style="flex-shrink: 0;margin-top:15px">
                         <div class="text-center text-muted py-5">
                             <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
                             <p class="mt-2">Select a vehicle to view details</p>
@@ -1210,14 +1229,6 @@
     @push('js')
    <script>
     // Global variables
-           let allVehicles = [];    
-        let offset = 50;       // Already rendered 50 from Blade
-        const limit = 50;      // Load 50 more each time
-        let loading = false;
-        let allLoaded = false;
-        let filteredVehicles = [];
-        let isFiltered = false;
-        let filteredOffset = 0;
     let map;
     let marker = null;
     let currentVehicleData = null;
@@ -1225,11 +1236,10 @@
     let mapInitialized = false;
     let selectedVehicleCard = null;
     let bikeIcon = null;
-    
+
     function loadGoogleMaps() {
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key={{ $api_key }}&callback=initMap`;
-        // script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyApoj5M_3cPaAEKd_WXajRwcTl2z6H4bRY&callback=initMap`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key={{ env('MAP_KEY') }}&callback=initMap`;
         script.async = true;
         script.defer = true;
         document.head.appendChild(script);
@@ -1474,7 +1484,6 @@
     async function fetchVehicleData(vehicleNumber) {
         try {
             // Show loading state
-            // vehicleNumber = "GDM01DL0242"
             document.querySelector('.vehicle-details-section').innerHTML = `
                 <div class="text-center py-4">
                     <div class="spinner-border text-primary" role="status">
@@ -1499,89 +1508,40 @@
     }
     
     // Load vehicle status card
-async function loadVehicleCard(imei,vehicleNumber,vehicleType) {
-    const statusContainer = document.querySelector('.vehicle-status-container');
-    const mapContainer = document.querySelector('.map-container');
-    if (!statusContainer) return;
-    if (!mapContainer) return;
-    
-    // fetch latest vehicle data
-    let response = await updateVehiclesJson(imei);
-    console.log(response);
-
-    if (!response?.data?.vehicles || response.data.vehicles.length === 0) {
-        // ðŸš¨ No vehicle data found â†’ fallback
-        statusContainer.innerHTML = `
-            <div class="bg-white rounded-3 p-3 text-center text-danger">
-                <i class="bi bi-exclamation-triangle"></i>
-                <p class="mt-2 mb-0 small">No status data available</p>
-            </div>
-        `;
+    function loadVehicleCard(vehicleStatus, battery, speed, distance, roleName, prRoleName) {
+        const statusContainer = document.querySelector('.vehicle-status-container');
+        if (!statusContainer) return;
         
-        // mapContainer.innerHTML = `
-        //     <div id="map"></div>
-        //         <div class="map-placeholder bg-white" id="mapPlaceholder">
-        //             <div class="text-center">
-        //                 <i class="bi bi-car-front-fill" style="font-size: 3rem;"></i>
-        //                 <p class="mt-2">Please select a vehicle to track</p>
-        //             </div>
-        //         </div>
-        // `;
+        // Determine battery status text and color
+        let batteryText = 'Unknown';
+        let batteryColor = 'text-secondary';
         
-        return;
-    }
-
-    // âœ… pick first vehicle (or loop if you need multiple)
-    let vehicle = response.data.vehicles[0];
-
-    // extract from API instead of passing as function args
-    let vehicleStatus = vehicle.vehicleStatus;
-    let battery = vehicle.battery;
-    let speed = vehicle.lastSpeed;
-    let distance = vehicle.distanceTravelled;
-    let roleName = vehicle.roleName;
-    let prRoleName = vehicle.prRoleName;
-    let lat = vehicle.latitude;
-    let long = vehicle.longitude;
-    
-    updateMapWithCoordinates(lat, long, {
-        vehicleNumber: vehicleNumber,
-        imei: imei,
-        vehicleType: vehicleType
-    });
-    
-    // Determine battery status text and color
-    let batteryText = 'Unknown';
-    let batteryColor = 'text-secondary';
-
-    if (battery !== null && battery !== undefined) {
-        const batteryLevel = parseFloat(battery);
-        if (batteryLevel >= 70) {
-            batteryText = 'High';
-            batteryColor = 'text-success';
-        } else if (batteryLevel >= 30) {
-            batteryText = 'Medium';
-            batteryColor = 'text-warning';
-        } else {
-            batteryText = 'Low';
-            batteryColor = 'text-danger';
+        if (battery) {
+            const batteryLevel = parseFloat(battery);
+            if (batteryLevel >= 70) {
+                batteryText = 'High';
+                batteryColor = 'text-success';
+            } else if (batteryLevel >= 30) {
+                batteryText = 'Medium';
+                batteryColor = 'text-warning';
+            } else {
+                batteryText = 'Low';
+                batteryColor = 'text-danger';
+            }
         }
-    }
-
-    // Determine status color
-    let statusColor = 'text-secondary';
-    if (vehicleStatus === 'running') statusColor = 'text-success';
-    else if (vehicleStatus === 'stopped') statusColor = 'text-warning';
-    else if (vehicleStatus === 'offline') statusColor = 'text-danger';
-
-    // Capitalize status
-    const statusText = vehicleStatus
-        ? vehicleStatus.charAt(0).toUpperCase() + vehicleStatus.slice(1)
-        : 'Unknown';
-
-    // Update the status card
-    statusContainer.innerHTML = `
-        <div class="bg-white rounded-3"  >
+        
+        // Determine status color
+        let statusColor = 'text-secondary';
+        if (vehicleStatus === 'running') statusColor = 'text-success';
+        else if (vehicleStatus === 'stopped') statusColor = 'text-warning';
+        else if (vehicleStatus === 'offline') statusColor = 'text-danger';
+        
+        // Capitalize status
+        const statusText = vehicleStatus ? vehicleStatus.charAt(0).toUpperCase() + vehicleStatus.slice(1) : 'Unknown';
+        
+        // Update the status card
+        statusContainer.innerHTML = `
+            <div class="bg-white rounded-3"  >
                 <div class="border-bottom pb-3 mb-3" style="padding:8px;height:6.3vh">
                     <h6 class="mb-0 fw-semibold" style="font-size:14px">Vehicle Status</h6>
                 </div>
@@ -1629,8 +1589,8 @@ async function loadVehicleCard(imei,vehicleNumber,vehicleType) {
                 </div>
             </div>
             </div>
-    `;
-}
+        `;
+    }
     
     // Load vehicle data and update UI
     async function loadVehicleData(vehicleId, vehicleElement) {
@@ -1657,14 +1617,14 @@ async function loadVehicleCard(imei,vehicleNumber,vehicleType) {
                 </div>
             `;
             
-            // if (statusContainer) {
-            //     statusContainer.innerHTML = `
-            //         <div class="bg-white rounded-3 p-3 text-center text-danger" >
-            //             <i class="bi bi-exclamation-triangle"></i>
-            //             <p class="mt-2 mb-0 small">No status data available</p>
-            //         </div>
-            //     `;
-            // }
+            if (statusContainer) {
+                statusContainer.innerHTML = `
+                    <div class="bg-white rounded-3 p-3 text-center text-danger" >
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <p class="mt-2 mb-0 small">No status data available</p>
+                    </div>
+                `;
+            }
             return;
         }
         
@@ -1862,7 +1822,7 @@ async function loadVehicleCard(imei,vehicleNumber,vehicleType) {
             const roleName = vehicleElement.getAttribute('data-roleName') || 'Driver';
             const prRoleName = vehicleElement.getAttribute('data-prRoleName') || 'Primary';
             
-            loadVehicleCard(imei);
+            loadVehicleCard(vehicleStatus, battery, speed, distance, roleName, prRoleName);
         }
     }
     
@@ -1882,83 +1842,91 @@ async function loadVehicleCard(imei,vehicleNumber,vehicleType) {
     }
     
     // Function to perform search
-    // function performSearch() {
-    //     const searchTerm = document.getElementById('vehicleSearch').value.trim().toLowerCase();
-    //     const activeFilter = document.querySelector('.filter-btn.active').getAttribute('data-filter');
-    //     const vehicleCards = document.querySelectorAll('.vehicle-card');
+    function performSearch() {
+        const searchTerm = document.getElementById('vehicleSearch').value.trim().toLowerCase();
+        const activeFilter = document.querySelector('.filter-btn.active').getAttribute('data-filter');
+        const vehicleCards = document.querySelectorAll('.vehicle-card');
         
-    //     vehicleCards.forEach(card => {
-    //         const vehicleNumber = card.getAttribute('data-vehicle-id').toLowerCase();
-    //         const imeiNumber = card.getAttribute('data-imei-number').toLowerCase();
-    //         const status = card.getAttribute('data-vehicle-status').toLowerCase();
+        vehicleCards.forEach(card => {
+            const vehicleNumber = card.getAttribute('data-vehicle-id').toLowerCase();
+            const imeiNumber = card.getAttribute('data-imei-number').toLowerCase();
+            const status = card.getAttribute('data-vehicle-status').toLowerCase();
             
-    //         const matchesSearch = vehicleNumber.includes(searchTerm) || imeiNumber.includes(searchTerm);
-    //         const matchesFilter = activeFilter === 'all' || status === activeFilter.toLowerCase();
+            const matchesSearch = vehicleNumber.includes(searchTerm) || imeiNumber.includes(searchTerm);
+            const matchesFilter = activeFilter === 'all' || status === activeFilter.toLowerCase();
             
-    //         if (matchesSearch && matchesFilter) {
-    //             card.style.display = 'block';
-    //         } else {
-    //             card.style.display = 'none';
-    //         }
-    //     });
-    // }
+            if (matchesSearch && matchesFilter) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
     
-    
-    
-async function populateRunningVehiclesDropdown() {
-    const runningVehiclesList = document.getElementById('runningVehiclesList');
-    runningVehiclesList.innerHTML = '<li><span class="dropdown-item text-muted">Loading...</span></li>'; 
-
-    try {
-        // ðŸ‘‡ Call your existing API
-        const response = await fetch(`{{ route('admin.mobitra_api.tracking_json') }}?page=1`);
-        const data = await response.json();
-
-        runningVehiclesList.innerHTML = ''; // Clear loading message
-
-        // ðŸš¨ Your API returns { data: [...], meta: {...} }
-        if (!data.data || data.data.length === 0) {
+    function populateRunningVehiclesDropdown() {
+        const runningVehiclesList = document.getElementById('runningVehiclesList');
+        runningVehiclesList.innerHTML = ''; // Clear existing items
+        
+        // Get all vehicle cards
+        const vehicleCards = document.querySelectorAll('.vehicle-card');
+        let runningVehicles = [];
+        
+        // Filter running vehicles
+        vehicleCards.forEach(card => {
+            const status = card.getAttribute('data-vehicle-status');
+            if (status === 'running') {
+                runningVehicles.push({
+                    id: card.getAttribute('data-vehicle-id'),
+                    imei: card.getAttribute('data-imei-number')
+                });
+            }
+        });
+        
+        // If less than 10 running vehicles, add idle vehicles
+        if (runningVehicles.length < 10) {
+            vehicleCards.forEach(card => {
+                const status = card.getAttribute('data-vehicle-status');
+                if (status === 'offline' && runningVehicles.length < 10) {
+                    runningVehicles.push({
+                        id: card.getAttribute('data-vehicle-id'),
+                        imei: card.getAttribute('data-imei-number')
+                    });
+                }
+            });
+        }
+        
+        // If still less than 10, add stopped vehicles
+        if (runningVehicles.length < 10) {
+            vehicleCards.forEach(card => {
+                const status = card.getAttribute('data-vehicle-status');
+                if (status === 'stopped' && runningVehicles.length < 10) {
+                    runningVehicles.push({
+                        id: card.getAttribute('data-vehicle-id'),
+                        imei: card.getAttribute('data-imei-number')
+                    });
+                }
+            });
+        }
+        
+        // Add vehicles to dropdown
+        if (runningVehicles.length === 0) {
             const noVehiclesItem = document.createElement('li');
             noVehiclesItem.innerHTML = '<span class="dropdown-item text-muted">No vehicles available</span>';
             runningVehiclesList.appendChild(noVehiclesItem);
-            return;
-        }
-
-        // Take only 10 vehicles
-        const vehicles = data.data.slice(0, 10);
-
-        vehicles.forEach(vehicle => {
-            const listItem = document.createElement('li');
-            listItem.innerHTML = `
-                <a class="dropdown-item vehicle-item" href="#" data-vehicle-number="${vehicle.vehicleNumber}">
-                    ${vehicle.vehicleNumber}
-                </a>
-            `;
-            runningVehiclesList.appendChild(listItem);
-        });
-
-        // ðŸ‘‰ On click, fill input and trigger search
-        document.querySelectorAll('.vehicle-item').forEach(item => {
-            item.addEventListener('click', function (e) {
-                e.preventDefault();
-                const vehicleNumber = this.getAttribute('data-vehicle-number');
-
-                const searchInput = document.getElementById('vehicleSearch');
-                searchInput.value = vehicleNumber;
-
-                // Trigger search filter logic (simulate typing)
-                const event = new Event('input', { bubbles: true });
-                searchInput.dispatchEvent(event);
+        } else {
+            runningVehicles.forEach(vehicle => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    <a class="dropdown-item vehicle-item" href="#" data-vehicle-number="${vehicle.id}">
+                        <div class="vehicle-info">
+                            <div class="vehicle-number">${vehicle.id}</div>
+                        </div>
+                    </a>
+                `;
+                runningVehiclesList.appendChild(listItem);
             });
-        });
-
-    } catch (error) {
-        console.error("Error fetching vehicles:", error);
-        runningVehiclesList.innerHTML = '<li><span class="dropdown-item text-danger">Failed to load vehicles</span></li>';
+        }
     }
-}
-
-
             
     // Tab indicator functionality
     function setupTabIndicator() {
@@ -2024,10 +1992,8 @@ async function populateRunningVehiclesDropdown() {
     
     document.addEventListener('DOMContentLoaded', function() {
         // Set up tab indicator
-
         setupTabIndicator();
-        // updateVehiclesJson();
-        // loadVehiclesData();
+        
         // Set up event listeners
         const vehicleCards = document.querySelectorAll('.vehicle-card');
         const filterButtons = document.querySelectorAll('.filter-btn');
@@ -2052,56 +2018,71 @@ async function populateRunningVehiclesDropdown() {
                 }
             }
         });
-        attachCardListeners();
         
-        
-        // Filter buttons functionality
-        let activeFilter = "all"; // default filter
-
-        filterButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const filter = this.getAttribute("data-filter");
-        
-                // If same filter clicked again, do nothing
-                if (filter === activeFilter) return;
-        
-                filterButtons.forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-        
-                page = 1;
-                allLoaded = false;
-                clearContainerKeepLoader();
-        
-                const loader = document.getElementById("loadingIndicator");
-        
-                if (filter === "offline" || filter === "stopped") {
-                    loader.style.display = "block";
-                    loader.innerHTML = "<em>No vehicles found</em>";
-                } else {
-                    loader.innerHTML = "Loading vehicles...";
-                    loader.style.display = "block";
-                    loadMoreVehicles(); // fetch API only when switching to all/running
+        // Event listeners for vehicle cards
+        vehicleCards.forEach(card => {
+            card.addEventListener('click', function() {
+                // Remove highlight from previously selected card
+                if (selectedVehicleCard) {
+                    selectedVehicleCard.classList.remove('border-primary');
                 }
-        
-                activeFilter = filter; // update current filter
+                
+                // Add highlight to selected card
+                this.classList.add('border-primary');
+                selectedVehicleCard = this;
+                
+                const vehicleId = this.getAttribute('data-vehicle-id');
+                const lat = this.getAttribute('data-latitude');
+                const lng = this.getAttribute('data-longitude');
+                const vehicleNumber = this.getAttribute('data-vehicle-id');
+                const imei = this.getAttribute('data-imei-number');
+                const vehicleType = this.getAttribute('data-vehicle-type');
+                const vehicleStatus = this.getAttribute('data-vehicle-status');
+                const battery = this.getAttribute('data-battery') || '70';
+                const speed = this.getAttribute('data-last-speed') || '0';
+                const distance = this.getAttribute('data-distance-travelled') || '0';
+                const roleName = this.getAttribute('data-roleName') || 'Driver';
+                const prRoleName = this.getAttribute('data-prRoleName') || 'Primary';
+                
+                if(vehicleStatus=="no_data"){
+                    return;
+                }
+                // Update the map with these coordinates
+                updateMapWithCoordinates(lat, lng, {
+                    vehicleNumber: vehicleNumber,
+                    imei: imei,
+                    vehicleType: vehicleType
+                });
+                
+                // Immediately update status card with basic data
+                loadVehicleCard(vehicleStatus, battery, speed, distance, roleName, prRoleName);
+                
+                // Load detailed vehicle data
+                loadVehicleData(vehicleId, this);
             });
         });
         
-        searchInput.addEventListener('input', function() {
-            const query = this.value.trim();
+        // Filter buttons functionality
+        filterButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                const filter = this.getAttribute('data-filter');
+                applyFilter(filter);
+            });
+        });
         
-            if (query === "") {
-                // no search â†’ show all
-                resetAndLoad();
-            } else {
-                // search â†’ backend filter
-                resetAndLoad(query);
-            }
+        // Search functionality - search as you type
+        searchInput.addEventListener('input', function() {
+            performSearch();
         });
         
         document.getElementById('vehicleSearch').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                resetAndLoad();
+                performSearch();
             }
         });
         
@@ -2136,7 +2117,7 @@ async function populateRunningVehiclesDropdown() {
             });
             
             // Immediately update status card with basic data
-            loadVehicleCard(imei);
+            loadVehicleCard(vehicleStatus, battery, speed, distance, roleName, prRoleName);
             
             // Load detailed vehicle data
             loadVehicleData(firstVehicleId, firstVehicleCard);
@@ -2145,292 +2126,7 @@ async function populateRunningVehiclesDropdown() {
             firstVehicleCard.classList.add('border-primary');
             selectedVehicleCard = firstVehicleCard;
         }
-        
-    
-    
     });
-
-function resetAndLoad(search = "") {
-    page = 1;
-    allLoaded = false;
-    clearContainerKeepLoader();
-    loadMoreVehicles(search);
-}
-
-async function loadVehiclesData(){
-    try {
-        console.log("Vehicles Array Populated");
-        const response = await fetch("/vehicles.json");
-        const data = await response.json();
-        allVehicles = data.vehicles || [];
-        console.log(allVehicles);
-    } catch (err) {
-        console.error("Error fetching all vehicles:", err);
-    }
-}
-
-async function updateVehiclesJson(imei) {
-    // imei = "100000000200001";
-    let urlJson = `{{ route('admin.mobitra_api.update_vehicles_json') }}?imei=${imei}`;
-    const response = await fetch(urlJson);
-    return await response.json(); // parse the JSON body
-}
-
-let page = 2;
-async function loadMoreVehicles(search = "") {
-    if (loading || allLoaded) return;
-    loading = true;
-
-    const loader = document.getElementById("loadingIndicator");
-    loader.style.display = "block";
-    loader.innerHTML = "Loading vehicles..."; // reset loader text
-
-    try {
-        const response = await fetch(
-            `{{ route('admin.mobitra_api.tracking_json') }}?page=${page}&search=${encodeURIComponent(search)}`
-        );
-        const data = await response.json();
-
-        if (!data.data || data.data.length === 0) {
-            if (page === 1) {
-                // No vehicles at all
-                loader.innerHTML = "<em>No vehicles found</em>";
-            } else {
-                // No more vehicles in pagination
-                allLoaded = true;
-                loader.innerHTML = "<em>No more vehicles</em>";
-            }
-            return;
-        }
-
-        const container = document.getElementById("vehicleListContainer");
-
-        data.data.forEach(vehicle => {
-            const card = document.createElement("div");
-            card.classList.add("card", "vehicle-card", "position-relative");
-            card.dataset.vehicleId = vehicle.vehicleNumber;
-            card.dataset.imeiNumber = vehicle.IMEINumber;
-            card.dataset.vehicleType = vehicle.vehicleType;
-            card.dataset.vehicleModel = vehicle.vehicleModel;
-
-            card.innerHTML = `
-            <span class="status-badge status-running d-flex align-items-center">
-            Running
-            </span>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h6 class="mb-0" style="font-size:12px">${vehicle.vehicleNumber}</h6>
-                    </div>
-                    <p class="text-muted small mb-2" style="font-size:12px">
-                        Type: ${vehicle.vehicleType} | Model: ${vehicle.vehicleModel}
-                    </p>
-                    <p class="text-muted small mb-2" style="font-size:12px">
-                        IMEI: ${vehicle.IMEINumber}
-                    </p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <button class="btn btn-link p-0 text-decoration-none text-primary view-location-btn" style="font-size:12px">
-                            <img height="16" width="18" src="/admin-assets/img/chevron_left.svg"> View Vehicle Current Location
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            container.insertBefore(card, loader);
-        });
-        attachCardListeners();
-        page++; // move to next page
-    } catch (err) {
-        console.error("Error loading vehicles:", err);
-        loader.innerHTML = "<em>Failed to load vehicles</em>";
-    } finally {
-        loading = false;
-
-        // Only hide loader if vehicles were added
-        if (!allLoaded && page > 1) {
-            loader.style.display = "none";
-        }
-    }
-}
-
-
-
-// Infinite scroll trigger
-let scrollTimeout;
-document.getElementById("vehicleListContainer").addEventListener("scroll", function () {
-    if (scrollTimeout) clearTimeout(scrollTimeout);
-
-    scrollTimeout = setTimeout(() => {
-        const container = this;
-        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 5) {
-                loadMoreVehicles();
-        }
-    }, 200);
-});
-
-function handleCardSelection(card) {
-    if (window.selectedVehicleCard) {
-        window.selectedVehicleCard.classList.remove('border-primary');
-    }
-
-    card.classList.add('border-primary');
-    window.selectedVehicleCard = card;
-
-    const vehicleId = card.getAttribute('data-vehicle-id');
-    const lat = card.getAttribute('data-latitude') ;
-    const lng = card.getAttribute('data-longitude') ;
-    const vehicleNumber = card.getAttribute('data-vehicle-id');
-    const imei = card.getAttribute('data-imei-number');
-    const vehicleType = card.getAttribute('data-vehicle-type');
-    const vehicleStatus = card.getAttribute('data-vehicle-status') || 'running';
-    const battery = card.getAttribute('data-battery') || '70';
-    const speed = card.getAttribute('data-last-speed') || '0';
-    const distance = card.getAttribute('data-distance-travelled') || '0';
-    const roleName = card.getAttribute('data-roleName') || 'Driver';
-    const prRoleName = card.getAttribute('data-prRoleName') || 'Primary';
-
-    if (vehicleStatus === "no_data") {
-        return;
-    }
-
-    // updateMapWithCoordinates(lat, lng, {
-    //     vehicleNumber: vehicleNumber,
-    //     imei: imei,
-    //     vehicleType: vehicleType
-    // });
-
-    loadVehicleCard(imei,vehicleNumber,vehicleType);
-
-    loadVehicleData(vehicleId, card);
-}
-
-// function renderFilteredVehicles(reset = true) {
-//     const container = document.getElementById("vehicleListContainer");
-//     const loader = document.getElementById("loadingIndicator");
-
-//     if (reset) {
-//         // container.innerHTML = "";
-//          clearContainerKeepLoader();
-//         if (loader) {
-//             loader.style.display = "block";
-//             loader.innerHTML = "Loading...";
-//             container.appendChild(loader);
-//         }
-       
-//         filteredOffset = 0;
-//     }
-
-//     const searchTerm = document.getElementById("vehicleSearch").value.trim().toLowerCase();
-//     const activeFilter = document.querySelector(".filter-btn.active").getAttribute("data-filter").toLowerCase();
-
-//     // Filter vehicles
-//     filteredVehicles = allVehicles.filter(v => {
-//         const vehicleNum = (v.vehicleNumber || "").toLowerCase();
-//         const imei = (v.IMEINumber || "").toLowerCase();
-//         const status = (v.vehicleStatus || "").toLowerCase();
-
-//         const matchesSearch = vehicleNum.includes(searchTerm) || imei.includes(searchTerm);
-//         const matchesFilter = activeFilter === "all" || status === activeFilter;
-
-//         return matchesSearch && matchesFilter;
-//     });
-
-//     isFiltered = searchTerm !== "" || activeFilter !== "all";
-
-//     // Paginate
-//     const nextVehicles = filteredVehicles.slice(filteredOffset, filteredOffset + limit);
-
-//     // Nothing found
-//     if (reset && nextVehicles.length === 0) {
-//         if (loader) {
-//             loader.style.display = "block";
-//             loader.innerHTML = "<em>No vehicles found</em>";
-//         }
-//         return;
-//     }
-
-//     if (loader) loader.style.display = "none";
-
-//     nextVehicles.forEach(vehicle => {
-//         const card = document.createElement("div");
-//         card.classList.add("card", "vehicle-card", "position-relative");
-//         card.dataset.vehicleId = vehicle.vehicleNumber;
-//         card.dataset.vehicleStatus = (vehicle.vehicleStatus || "").toLowerCase();
-//         card.dataset.imeiNumber = vehicle.IMEINumber;
-//         card.dataset.latitude = vehicle.latitude;
-//         card.dataset.longitude = vehicle.longitude;
-//         card.dataset.vehicleType = vehicle.vehicleType;
-//         card.dataset.lastUpdated = vehicle.lastDbTime;
-//         card.dataset.lastSpeed = vehicle.lastSpeed;
-//         card.dataset.distanceTravelled = vehicle.distanceTravelled;
-//         card.dataset.battery = vehicle.battery;
-//         card.dataset.roleName = vehicle.roleName;
-//         card.dataset.prRoleName = vehicle.prRoleName;
-
-//         // Badge class
-//         let badgeClass = "status-offline";
-//         if ((vehicle.vehicleStatus || "").toLowerCase() === "running") badgeClass = "status-running";
-//         else if ((vehicle.vehicleStatus || "").toLowerCase() === "stopped") badgeClass = "status-stopped";
-
-//         card.innerHTML = `
-//         <span class="status-badge ${badgeClass}">
-//             ${vehicle.vehicleStatus.charAt(0).toUpperCase() + vehicle.vehicleStatus.slice(1)}
-//         </span>
-
-//         <div class="card-body">
-//             <div class="d-flex justify-content-between align-items-center mb-2">
-//                 <h6 class="mb-0" style="font-size:12px">${vehicle.vehicleNumber}</h6>
-//             </div>
-//             <p class="text-muted small mb-2" style="font-size:12px">
-//                 Type: ${vehicle.vehicleType} | 
-//                 Last Updated On: ${new Date(vehicle.lastDbTime / 1000000000).toLocaleString()}
-//             </p>
-//             <div class="d-flex justify-content-between mb-2">
-//                 <span class="px-2 py-1 ${parseFloat(vehicle.lastSpeed) > 0 ? "status-speed" : "bg-white text-secondary border border-dark"}" style="font-size:12px;border-radius:6.4px;">
-//                     Speed: ${parseFloat(vehicle.lastSpeed).toFixed(2)} Km/h
-//                 </span>
-//                 <span class="px-2 py-1 ${parseFloat(vehicle.distanceTravelled) > 0 ? "status-distance" : "bg-white text-secondary border border-dark"}" style="font-size:12px;border-radius:6.4px;">
-//                     Today Distance: ${parseFloat(vehicle.distanceTravelled).toFixed(2)} Km
-//                 </span>
-//             </div>
-//             <div class="d-flex justify-content-between align-items-center">
-//                 <button class="btn btn-link p-0 text-decoration-none text-primary view-location-btn" style="font-size:12px">
-//                     <img height="16" width="18" src="/admin-assets/img/chevron_left.svg"> View Vehicle Current Location
-//                 </button>
-//             </div>
-//         </div>
-//     `;
-
-//         container.appendChild(card);
-//     });
-
-//     attachCardListeners();
-//     filteredOffset += limit;
-// }
-
-
-function clearContainerKeepLoader() {
-    const container = document.getElementById("vehicleListContainer");
-    const loader = document.getElementById("loadingIndicator");
-
-    if (loader && container.contains(loader)) {
-        loader.remove();
-    }
-
-    container.innerHTML = "";
-
-    if (loader) {
-        container.appendChild(loader);
-    }
-}
-
-// --- Attaching listeners ---
-function attachCardListeners() {
-    const cards = document.querySelectorAll('.vehicle-card:not([data-listener])');
-    cards.forEach(card => {
-        card.addEventListener('click', () => handleCardSelection(card));
-        card.setAttribute('data-listener', '1');
-    });
-}
 
     // Handle Google Maps API errors
     window.gm_authFailure = function() {

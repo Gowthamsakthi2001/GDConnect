@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use VehicleType\VehicleType\VehicleType\VehicleTypeController;
+use Modules\VehicleType\Http\Controllers\VehicleTypeController;
 
 /*
 |--------------------------------------------------------------------------

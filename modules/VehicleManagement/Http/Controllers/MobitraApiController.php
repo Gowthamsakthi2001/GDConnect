@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Modules\AssetMaster\Entities\AssetMasterVehicle;
 
 
 class MobitraApiController extends Controller
@@ -1249,17 +1250,285 @@ public function getNotifications(Request $request)
     }
 }
 
-public function mobitra_tracking(Request $request){
-  $status = EvMobitraApiSetting::where('key_name', 'API_CLUB_MODE')->value('value');
-   $api_mode = false;
-  if($status){
-     $api_mode = true;  
-  }
-    $results = $this->getVehicleStatusData($request);
-    if(!empty($results['data']['vehicles']) || !empty($results['data']['vehicles'])){
-        $api_mode = false;
+// public function mobitra_tracking(Request $request){
+//   $status = EvMobitraApiSetting::where('key_name', 'API_CLUB_MODE')->value('value');
+//   $api_mode = false;
+//   if($status){
+//      $api_mode = true;  
+//   }
+//     $results = $this->getVehicleStatusData($request);
+//     if(!empty($results['data']['vehicles']) || !empty($results['data']['vehicles'])){
+//         $api_mode = false;
+//     }
+//   return view('vehiclemanagement::mobitra_api.tracking',compact('results','api_mode'));
+// }
+
+
+public function getVehicleStatusDataJson(Request $request)
+{
+
+    try {
+        $imei = $request->input('imei');
+        $settings = EvMobitraApiSetting::pluck('value', 'key_name')->toArray();
+        $requiredSettings = ['BASE_URL', 'API_TOKEN', 'FLEET_TRACKING_ENDPOINT'];
+        foreach ($requiredSettings as $setting) {
+            if (empty($settings[$setting])) {
+                throw new \Exception("Missing required API setting: $setting");
+            }
+        }
+
+        $deviceResponse = $this->getRoleBasedImeiData($request);
+        if (!isset($deviceResponse['status']) || $deviceResponse['status'] != 200) {
+            
+            return response()->json([
+                'status' => $deviceResponse['status'] ?? 500,
+                'message' => 'Failed to get IMEI data',
+                'errors' => $deviceResponse['errors'] ?? null
+            ]);
+        }
+
+        $imeiNumbers = [];
+        $roleIds = [];
+        foreach ($deviceResponse['results'] as $result) {
+            if (isset($result['data']['payload'])) {
+                foreach ($result['data']['payload'] as $device) {
+                    // if (!empty($device['imei'])) $imeiNumbers[] = $device['imei'];
+                    if (!empty($device['roleId']) && !in_array($device['roleId'], $roleIds)) {
+                        $roleIds[] = $device['roleId'];
+                    }
+                }
+            }
+        }
+        $imeiNumbers[] = $imei;
+        $params = [
+            'accountId' => $request->input('accountId', 11),
+            'limit' => $request->input('limit', 50),
+            'offset' => $request->input('offset', 1),
+            'startDate' => $request->input('startDate', strtotime('-1 day')),
+            'endDate' => $request->input('endDate', time()),
+            'status' => $request->input('status', '')
+        ];
+
+        $payload = [
+            'operationName' => 'VehicleStatusAndSinceUpdated',
+            'variables' => array_merge($params, [
+                'roleIds' => $roleIds,
+                'IMEINumbers' => $imeiNumbers
+            ]),
+            'query' => 'query VehicleStatusAndSinceUpdated(
+                $accountId: Int!, 
+                $roleIds: [Int!]!, 
+                $status: String, 
+                $limit: Int!, 
+                $offset: Int!, 
+                $startDate: Int!, 
+                $endDate: Int!, 
+                $IMEINumbers: [String]
+            ) {
+                vehicleStatusAndSinceUpdated(
+                    accountId: $accountId
+                    roleIds: $roleIds
+                    IMEINumbers: $IMEINumbers
+                    status: $status
+                    limit: $limit
+                    offset: $offset
+                    startDate: $startDate
+                    endDate: $endDate
+                ) {
+                    totalCount
+                    count {
+                        running
+                        stopped
+                        offline
+                    }
+                    nodes {
+                        vehicleNumber
+                        distanceTravelled
+                        lastIgnition
+                        lastSpeed
+                        latitude
+                        longitude
+                        lastDbTime
+                        lastContactedTime
+                        gsmNetwork
+                        gpsNetwork
+                        battery
+                        charging
+                        vehicleType
+                        deviceType
+                        IMEINumber
+                        vehicleStatus
+                        vehicleSince
+                        favourite
+                        roleId
+                        address
+                        redDotFlag
+                        deviceSubscriptionExpiryDate
+                        deviceEnableStatus
+                        roleName
+                        prRoleName
+                        driverName
+                        userId
+                        deviceId
+                        displayNumber
+                    }
+                }
+            }'
+        ];
+
+        $url = rtrim($settings['BASE_URL'], '/') . '/' . ltrim($settings['FLEET_TRACKING_ENDPOINT'], '/');
+       
+
+        $response = Http::timeout(120)
+            ->retry(3, 100)
+            ->withHeaders([
+                'accept' => 'application/json',
+                'Authorization' => 'Bearer ' . $settings['API_TOKEN'],
+                'Content-Type' => 'application/json'
+            ])
+            ->post($url, $payload);
+
+    
+
+        if ($response->failed()) {
+            $logData['error_message'] = $response->body();
+           
+            return response()->json([
+                'status' => $response->status(),
+                'message' => 'GraphQL request failed',
+                'errors' => $response->json() ?? $response->body(),
+            ]);
+        }
+
+        $responseData = $response->json();
+        $vehicleData = $responseData['data']['vehicleStatusAndSinceUpdated'] ?? null;
+
+        $imeiMapping = [];
+        foreach ($deviceResponse['results'] as $result) {
+            if (isset($result['data']['payload'])) {
+                foreach ($result['data']['payload'] as $device) {
+                    if (!empty($device['imei'])) {
+                        $imeiMapping[$device['imei']] = [
+                            'roleId' => $device['roleId'],
+                            'accountId' => $device['accountId'],
+                            'vehicleNumber' => $device['vehicleNumber']
+                        ];
+                    }
+                }
+            }
+        }
+
+        $enhancedVehicles = [];
+        if (isset($vehicleData['nodes'])) {
+            foreach ($vehicleData['nodes'] as $vehicle) {
+                $imei = $vehicle['IMEINumber'] ?? null;
+                if ($imei && isset($imeiMapping[$imei])) {
+                    $enhancedVehicles[] = array_merge($vehicle, [
+                        'originalRoleId' => $imeiMapping[$imei]['roleId'],
+                        'originalAccountId' => $imeiMapping[$imei]['accountId'],
+                        'registeredVehicleNumber' => $imeiMapping[$imei]['vehicleNumber']
+                    ]);
+                } else {
+                    $enhancedVehicles[] = $vehicle;
+                }
+            }
+        }
+
+        $transformedData = [
+            'summary' => [
+                'total' => $vehicleData['totalCount'] ?? 0,
+                'running' => $vehicleData['count']['running'] ?? 0,
+                'stopped' => $vehicleData['count']['stopped'] ?? 0,
+                'offline' => $vehicleData['count']['offline'] ?? 0,
+                'imeiCount' => count($imeiNumbers),
+                'roleIdsCount' => count($roleIds),
+                'matchedVehicles' => count($enhancedVehicles)
+            ],
+            'vehicles' => $enhancedVehicles
+        ];
+
+        // $filePath = public_path('vehicles.json');
+        //     file_put_contents($filePath, json_encode($transformedData));
+            
+            return response()->json([
+                'status' => 200,
+                'message' => 'Vehicle status data retrieved and file updated',
+                'data' =>$transformedData,
+                // 'file_path' => asset('vehicles.json') // public URL
+            ]);
+
+    } catch (\Exception $e) {
+       
+
+        Log::error('Vehicle Status API Error', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'status' => 500,
+            'message' => 'Internal server error',
+            'error' => $e->getMessage()
+        ]);
     }
-   return view('vehiclemanagement::mobitra_api.tracking',compact('results','api_mode'));
+}
+
+public function mobitra_tracking(Request $request)
+{
+    // API mode status
+    $status = EvMobitraApiSetting::where('key_name', 'API_CLUB_MODE')->value('value');
+    $api_mode = $status ? true : false;
+    $api_mode = true;
+    // Query vehicles
+    $query = AssetMasterVehicle::from('ev_tbl_asset_master_vehicles as amv')
+        ->join('asset_vehicle_inventories','amv.id', '=', 'asset_vehicle_inventories.asset_vehicle_id')
+        ->leftJoin('vehicle_types as vt', 'amv.vehicle_type', '=', 'vt.id')
+        ->leftJoin('ev_tbl_vehicle_models as vm', 'amv.model', '=', 'vm.id')
+        ->select(
+            'amv.telematics_imei_number',
+            'amv.permanent_reg_number',
+            'vt.name as vehicle_type_name',
+            'vm.vehicle_model'
+        )
+        ->where('asset_vehicle_inventories.transfer_status',1);
+
+    // Apply search filter
+    if ($request->filled('search')) {
+        $s = mb_strtolower(trim($request->search), 'UTF-8');
+        $query->whereRaw("LOWER(COALESCE(amv.permanent_reg_number, '')) LIKE ?", ["%{$s}%"]);
+    }
+
+    // Paginate
+    $vehicles = $query->paginate(50)->appends($request->only('search', 'page'));
+
+    return view('vehiclemanagement::mobitra_api.tracking', compact('vehicles', 'api_mode'));
+}
+
+public function mobitra_tracking_json(Request $request)
+{
+    $status = EvMobitraApiSetting::where('key_name', 'API_CLUB_MODE')->value('value');
+    $api_mode = $status ? true : false;
+
+    $query = AssetMasterVehicle::from('ev_tbl_asset_master_vehicles as amv')
+        ->join('asset_vehicle_inventories','amv.id', '=', 'asset_vehicle_inventories.asset_vehicle_id')
+        ->leftJoin('vehicle_types as vt', 'amv.vehicle_type', '=', 'vt.id')
+        ->leftJoin('ev_tbl_vehicle_models as vm', 'amv.model', '=', 'vm.id')
+        ->select(
+            'amv.telematics_imei_number as IMEINumber',
+            'amv.permanent_reg_number as vehicleNumber',
+            'vt.name as vehicleType',
+            'vm.vehicle_model as vehicleModel'
+        )
+        ->where('asset_vehicle_inventories.transfer_status',1);
+
+    if ($request->filled('search')) {
+        $s = mb_strtolower(trim($request->search), 'UTF-8');
+        $query->whereRaw("LOWER(COALESCE(amv.permanent_reg_number, '')) LIKE ?", ["%{$s}%"]);
+    }
+
+    $vehicles = $query->paginate(50)->appends($request->only('search', 'page'));
+
+    return response()->json($vehicles);
 }
 
 }
