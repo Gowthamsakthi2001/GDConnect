@@ -258,7 +258,7 @@
                                     <option value="">Select</option>
                                     @if(isset($locations))
                                        @foreach($locations as $val)
-                                          <option value="{{$val->id}}" {{$data->assetVehicle->location == $val->id ? 'selected' : ''}}>{{$val->city_name}}</option>
+                                          <option value="{{$val->id}}" {{$data->assetVehicle->quality_check->location == $val->id ? 'selected' : ''}}>{{$val->city_name}}</option>
                                        @endforeach
                                     @endif
                                 </select>

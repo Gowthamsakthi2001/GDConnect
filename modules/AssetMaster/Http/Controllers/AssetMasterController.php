@@ -6336,6 +6336,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     {
         $id_decode = decrypt($request->id);
         $vehicle_data = AssetMasterVehicle::where('id',$id_decode)->first();
+        
         if(!$vehicle_data){
             return back()->with('error','Asset Vehicle Not Found');
         }
