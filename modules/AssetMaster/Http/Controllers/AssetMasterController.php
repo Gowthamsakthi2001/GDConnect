@@ -7083,7 +7083,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
 
     }
     
-    public function bulk_vehicle_status_update(Request $request)
+    public function bulk_vehicle_status_update(Request $request) //updated by Gowtham.S
     {
         $user     = Auth::user();
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
