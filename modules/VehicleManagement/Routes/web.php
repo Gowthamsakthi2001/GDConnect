@@ -90,6 +90,8 @@ Route::prefix('admin/mobitra-api')->as('admin.mobitra_api.')->group(function () 
      Route::get('/get-role-based-imei-data', [MobitraApiController::class, 'getRoleBasedImeiData'])->name('get_role_based_imei_data');
      Route::get('/get-vehicle-status-data', [MobitraApiController::class, 'getVehicleStatusData'])->name('get_vehicle_status_data');
      Route::get('/get-notifications', [MobitraApiController::class, 'getNotifications'])->name('get_notifications');
+      Route::get('/mobitra-tracking-json', [MobitraApiController::class, 'mobitra_tracking_json'])->name('tracking_json');
+      Route::get('/update-vehicles-json', [MobitraApiController::class, 'getVehicleStatusDataJson'])->name('update_vehicles_json');
     
 });
 

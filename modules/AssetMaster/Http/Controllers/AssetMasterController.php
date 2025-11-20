@@ -7155,6 +7155,8 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
                         'transfer_status' => $vehicle->vehicle_status ?? 3,
                         'user_id' => auth()->id(),
                         'created_by' => auth()->id(), 
+                        'created_at' => now(),//updated by Gowtham.S
+                        'updated_at' => now(),
                     ];
                 }
             }
