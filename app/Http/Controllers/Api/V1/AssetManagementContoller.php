@@ -129,7 +129,7 @@ class AssetManagementContoller extends Controller
             return [
                 'qc_id' => $item->id,
                 'datetime' => date('d M Y h:i A' , strtotime($item->datetime)) ?? null,
-                'location_name' => optional($item->location_relation)->name,
+                'location_name' => optional($item->location_relation)->city_name, //updated by Gowtham.S
                 'chassis_number' => $item->chassis_number ?? null ,
                 'status' => $item->status,
             ];
