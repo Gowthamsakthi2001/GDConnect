@@ -491,7 +491,7 @@ class AssetManagementContoller extends Controller
                     'technician' => $technicianData ?? null,
                     'vehicle_type' => $data->vehicle_type ?? null,
                     'vehicle_model' => $data->vehicle_model ?? null,
-                    'location' => $data->location ?? null,
+                    'location' => $data->location_relation->city_name ?? "Location",//updated by mugesh
                     'chassis_number' => $data->chassis_number ?? null,
                     'battery_number' => $data->battery_number ?? null,
                     'telematics_number' => $data->telematics_number ?? null,
