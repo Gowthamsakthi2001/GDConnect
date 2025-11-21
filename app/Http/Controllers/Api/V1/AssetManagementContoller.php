@@ -360,7 +360,7 @@ class AssetManagementContoller extends Controller
         {
             try {
                 // Fetch the QualityCheck record
-              $data = QualityCheck::with('technician:id,name,profile_photo_path','delivery_man:id,first_name,last_name,photo' ,'vehicle_type_relation:id,name' ,'vehicle_model_relation:id,vehicle_model' ,'location_relation:id,name')->where('id', $id)->first(); // ✅ Correct
+              $data = QualityCheck::with('technician:id,name,profile_photo_path','delivery_man:id,first_name,last_name,photo' ,'vehicle_type_relation:id,name' ,'vehicle_model_relation:id,vehicle_model' ,'location_relation:id,city_name')->where('id', $id)->first(); // ✅ Correct
 
         
                 // If no record found, return 404
@@ -487,20 +487,20 @@ class AssetManagementContoller extends Controller
                     'success' => true,
                     'message' => 'Quality check data retrieved successfully.',
                     'data' => [
-                    'id' => $data->id,
-                    'technician' => $technicianData,
+                    'id' => $data->id ?? null,
+                    'technician' => $technicianData ?? null,
                     'vehicle_type' => $data->vehicle_type ?? null,
                     'vehicle_model' => $data->vehicle_model ?? null,
                     'location' => $data->location ?? null,
-                    'chassis_number' => $data->chassis_number,
-                    'battery_number' => $data->battery_number,
-                    'telematics_number' => $data->telematics_number,
-                    'motor_number' => $data->motor_number,
+                    'chassis_number' => $data->chassis_number ?? null,
+                    'battery_number' => $data->battery_number ?? null,
+                    'telematics_number' => $data->telematics_number ?? null,
+                    'motor_number' => $data->motor_number ?? null,
                     'check_lists' => $checklistFormatted,
                     'datetime' => date('d M Y h:i A' , strtotime($data->datetime)) ?? null,
-                    'status' => $data->status,
+                    'status' => $data->status ?? null,
                     'image' => $data->image ? 'https://evms.greendrivemobility.com/EV/images/quality_check/' . $data->image : null,
-                    'remarks' => $data->remarks,
+                    'remarks' => $data->remarks ?? null,
                     'created_at' => $data->created_at ?? null,
                     'updated_at' => $data->updated_at ?? null,
                     'vehicle_type_relation' => $data->vehicle_type_relation,
