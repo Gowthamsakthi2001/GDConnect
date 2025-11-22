@@ -469,6 +469,26 @@
                                 
                                 @endif
                                 
+                                @if (can('leasing_partner_master'))
+                                        
+                                    @php
+                                    
+                                    $isLeasingPartnerMasterActive = request()->routeIs('admin.Green-Drive-Ev.master_management.leasing_partners.*');
+                                    $fillColor_InsurerNameMaster = $isLeasingPartnerMasterActive ? '#52c552' : '#bbbfc4';
+                                  @endphp
+                        
+                                <li class="{{ $isLeasingPartnerMasterActive ? 'mm-active' : '' }}">
+                                    <a class="text-capitalize {{ $isLeasingPartnerMasterActive == true ? 'submenu-activeclass' : '' }}" style="color:{{$isLeasingPartnerMasterActive == true ? '#52c552' : '#8a8e91'}}" href="{{route('admin.Green-Drive-Ev.master_management.leasing_partners.index')}}" target="_self">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="21" viewBox="0 0 24 21" fill="{{$fillColor_InsurerNameMaster}}">
+                                    <path d="M5.75 15.25H23.75V17.75H5.75V20.499L0.416992 16.5L5.75 12.5V15.25ZM23.582 4.5L18.25 8.49902V5.75H0.25V3.25H18.25V0.5L23.582 4.5Z" stroke="#4B5563" stroke-width="0.5"/>
+                                    </svg>
+                                       Leasing Partners
+                                    </a>
+                                </li>
+                                
+                                
+                                @endif
+                                
                                 @if (can('recovery_reason'))
                                 
                                     @php
