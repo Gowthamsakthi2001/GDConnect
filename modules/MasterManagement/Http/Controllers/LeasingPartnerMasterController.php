@@ -8,35 +8,21 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB; //updated by Mugesh.B
-use Illuminate\Support\Facades\Auth; //updated by Logesh
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
-use Modules\MasterManagement\Entities\AssetOwnershipMaster; //updated by Mugesh.B
-use App\Exports\AssetOwnershipMasterExport;//updated by Mugesh.B
+use Modules\MasterManagement\Entities\LeasingPartnerMaster; //updated by Mugesh.B
+use App\Exports\LeasingPartnerMasterExport;//updated by Mugesh.B
 
-
-//dataTable
-use Modules\AssetMaster\DataTables\ModalMasterVechileDataTable;
-use Modules\AssetMaster\DataTables\ModalMasterBatteryDataTable;
-use Modules\AssetMaster\DataTables\ModalMasterChargerDataTable;
-use Modules\AssetMaster\DataTables\ManufactureMasterDataTable;
-use Modules\AssetMaster\DataTables\PotableDataTable;
-use Modules\AssetMaster\DataTables\AmsLocationMasterDataTable;
-use Modules\AssetMaster\DataTables\AssetInsuranceDataTable;
-use Modules\AssetMaster\DataTables\AssetMasterBatteryDataTable;
-use Modules\AssetMaster\DataTables\AssetMasterChargerDataTable;
-use Modules\AssetMaster\DataTables\AssetMasterVechileDataTables;
-use Modules\AssetMaster\DataTables\AssetStatusDataTable;
-
-class AssetOwnershipMasterController extends Controller
+class LeasingPartnerMasterController extends Controller
 {
 
 
 
-   public function asset_ownership_master_list(Request $request){
+   public function index(Request $request){
        
-        $query = AssetOwnershipMaster::query();
+        $query = LeasingPartnerMaster::query();
     
         $status = $request->status ?? 'all';
         $from_date = $request->from_date ?? '';
@@ -58,52 +44,13 @@ class AssetOwnershipMasterController extends Controller
         $data = $query->orderBy('id', 'desc')->get();
         
        
-        return view('mastermanagement::asset_ownership_master.asset_ownership_master_list' , compact('data' , 'status' , 'from_date' , 'to_date'));
+        return view('mastermanagement::leasing_partner_master.leasing_partner_master_list' , compact('status' ,'from_date' , 'to_date' , 'data'));
     }
     
-   
-
-    public function store(Request $request)
-    {
-        
-        
-        // ✅ Validate input
-        $validated = $request->validate([
-            'asset_ownership_name' => 'required|string|max:255|unique:ev_tbl_asset_ownership_master,name',
-            'status' => 'required', // adjust as per your allowed values
-        ]);
     
-        // ✅ Save to DB
-        $model = AssetOwnershipMaster::create([
-            'name' => $validated['asset_ownership_name'],
-            'status' => $validated['status'],
-        ]);
-        
-        $user = Auth::user();
-            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
-            $statusText = $model->status == 1 ? 'Active' : 'Inactive';
-
-            audit_log_after_commit([
-                'module_id'         => 1,
-                'short_description' => 'Asset Ownership Created',
-                'long_description'  => "Asset ownership '{$model->name}' created (ID: {$model->id}). Status: {$statusText}.",
-                'role'              => $roleName,
-                'user_id'           => $user->id ?? null,
-                'user_type'         => 'gdc_admin_dashboard',
-                'dashboard_type'    => 'web',
-                'page_name'         => 'asset_ownership_master.store',
-                'ip_address'        => request()->ip(),
-                'user_device'       => request()->userAgent()
-            ]);
-        return response()->json([
-            'success' => true,
-            'message' => 'Asset ownership master created successfully.',
-        ]);
-    }
-    
-     public function get_data($id)
+        public function get_data($id)
     {
-        $data = AssetOwnershipMaster::find($id);
+        $data = LeasingPartnerMaster::find($id);
     
         if (!$data) {
             return response()->json(['success' => false, 'message' => 'Not found']);
@@ -113,24 +60,63 @@ class AssetOwnershipMasterController extends Controller
     }
 
 
-  public function update(Request $request)
+   
+  public function store(Request $request)
     {
-     
-             
-        $request->validate([
-            'asset_owner_ship_name' => 'required|string|max:255|unique:ev_tbl_asset_ownership_master,name,' . $request->id,
-            'status' => 'required',
+        
+        
+        // ✅ Validate input
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:ev_tbl_leasing_partner_master,name',
+            'status' => 'required', // adjust as per your allowed values
+        ]);
+    
+    
+        // ✅ Save to DB
+        $model = LeasingPartnerMaster::create([
+            'name' => $validated['name'],
+            'status' => $validated['status'],
         ]);
         
-        $model = AssetOwnershipMaster::find($request->id);
+        $user = Auth::user();
+            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+            $statusText = $model->status == 1 ? 'Active' : 'Inactive';
+
+            audit_log_after_commit([
+                'module_id'         => 1,
+                'short_description' => 'Lease Partner Created',
+                'long_description'  => "Lease Partner '{$model->name}' created (ID: {$model->id}). Status: {$statusText}.",
+                'role'              => $roleName,
+                'user_id'           => $user->id ?? null,
+                'user_type'         => 'gdc_admin_dashboard',
+                'dashboard_type'    => 'web',
+                'page_name'         => 'name_master.store',
+                'ip_address'        => request()->ip(),
+                'user_device'       => request()->userAgent()
+            ]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Leasing Partner created successfully.',
+        ]);
+    }
+
+    public function update(Request $request)
+    {
+     
+  
+        $request->validate([
+            'name' => 'required|string|max:255|unique:ev_tbl_leasing_partner_master,name,' . $request->id,
+            'status' => 'required',
+        ]);
+    
+        $model = LeasingPartnerMaster::find($request->id);
         $old = $model->getAttributes();
         $model->update([
-            'name' => $request->asset_owner_ship_name,
+            'name' => $request->name,
             'status' => $request->status,
             'updated_at'=> now() 
         ]);
         $new = $model->getAttributes();
-        
         $changes = [];
         if (($old['name'] ?? null) != ($new['name'] ?? null)) {
             $changes[] = "Name: " . ($old['name'] ?? 'N/A') . " → " . ($new['name'] ?? 'N/A');
@@ -141,26 +127,24 @@ class AssetOwnershipMasterController extends Controller
             $changes[] = "Status: {$oldStatusText} → {$newStatusText}";
         }
         $changesText = empty($changes) ? 'No visible changes detected.' : implode('; ', $changes);
-
-        $user = Auth::user();
+        
+            $user = Auth::user();
             $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
 
             audit_log_after_commit([
                 'module_id'         => 1,
-                'short_description' => 'Asset Ownership Updated',
-                'long_description'  => "Asset ownership '{$model->name}' (ID: {$model->id}) updated. Changes: {$changesText}",
+                'short_description' => 'Leasing Partner Updated',
+                'long_description'  => "Leasing Partner '{$model->name}' (ID: {$model->id}) updated. Changes: {$changesText}",
                 'role'              => $roleName,
                 'user_id'           => $user->id ?? null,
                 'user_type'         => 'gdc_admin_dashboard',
                 'dashboard_type'    => 'web',
-                'page_name'         => 'asset_ownership_master.update',
+                'page_name'         => 'name_master.update',
                 'ip_address'        => request()->ip(),
                 'user_device'       => request()->userAgent()
-                
             ]);
-        return response()->json(['success' => true, 'message' => 'Asset Ownership updated successfully.']);
-  
-        
+    
+        return response()->json(['success' => true, 'message' => 'Leasing Partner updated successfully.']);
     }
     
     
@@ -172,38 +156,38 @@ class AssetOwnershipMasterController extends Controller
             'status' => 'required',
         ]);
     
-        $record = AssetOwnershipMaster::find($request->id);
+        $record = LeasingPartnerMaster::find($request->id);
         $oldStatus = (int) $record->status;
         $newStatus = (int) $request->status;
         $record->status = $request->status;
         $record->save();
         
-        $user = Auth::user();
+                $user = Auth::user();
                 $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
                 $oldText = $oldStatus == 1 ? 'Active' : 'Inactive';
                 $newText = $newStatus == 1 ? 'Active' : 'Inactive';
 
                 audit_log_after_commit([
                     'module_id'         => 1,
-                    'short_description' => 'Asset Ownership Status Updated',
-                    'long_description'  => "Asset ownership '{$record->name}' (ID: {$record->id}) status changed: {$oldText} → {$newText}.",
+                    'short_description' => 'Leasing Partner Status Updated',
+                    'long_description'  => "Leasing Partner '{$record->name}' (ID: {$record->id}) status changed: {$oldText} → {$newText}.",
                     'role'              => $roleName,
                     'user_id'           => $user->id ?? null,
                     'user_type'         => 'gdc_admin_dashboard',
                     'dashboard_type'    => 'web',
-                    'page_name'         => 'asset_ownership_master.status_update',
+                    'page_name'         => 'name_master.status_update',
                     'ip_address'        => request()->ip(),
                     'user_device'       => request()->userAgent()
                 ]);
+    
         return response()->json([
             'success' => true,
             'message' => 'Status updated successfully.',
         ]);
-       
     }
-    
-            public function export_asset_ownership_master(Request $request)
+        public function export(Request $request)
     {
+        
        
         
         $status = $request->status;
@@ -211,7 +195,7 @@ class AssetOwnershipMasterController extends Controller
         $to_date = $request->to_date;
          $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
         
-         $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
+        $selectedCount = is_array($selectedIds) ? count($selectedIds) : 0;
         $idsSample = $selectedCount > 0 ? implode(',', array_slice($selectedIds, 0, 5)) : '-';
         $more = $selectedCount > 5 ? ' (+' . ($selectedCount - 5) . ' more)' : '';
 
@@ -219,28 +203,28 @@ class AssetOwnershipMasterController extends Controller
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
 
         $longDescription = sprintf(
-            "Asset Ownership export initiated. Filters → Status: %s | From: %s | To: %s | Selected IDs: %s%s",
+            "Leasing Partner export initiated. Filters → Status: %s | From: %s | To: %s | Selected IDs: %s%s",
             $status ?? '-',
             $from_date ?? '-',
             $to_date ?? '-',
             $idsSample,
             $more
         );
-         audit_log_after_commit([
+        
+            audit_log_after_commit([
                 'module_id'         => 1,
-                'short_description' => 'Asset Ownership Export Triggered',
+                'short_description' => 'Leasing Partner Export Triggered',
                 'long_description'  => $longDescription,
                 'role'              => $roleName,
                 'user_id'           => $user->id ?? null,
                 'user_type'         => 'gdc_admin_dashboard',
                 'dashboard_type'    => 'web',
-                'page_name'         => 'asset_ownership_master.export',
+                'page_name'         => 'name_master.export',
                 'ip_address'        => request()->ip(),
                 'user_device'       => request()->userAgent()
-                
             ]);
         
-          return Excel::download(new AssetOwnershipMasterExport($status,$from_date,$to_date , $selectedIds), 'asset-ownership-master-' . date('d-m-Y') . '.xlsx');
+          return Excel::download(new LeasingPartnerMasterExport($status,$from_date,$to_date , $selectedIds), 'leasing-partner-master-' . date('d-m-Y') . '.xlsx');
        
     }
 

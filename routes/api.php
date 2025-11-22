@@ -95,6 +95,7 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
         Route::group(['prefix' => 'vehicle-service-ticket', 'as' => 'vehicle_ticket.'], function () {
             Route::post('create', [VehicleServiceTicketController::class, 'ticket_create']);
             Route::get('rider-tickets/{id}', [VehicleServiceTicketController::class, 'get_rider_tickets']);
+            Route::get('get-repair-types', [VehicleServiceTicketController::class, 'get_repair_types']);
         });
         
         
@@ -108,6 +109,10 @@ Route::group(['prefix' => 'v1', 'as' => 'v1.'], function () {
                 Route::get('view-quality-check/{id}', [AssetManagementContoller::class, 'view_quality_check']);
                 Route::post('create-quality-check', [AssetManagementContoller::class, 'create']);
                 Route::post('reinitiate-quality-check', [AssetManagementContoller::class, 'reinitiate_quality_check']);
+                
+                Route::get('get-zones-data/{id}', [AssetManagementContoller::class, 'get_zones_data']); //updated by Mugesh.B
+                Route::get('get-accountability-types', [AssetManagementContoller::class, 'get_accountability_types']); //updated by Mugesh.B
+                Route::get('get-customers', [AssetManagementContoller::class, 'get_customers']); //updated by Mugesh.B
                 
                 
             });

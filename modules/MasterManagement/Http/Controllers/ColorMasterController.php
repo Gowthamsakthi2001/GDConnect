@@ -61,7 +61,7 @@ class ColorMasterController extends Controller
         ]);
     
         // ✅ Save to DB
-        ColorMaster::create([
+        $color = ColorMaster::create([
             'name' => $validated['color_name'],
             'status' => $validated['status'],
         ]);

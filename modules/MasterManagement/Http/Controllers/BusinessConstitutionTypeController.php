@@ -195,7 +195,7 @@ class BusinessConstitutionTypeController extends Controller
                 audit_log_after_commit([
                     'module_id'         => 1,
                     'short_description' => 'Business Constitution Type Status Updated',
-                    'long_description'  => "Business Constitution Type '{$model->name}' (ID: {$model->id}) status changed: {$oldText} → {$newText}.",
+                    'long_description'  => "Business Constitution Type '{$updated->name}' (ID: {$updated->id}) status changed: {$oldText} → {$newText}.",
                     'role'              => $roleName,
                     'user_id'           => $user->id ?? null,
                     'user_type'         => 'gdc_admin_dashboard',

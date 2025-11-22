@@ -158,14 +158,13 @@ class B2BAdminReturnReportExport implements FromCollection, WithHeadings, WithMa
             $row->vehicle_front ? asset('public/b2b/vehicle_front/' . $row->vehicle_front) : '-',
             $row->vehicle_back ? asset('public/b2b/vehicle_back/' . $row->vehicle_back) : '-',
             $row->vehicle_top ? asset('public/b2b/vehicle_top/' . $row->vehicle_top) : '-',
-            $row->vehicle_bottom ? asset('public/b2b/vehicle_bottom/' . $row->vehicle_bottom) : '-',
+            // $row->vehicle_bottom ? asset('public/b2b/vehicle_bottom/' . $row->vehicle_bottom) : '-',
             $row->vehicle_left ? asset('public/b2b/vehicle_left/' . $row->vehicle_left) : '-',
             $row->vehicle_right ? asset('public/b2b/vehicle_right/' . $row->vehicle_right) : '-',
             $row->vehicle_battery ? asset('public/b2b/vehicle_battery/' . $row->vehicle_battery) : '-',
             $row->vehicle_charger ? asset('public/b2b/vehicle_charger/' . $row->vehicle_charger) : '-',
             $createdAt ,
             $closedAt
-            
         ];
     }
     
@@ -190,7 +189,7 @@ class B2BAdminReturnReportExport implements FromCollection, WithHeadings, WithMa
             'Vehicle Front Image',
             'Vehicle Back Image',
             'Vehicle Top Image',
-            'Vehicle Bottom Image',
+            // 'Vehicle Bottom Image',
             'Vehicle Left Image',
             'Vehicle Right Image',
             'Vehicle Battery Image',

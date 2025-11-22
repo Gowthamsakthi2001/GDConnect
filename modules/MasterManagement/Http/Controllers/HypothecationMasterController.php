@@ -65,7 +65,7 @@ class HypothecationMasterController extends Controller
             $data['name'] = $request->hypothecation_name;
             $data['status'] = $request->status;
     
-            HypothecationMaster::create($data);
+            $model = HypothecationMaster::create($data);
             
             $user = Auth::user();
                 $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';

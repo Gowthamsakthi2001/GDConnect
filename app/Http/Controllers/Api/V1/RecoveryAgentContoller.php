@@ -13,7 +13,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
 use App\Models\BusinessSetting;
+use Modules\City\Entities\City;
 use Modules\B2B\Entities\B2BRecoveryRequest;
+use Modules\VehicleServiceTicket\Entities\VehicleTicket;
+use Modules\VehicleServiceTicket\Entities\FieldProxyTicket;//updated by Mugesh.B
+use Modules\VehicleServiceTicket\Entities\FieldProxyLog;//updated by Mugesh.B
 use Modules\B2B\Entities\B2BVehicleAssignmentLog;
 use Modules\B2B\Entities\B2BRecoveryAgentNotification;
 use Illuminate\Support\Facades\Mail;
@@ -655,6 +659,166 @@ public function addComment(Request $request)
                         'created_by' => $request->user_id ?? null,
                         'type' => 'gdm-rider-app'
                     ]);
+                    
+                    
+                     // FIELDPROXY TICKET RAISE SECTION START
+            
+                        $ticket_id = CustomHandler::GenerateTicketId($vehicle->quality_check->location);
+                           
+                            if ($ticket_id == "" || $ticket_id == null) {
+                                
+                                   Log::error('TICKET ID creation failed', [
+                                        'ticket_id' => $ticket_id
+                                    ]);
+
+                                return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
+                            }
+                            
+                         $customer = optional(optional($vehicle)->quality_check)->accountability_type == 2
+                            ? optional(optional($vehicle)->quality_check)->customer_relation
+                            : optional($vehicle)->customer_relation;
+            
+                        
+                            $ticket = VehicleTicket::create([
+                            'ticket_id'         => $ticket_id,
+                            'vehicle_no'        => $vehicle->permanent_reg_number ?? '',
+                            'city_id'           => $vehicle->quality_check->location ?? '',
+                            'area_id'           => $vehicle->quality_check->zone_id ?? '',
+                            'vehicle_type'      => $vehicle->vehicle_type ?? '',
+                            'poc_name'          => $customer->trade_name ?? '',
+                            'poc_contact_no'    => $customer->phone ?? '',
+                            'issue_remarks'     => 'Vehicle has been recovered by the agent. A service ticket has been generated for inspection and corrective action.',
+                            'repair_type'       => 6,
+                            'address'           => '',
+                            'gps_pin_address'   => '',
+                            'lat'               => '',
+                            'long'              => '',
+                            'driver_name'       =>  $recovery->assignment->rider->name ?? '',
+                            'driver_number'     =>  $recovery->assignment->rider->mobile_no ?? '',
+                            'image'             => '',
+                            'created_datetime'  => now(),                                                                                                          
+                            'created_by'        => $user->id,
+                            'created_role'      => '',
+                            'customer_id'             => '',
+                            'web_portal_status' => 0,
+                            'platform'          => 'b2b-recovery-app',
+                            'ticket_status'     => 0,
+                        ]);
+                    
+                        $city = City::find($vehicle->quality_check->location);
+            
+                        $createdDatetime = Carbon::now()->utc();
+                        
+                        $customerLongitude = '';
+                        $customerLatitude  = '';
+                            
+                         $ticketData = [
+                            "vehicle_number" => $vehicle->permanent_reg_number ?? '',
+                            "updatedAt" => $createdDatetime,
+                            "ticket_status" => "unassigned",
+                            "chassis_number" => $vehicle->chassis_number ?? null,
+                            "telematics" => $vehicle->telematics_imei_number ?? null,
+                            "battery" => $vehicle->battery_serial_no ?? null,
+                            "vehicle_type" => $vehicle->vehicle_type_relation->name ?? null,
+                            "state" => $city->state->state_name ?? '',
+                            "priority" => 'High',
+                            "point_of_contact_info" => $customer->phone.' - '. $customer->trade_name,
+                            "job_type" => 'Vehicle audit',
+                            "issue_description" => 'A service ticket has been generated for inspection and corrective action.',
+                            'image' => [],
+                            'address'   => '',
+                            "greendrive_ticketid" => $ticket_id,
+                            'driver_name'   => $recovery->assignment->rider->name ?? '',
+                            'driver_number'   => $recovery->assignment->rider->mobile_no ?? '',
+                            "customer_number" => $customer->phone ?? '',
+                            "customer_name" => $customer->trade_name ?? '',
+                            'customer_email' => $customer->email ?? '',
+                            'customer_location' => [null, null],
+                            "current_status" => 'open',
+                            "createdAt" => $createdDatetime,
+                            "city" => $city->city_name ?? null,
+                        ];
+                        
+                        
+                        $fieldProxyTicket = FieldProxyTicket::create(array_merge($ticketData, [
+                            'created_by' => $user->id,
+                            'type'       => 'b2b-recovery-app',
+                        ]));
+                        
+                        
+                        FieldProxyLog::create([
+                            'fp_id'      => $fieldProxyTicket->id,   
+                            'status'     => 'unassigned',  
+                            "current_status" => 'open',
+                            'remarks'    => 'Vehicle has been recovered by the agent. A service ticket has been generated for inspection and corrective action.',
+                            'created_by' => $user->id,
+                            'type'       => 'b2b-recovery-app',
+                        ]);
+                        
+                        $apiTicketData = $ticketData;
+                        $apiTicketData['driver_number'] = preg_replace('/^\+91/', '', $ticketData['driver_number']);
+                        $apiTicketData['customer_number'] = preg_replace('/^\+91/', '', $ticketData['customer_number']);
+                        
+                        
+                        
+                        $fieldproxy_base_url = BusinessSetting::where('key_name', 'fieldproxy_base_url')->value('value');
+                        $fieldproxy_create_endpoint = BusinessSetting::where('key_name', 'fieldproxy_create_enpoint')->value('value');
+                        
+                        $apiData = [
+                            "sheetId" => "tickets",
+                            "tableData" => $apiTicketData
+                        ];
+                        
+                        $apiUrl = $fieldproxy_base_url . $fieldproxy_create_endpoint;
+                        
+                        $apiKey = env('FIELDPROXY_API_KEY', null); 
+                
+                        $ch = curl_init($apiUrl);
+                        $payload = json_encode($apiData);
+                
+                        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                            "x-api-key: {$apiKey}",
+                            "Content-Type: application/json",
+                            "Accept: application/json"
+                        ]);
+                        curl_setopt($ch, CURLOPT_POST, true);
+                        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                
+                        $responseBody = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        $curlError = curl_error($ch);
+                        curl_close($ch);
+                
+                        $fieldproxyResult = null;
+                        if ($curlError) {
+                            Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
+                        } elseif ($httpCode >= 400) {
+                           
+                            Log::error('FieldProxy returned HTTP error', [
+                                'ticket_id' => $ticket_id,
+                                'http_code' => $httpCode,
+                                'body' => $responseBody
+                            ]);
+                        } else {
+                            
+                            $decoded = json_decode($responseBody, true);
+                            if (json_last_error() !== JSON_ERROR_NONE) {
+                                Log::warning('FieldProxy returned non-JSON response', [
+                                    'ticket_id' => $ticket_id,
+                                    'http_code' => $httpCode,
+                                    'body' => $responseBody
+                                ]);
+                            } else {
+                                $fieldproxyResult = $decoded;
+                                Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
+                            }
+                        }
+                        
+                     // FIELDPROXY TICKET RAISE SECTION END
+                    
+                    
                 }
             }
         }

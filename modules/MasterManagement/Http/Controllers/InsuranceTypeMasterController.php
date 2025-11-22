@@ -68,7 +68,7 @@ class InsuranceTypeMasterController extends Controller
             $data['name'] = $request->insurance_type;
             $data['status'] = $request->status;
     
-            InsuranceTypeMaster::create($data);
+            $model = InsuranceTypeMaster::create($data);
             
             $user = Auth::user();
                 $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
@@ -139,7 +139,7 @@ class InsuranceTypeMasterController extends Controller
                 audit_log_after_commit([
                     'module_id'         => 1,
                     'short_description' => 'Insurance Type Updated',
-                    'long_description'  => "Insurance Type '{$model->name}' (ID: {$model->id}) updated. Changes: {$changesText}",
+                    'long_description'  => "Insurance Type '{$HYP_Master->name}' (ID: {$HYP_Master->id}) updated. Changes: {$changesText}",
                     'role'              => $roleName,
                     'user_id'           => $user->id ?? null,
                     'user_type'         => 'gdc_admin_dashboard',

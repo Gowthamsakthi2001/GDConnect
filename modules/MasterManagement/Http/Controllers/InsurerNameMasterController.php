@@ -86,7 +86,7 @@ class InsurerNameMasterController extends Controller
     
     
         // ✅ Save to DB
-        InsurerNameMaster::create([
+        $model = InsurerNameMaster::create([
             'name' => $validated['insurer_name'],
             'status' => $validated['status'],
         ]);
