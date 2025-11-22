@@ -47,7 +47,7 @@ class RecoveryUpdatesMasterController extends Controller
             'status' => ['required', Rule::in(['0','1',0,1])],
         ]);
 
-        RecoveryUpdatesMaster::create([
+        $model = RecoveryUpdatesMaster::create([
             'label_name'   => $validated['label_name'],
             'status' => (int) $validated['status'],
         ]);

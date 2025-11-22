@@ -86,7 +86,7 @@ class FinancingTypeMasterController extends Controller
     
     
         // ✅ Save to DB
-        FinancingTypeMaster::create([
+        $model = FinancingTypeMaster::create([
             'name' => $validated['financing_type_name'],
             'status' => $validated['status'],
         ]);

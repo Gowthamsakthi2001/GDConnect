@@ -74,7 +74,7 @@ class TelemetricOEMMasterController extends Controller
         ]);
     
         // ✅ Save to DB
-        TelemetricOEMMaster::create([
+        $model = TelemetricOEMMaster::create([
             'name' => $validated['telemetric_name'],
             'status' => $validated['status'],
         ]);

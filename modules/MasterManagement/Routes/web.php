@@ -88,6 +88,19 @@ Route::prefix('admin/master-management/insurer-names') //created by Gowtham.S
         Route::post('/status-update', 'status_update')->name('status_update');
         Route::get('/export', 'export_insurer_name_master')->name('export_insurer_name_master');
 });
+
+Route::prefix('admin/master-management/leasing-partners') //created by Gowtham.S
+    ->as('admin.Green-Drive-Ev.master_management.leasing_partners.')
+    ->controller(LeasingPartnerMasterController::class)
+    ->middleware('auth')
+    ->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/store', 'store')->name('store');
+        Route::post('/get-data/{id}', 'get_data')->name('get_data');
+        Route::post('/update', 'update')->name('update');
+        Route::post('/status-update', 'status_update')->name('status_update');
+        Route::get('/export', 'export')->name('export');
+});
     
 Route::prefix('admin/master-management/insurance-types') //created by Gowtham.S
     ->as('admin.Green-Drive-Ev.master_management.insurance_type.')

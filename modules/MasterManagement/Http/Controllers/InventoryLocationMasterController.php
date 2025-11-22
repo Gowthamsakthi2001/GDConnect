@@ -70,7 +70,7 @@ class InventoryLocationMasterController extends Controller
             $data['name'] = $request->location;
             $data['status'] = $request->status;
     
-            InventoryLocationMaster::create($data);
+            $model = InventoryLocationMaster::create($data);
             
             $user = Auth::user();
                 $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
