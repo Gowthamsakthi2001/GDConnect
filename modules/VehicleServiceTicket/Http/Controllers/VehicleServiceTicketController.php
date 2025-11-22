@@ -180,10 +180,14 @@ class VehicleServiceTicketController extends Controller
             : Carbon::now()->utc();
                 
     
-            $customerLongitude = $request->longitude ?? '';
-            $customerLatitude  = $request->latitude ?? '';
+            $customerLongitude = ($request->longitude === "" || $request->longitude === null)
+                ? null
+                : $request->longitude;
             
-       
+            $customerLatitude = ($request->latitude === "" || $request->latitude === null)
+                ? null
+                : $request->latitude;
+            
              $vehicle = AssetMasterVehicle::where('permanent_reg_number' , $request->vehicle_no)->first();
              
              $repair_type =  RepairTypeMaster::find($request->repairType);
@@ -201,7 +205,7 @@ class VehicleServiceTicketController extends Controller
                 "point_of_contact_info" => $request->poc_name." - ".$request->poc_contact_no,
                 "job_type" => $repair_type->name ?? '-',
                 "issue_description" => $request->issue_remarks,
-                'image' => !empty($imageUrl) ? [$imageUrl] : [],
+                'image' => $imagePath ? [$imagePath] : [],
                 "greendrive_ticketid" => $ticket_id,
                 "customer_number" => null,
                 "customer_name" => null,
@@ -231,6 +235,7 @@ class VehicleServiceTicketController extends Controller
             ]);
             
             $apiTicketData = $ticketData;
+            $apiTicketData['image'] = $imageUrl ? [$imageUrl] : [];
             $apiTicketData['driver_number'] = preg_replace('/^\+91/', '', $ticketData['driver_number']);
             $apiTicketData['customer_number'] = preg_replace('/^\+91/', '', $ticketData['customer_number']);
             
@@ -239,7 +244,9 @@ class VehicleServiceTicketController extends Controller
                 "tableData" => $apiTicketData
             ];
     
-            $apiUrl = 'https://webapi.fieldproxy.com/v3/zapier/sheetsRow';
+            $fieldproxy_base_url = BusinessSetting::where('key_name', 'fieldproxy_base_url')->value('value');
+            $fieldproxy_create_endpoint = BusinessSetting::where('key_name', 'fieldproxy_create_enpoint')->value('value');
+            $apiUrl = $fieldproxy_base_url . $fieldproxy_create_endpoint;
             $apiKey = env('FIELDPROXY_API_KEY', null); // set in .env
     
             $ch = curl_init($apiUrl);

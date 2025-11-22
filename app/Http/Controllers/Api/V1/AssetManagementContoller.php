@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Modules\MasterManagement\Entities\EvTblAccountabilityType;//updated by Mugesh.B
+use Modules\MasterManagement\Entities\CustomerMaster;//updated by Mugesh.B
+use Modules\City\Entities\City; //updated by Mugesh.B
+use Modules\Zones\Entities\Zones; //updated by Gowtham.s
 use Illuminate\Support\Facades\DB; //updated by Mugesh.B
 use Modules\AssetMaster\Entities\AssetMasterVehicle; 
 use Modules\AssetMaster\Entities\AssetMasterBattery;
@@ -333,21 +337,21 @@ class AssetManagementContoller extends Controller
         
          
              try {
-                    $location_values = LocationMaster::where('status', 1)
-                     ->select('id', 'name', 'created_at', 'updated_at')
+                    $location_values = City::where('status', 1)
+                     ->select('id', 'city_name as name', 'created_at', 'updated_at')
                     ->get();
         
         
                 return response()->json([
                     'success' => true,
-                    'message' => 'Location fetched successfully.',
+                    'message' => 'City fetched successfully.',
                     'data' => $location_values
                 ], 200);
         
             } catch (\Exception $e) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to fetch location.',
+                    'message' => 'Failed to fetch City.',
                     'error' => $e->getMessage()
                 ], 500);
             }
@@ -355,13 +359,94 @@ class AssetManagementContoller extends Controller
          
      }
      
+        public function get_zones_data(Request $request ,$id){
+        
+         
+             try {
+                    if (empty($id)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'City ID is required.',
+                        ], 422);
+                    }
+                    
+                    $zone_values = Zones::where('status', 1)
+                    ->where('city_id' , $id)
+                    ->select('id', 'name')
+                    ->get();
+        
+        
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Zones fetched successfully.',
+                    'data' => $zone_values
+                ], 200);
+        
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch Zone.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+     }
+     
+     
+       public function get_accountability_types(Request $request){
+        
+         
+             try {
+                    $accountability_types = EvTblAccountabilityType::where('status', 1)
+                    ->select('id', 'name')
+                    ->get();
+        
+        
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Accountability types fetched successfully.',
+                    'data' => $accountability_types
+                ], 200);
+        
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch accountability types.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+     }
+     
+     
+      public function get_customers(Request $request){
+        
+         
+             try {
+                    $customers = CustomerMaster::where('status', 1)
+                    ->select('id', 'name' , 'trade_name')
+                    ->get();
+        
+        
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Customers fetched successfully.',
+                        'data' => $customers
+                    ], 200);
+        
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch customers.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+     }
      
         public function view_quality_check(Request $request, $id)
         {
             try {
                 // Fetch the QualityCheck record
-              $data = QualityCheck::with('technician:id,name,profile_photo_path','delivery_man:id,first_name,last_name,photo' ,'vehicle_type_relation:id,name' ,'vehicle_model_relation:id,vehicle_model' ,'location_relation:id,city_name')->where('id', $id)->first(); // ✅ Correct
-
+              $data = QualityCheck::with('technician:id,name,profile_photo_path','delivery_man:id,first_name,last_name,photo' ,'vehicle_type_relation:id,name' ,'vehicle_model_relation:id,vehicle_model' ,'location_relation:id,city_name' , 'zone:id,name' , 'accountability_type_relation:id,name' , 'customer_relation:id,trade_name')->where('id', $id)->first(); // ✅ Correct
+ 
         
                 // If no record found, return 404
                 if (!$data) {
@@ -481,7 +566,6 @@ class AssetManagementContoller extends Controller
                 ];
             });
 
-
                 // Return successful response
                 return response()->json([
                     'success' => true,
@@ -491,7 +575,10 @@ class AssetManagementContoller extends Controller
                     'technician' => $technicianData ?? null,
                     'vehicle_type' => $data->vehicle_type ?? null,
                     'vehicle_model' => $data->vehicle_model ?? null,
-                    'location' => $data->location_relation->city_name ?? "Location",//updated by mugesh
+                    'location' => $data->location_relation->city_name ?? "Location",
+                    'zone' => $data->zone->name ?? null,
+                    'accountability_type' => $data->accountability_type_relation->name ?? null,
+                    'customer'  => $data->customer_relation->trade_name ?? null,
                     'chassis_number' => $data->chassis_number ?? null,
                     'battery_number' => $data->battery_number ?? null,
                     'telematics_number' => $data->telematics_number ?? null,
@@ -523,8 +610,6 @@ class AssetManagementContoller extends Controller
     
       public function create(Request $request){
           
-          
-        //   Log::info("Api called Create 123" .json_encode($request->all()));
             $checklists = QualityCheckMaster::where('status', 1)
                 ->where('vehicle_type_id', $request->vehicle_type)
                 ->get();
@@ -533,6 +618,9 @@ class AssetManagementContoller extends Controller
                 'vehicle_type'       => 'required',
                 'vehicle_model'      => 'required',
                 'location'           => 'required',
+                'zone'               => 'required',
+                'accountability_type' => 'required',
+                'customer'            => 'required_if:accountability_type,2',
                 'chassis_number'     => 'required|unique:vehicle_qc_check_lists,chassis_number',
                 'battery_number'     => 'required',
                 'telematics_number'  => 'required|unique:vehicle_qc_check_lists,telematics_number',
@@ -548,6 +636,8 @@ class AssetManagementContoller extends Controller
             
             $messages = [
                 'qc.required' => 'QC Checklist is required.',
+                'file.max'                   => 'Please upload a file smaller than 1MB.',
+                'customer.required_if' => 'Please select a customer when accountability type is Fixed.',
             ];
             
             $validator = Validator::make($request->all(), $rules, $messages);
@@ -563,7 +653,7 @@ class AssetManagementContoller extends Controller
         
         
         
-             DB::beginTransaction(); // ✅ Start transaction
+             DB::beginTransaction(); 
 
                try {
                 
@@ -582,12 +672,10 @@ class AssetManagementContoller extends Controller
                         $newNumber = 1001; // Start from QC1001
                     }
                 
-                    // ✅ Generate new QC code
+                    
                     $qcCode = 'QC' . $newNumber;
                     
-                    
-                    
-                    
+                    $customerId = ($request->accountability_type == 1) ? null : $request->customer;
                     
                 
                     QualityCheck::create([
@@ -595,6 +683,9 @@ class AssetManagementContoller extends Controller
                         'vehicle_type' => $request->vehicle_type ?? '',
                         'vehicle_model' => $request->vehicle_model,
                         'location' => $request->location ?? '',
+                        'zone_id' =>$request->zone ?? '',
+                        'accountability_type' => $request->accountability_type ?? '',
+                        'customer_id' => $customerId,
                         'chassis_number' => $request->chassis_number ?? '',
                         'battery_number' => $request->battery_number ?? '',
                         'telematics_number' => $request->telematics_number ?? '',
@@ -602,9 +693,10 @@ class AssetManagementContoller extends Controller
                         'datetime' =>  now(),
                         'status' => $request->result ?? '',
                         'remarks' => $request->remarks ?? '',
+                        'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
                         'dm_id' => $request->user_id ?? '' ,
-                         'check_lists' => json_encode($request->qc ?? []),
-                         'image' => $imageName, 
+                        'check_lists' => json_encode($request->qc ?? []),
+                        'image' => $imageName, 
                         'created_at' => now(),
                         'updated_at' => now()
                     ]);
@@ -630,10 +722,12 @@ class AssetManagementContoller extends Controller
                          AssetMasterVehicle::create([
                         'id'=>$ACode ,
                         'qc_id' => $qcCode,
+                        'client' => $customerId ,
                         'chassis_number' => $request->chassis_number ,
-                         'vehicle_type'=> $request->vehicle_type ?? '' ,
+                        'vehicle_type'=> $request->vehicle_type ?? '' ,
                         'motor_number' => $request->motor_number ?? '' ,
                         'location' => $request->location ?? '',
+                        'city_code' => $request->location ?? '',
                         'battery_serial_no'=> $request->battery_number ?? '',
                         'telematics_serial_no' => $request->telematics_number ?? '' ,
                         'model' => $request->vehicle_model ?? '' ,
@@ -643,21 +737,20 @@ class AssetManagementContoller extends Controller
                     ]);
                     
                     }
-        
-        
-        
+                    
+                    $remarks = "Quality check ($qcCode) created successfully.";
         
                    QualityCheckReinitiate::insert([
                         'qc_id'=>$qcCode ?? '' ,
                         'status' => $request->result ?? '',
-                        'remarks' => $request->remarks ?? '',
+                        'remarks'    => $remarks,
                         'dm_id' => $request->user_id ?? '' ,
                         'created_at'=>now() ,
                         'updated_at' => now()
                     ]);
         
                     
-                  DB::commit(); // ✅ Commit transaction
+                  DB::commit(); 
         
                return response()->json([
                     'success' => true,
@@ -684,7 +777,17 @@ class AssetManagementContoller extends Controller
         
         public function reinitiate_quality_check(Request $request){
             
-          $id = $request->qc_id;
+            $id = $request->qc_id;
+            
+            $existing = QualityCheck::find($id);
+
+            
+            if ($existing && $existing->status === 'pass') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This quality check has already been marked as passed and cannot be edited.'
+                ], 403); // Forbidden
+            }
           
           
             $checklists = QualityCheckMaster::where('status', 1)
@@ -695,6 +798,9 @@ class AssetManagementContoller extends Controller
                 'vehicle_type'       => 'required',
                 'vehicle_model'      => 'required',
                 'location'           => 'required',
+                'zone'               => 'required',
+                'accountability_type' => 'required',
+                'customer'            => 'required_if:accountability_type,2',
                 'chassis_number'     => 'required|unique:vehicle_qc_check_lists,chassis_number,' . $id . ',id',
                 'battery_number'     => 'required',
                 'telematics_number'  => 'required|unique:vehicle_qc_check_lists,telematics_number,' . $id . ',id',
@@ -713,6 +819,8 @@ class AssetManagementContoller extends Controller
             
             $validator = Validator::make($request->all(), $rules, [
                 'qc.required' => 'QC Checklist is required.',
+                'file.max'                   => 'Please upload a file smaller than 1MB.',
+                'customer.required_if' => 'Please select a customer when accountability type is Fixed.',
             ]);
 
             
@@ -728,7 +836,7 @@ class AssetManagementContoller extends Controller
             
             
             
-              DB::beginTransaction(); // ✅ Start transaction
+              DB::beginTransaction(); 
 
       try {
            $existing = QualityCheck::find($id);
@@ -758,6 +866,22 @@ class AssetManagementContoller extends Controller
         if ($existing->motor_number != $request->motor_number) {
             $changes[] = 'Motor Number';
         }
+        if ($existing->zone_id != $request->zone) {
+            $changes[] = 'Zone';
+        }
+        if ($existing->accountability_type != $request->accountability_type) {
+            $changes[] = 'Accountability Type';
+        }
+        
+        if ($existing->customer_id != $request->customer) {
+            $changes[] = 'Customer';
+        }
+        
+        if ($existing->is_recoverable != $request->is_recoverable) {
+            $changes[] = 'Is Recoverable';
+        }
+        
+        
         // if ($existing->datetime != $request->datetime) {
         //     $changes[] = 'Datetime';
         // }
@@ -787,7 +911,7 @@ class AssetManagementContoller extends Controller
                 if ($existing && $existing->image) {
                     $oldPath = public_path('EV/images/quality_check/' . $existing->image);
                     if (file_exists($oldPath)) {
-                        unlink($oldPath); // ❌ Delete previous file
+                        unlink($oldPath); 
                     }
                 }
                 
@@ -803,23 +927,29 @@ class AssetManagementContoller extends Controller
                 ? "1) $userRemark\n2) $changeRemark"
                 : $changeRemark;
                 
+                
+             $customerId = ($request->accountability_type == 1) ? null : $request->customer;
+                
 
-          QualityCheckReinitiate::insert([
-                'qc_id'=>$request->qc_id ?? '' ,
-                'status' => $request->result ?? '',
-                'remarks' => $finalRemark ?? '',
-                'dm_id' => $request->user_id ?? '' ,
-                'created_at'=>now() ,
-                'updated_at' => now()
-            ]);
+              QualityCheckReinitiate::insert([
+                    'qc_id'=>$request->qc_id ?? '' ,
+                    'status' => $request->result ?? '',
+                    'remarks' => $finalRemark ?? '',
+                    'dm_id' => $request->user_id ?? '' ,
+                    'created_at'=>now() ,
+                    'updated_at' => now()
+                ]);
             
-            
-            
+        
         
                 $updateData = [
                 'vehicle_type'       => $request->vehicle_type ?? '',
                 'vehicle_model'      => $request->vehicle_model ?? '',
                 'location'           => $request->location ?? '',
+                'zone_id'            =>$request->zone ?? '',
+                'accountability_type' => $request->accountability_type ?? '',
+                'customer_id' => $customerId,
+                'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
                 'chassis_number'     => $request->chassis_number ?? '',
                 'battery_number'     => $request->battery_number ?? '',
                 'telematics_number'  => $request->telematics_number ?? '',
@@ -831,11 +961,7 @@ class AssetManagementContoller extends Controller
                 'updated_at'         => now()
             ];
             
-            
-    
-            
-
-            // Only add image field if a file is uploaded
+           
             if ($imageName) {
                 $updateData['image'] = $imageName;
             }
@@ -866,10 +992,12 @@ class AssetManagementContoller extends Controller
                      AssetMasterVehicle::create([
                         'id'=>$Acode ,
                         'qc_id' => $id,
-                         'chassis_number' => $request->chassis_number ,
-                         'vehicle_type'=> $request->vehicle_type ?? '' ,
+                        'client' => $customerId ,
+                        'chassis_number' => $request->chassis_number ,
+                        'vehicle_type'=> $request->vehicle_type ?? '' ,
                         'motor_number' => $request->motor_number ?? '' ,
                         'location' => $request->location ?? '',
+                        'city_code' => $request->location ?? '',
                         'battery_serial_no'=> $request->battery_number ?? '',
                         'telematics_serial_no' => $request->telematics_number ?? '' ,
                         'model' => $request->vehicle_model ?? '' ,
@@ -877,11 +1005,11 @@ class AssetManagementContoller extends Controller
                         'is_status' => 'pending',
                        
                     ]);
-            }
+                }
             
             
             
-        DB::commit(); // ✅ Commit transaction
+                DB::commit(); 
 
                return response()->json([
                     'success' => true,

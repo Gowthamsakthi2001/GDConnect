@@ -9,6 +9,8 @@ use Modules\Deliveryman\Entities\Deliveryman;
 use Illuminate\Support\Facades\Log;
 use Modules\City\Entities\City; //updated by Mugesh.B
 use Modules\City\Entities\Area;
+use Modules\VehicleManagement\Entities\VehicleType; //updated by Mugesh.B
+use Modules\MasterManagement\Entities\RepairTypeMaster; //updated by Mugesh.B
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
@@ -17,22 +19,24 @@ use Illuminate\Support\Facades\Http;
 use App\Models\BusinessSetting;
 use Illuminate\Support\Facades\Mail;
 use Modules\VehicleServiceTicket\Entities\VehicleTicket;
+use Modules\VehicleServiceTicket\Entities\FieldProxyTicket;//updated by Mugesh.B
+use Modules\VehicleServiceTicket\Entities\FieldProxyLog;//updated by Mugesh.B
 use App\Helpers\CustomHandler;
 
 class VehicleServiceTicketController extends Controller
 {
     public function ticket_create(Request $request){
-        
+
         $validator = Validator::make($request->all(), [
             // 'ticket_id'        => 'required|unique:vehicle_service_tickets,ticket_id',
-            'vehicle_no' => 'required|string|max:100|regex:/^[A-Z0-9\- ]+$/i',
+            'vehicle_no'       => 'required|string|max:100|regex:/^[A-Z0-9\- ]+$/i',
             'city_id'          => 'required|integer|exists:ev_tbl_city,id',
-            'area_id'          => 'required|integer|exists:ev_tbl_area,id',
+            'area_id'          => 'required|integer|exists:zones,id',
             'vehicle_type'     => 'required|string|max:50',
             'poc_name'         => 'required|string|max:255',
             'poc_contact_no'   => 'required|string|max:20',
             'issue_remarks'    => 'required|string',
-            'repair_type'      => 'required|integer|in:1,2,3,4,5',
+            'repair_type'      => 'required|integer|exists:ev_tbl_repair_types,id',
             'address'          => 'required|string',
             'lat'              => 'required|string|max:100',
             'long'             => 'required|string|max:100',
@@ -41,7 +45,32 @@ class VehicleServiceTicketController extends Controller
             'created_datetime' =>'required|date'
           ],
           [
-            //   'ticket_id.unique' =>'The ticket has already been created. Please create a new ticket.'
+            'vehicle_no.required'      => 'Vehicle number is required.',
+            'vehicle_no.regex'         => 'Vehicle number may only contain letters, numbers, spaces, and hyphens.',
+            
+            'city_id.required'         => 'City selection is required.',
+            'city_id.exists'           => 'Selected city is not valid.',
+            
+            'area_id.required'         => 'Zone selection is required.',
+            'area_id.exists'           => 'Selected zone is not valid.',
+            'poc_name.required'        => 'POC name is required.',
+            'poc_contact_no.required'  => 'POC contact number is required.',
+            
+            
+            'repair_type.required'     => 'Repair type is required.',
+            'repair_type.exists'           => 'Invalid repair type selected.',
+            
+            'address.required'         => 'Address is required.',
+            
+            'lat.required'             => 'Latitude is required.',
+            'long.required'            => 'Longitude is required.',
+            
+            'image.image'              => 'Uploaded file must be an image.',
+            'image.mimes'              => 'Image must be a JPG or PNG file.',
+            'image.max'                => 'Image size must be less than 1MB.',
+            
+            'created_datetime.required'=> 'Created date and time is required.',
+            'created_datetime.date'    => 'Created date must be a valid datetime format.',
           ]
         );
         
@@ -49,14 +78,14 @@ class VehicleServiceTicketController extends Controller
             return response()->json(['success' => false,'errors' => $validator->errors()], 422);
         }
         
-        $development = true; //updated by Gowtham.s
+        // $development = true; //updated by Gowtham.s
 
-        if ($development) {
-            return response()->json([
-                'success' => false,
-                'message' => 'This feature is currently under development. Please check back later.'
-            ]); 
-        }
+        // if ($development) {
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'This feature is currently under development. Please check back later.'
+        //     ]); 
+        // }
 
         
         
@@ -70,7 +99,7 @@ class VehicleServiceTicketController extends Controller
                 return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
             }
         
-            $imagePath = null;
+             $imagePath = null;
              $imageUrl = null;
             
             if ($request->hasFile('image')) {
@@ -86,8 +115,10 @@ class VehicleServiceTicketController extends Controller
                 'city_id'           => $request->city_id,
                 'area_id'           => $request->area_id,
                 'vehicle_type'      => $request->vehicle_type,
-                'poc_name'          => $request->poc_name,
-                'poc_contact_no'    => $request->poc_contact_no,
+                'poc_name'          => null,
+                'poc_contact_no'    => null,
+                'driver_name'       => $request->poc_name,
+                'driver_number'     => $request->poc_contact_no ,
                 'issue_remarks'     => $request->issue_remarks,
                 'repair_type'       => $request->repair_type,
                 'address'           => $request->address,
@@ -107,85 +138,84 @@ class VehicleServiceTicketController extends Controller
             $city = City::find($request->city_id);
             
             
-            $repairTypeMap = [
-                1 => "Breakdown Repair",
-                2 => "Running Repair",
-                3 => "PMS (Preventive Maintenance Service)", 
-                4 => "PDI (Pre Delivery Inspection)",   
-                5 => "Scheduled Service",             
-            ];
-
-
-            $repair_type = $repairTypeMap[$request->repair_type] ?? null;
+            $state_name = $city && $city->state ? $city->state->state_name : '';
             
-            $area = Area::where('id', $request->area_id)->first();
-            $area_name = $area ? $area->Area_name : '';
+            $repair_type =  RepairTypeMaster::find($request->repair_type);
+
             
-            // Ensure $request->created_datetime exists, or use now()
+            
              $createdDatetime = isset($request->created_datetime) 
                 ? Carbon::parse($request->created_datetime)->utc() 
                 : Carbon::now()->utc();
+                
+            $vehicle_type = optional(VehicleType::find($request->vehicle_type))->name;
         
-            // 6️⃣ Prepare data for FieldProxy API
+            $customerLongitude = ($request->long === "" || $request->long === null)
+                ? null
+                : $request->long;
+            
+            $customerLatitude = ($request->lat === "" || $request->lat === null)
+                ? null
+                : $request->lat;
+                
+                
              $ticketData = [
-                "vehicle_type" => $request->vehicle_type,
                 "vehicle_number" => $request->vehicle_no,
-                "vehicle_name" => null,
-                "vehicle_id" => null,
-                "updatedat" => $createdDatetime,
-                "ticket_status" => "pending",
-                "telematics" => null,
-                "technician_notes" => null,
-                "task_performed" => null,
-                "sync" => true,
-                "state" => $area_name,
-                "started_location" => null,
-                "started_at" => null,
-                "service_type" => null,
-                "service_charges" => 0,
-                "role" => null,
-                "repair_type" => $repair_type,
+                "updatedAt" => $createdDatetime,
+                "ticket_status" => "unassigned",
+                "chassis_number" => null,
+                "telematics" =>  null,
+                "battery" =>  null,
+                "vehicle_type" => $vehicle_type,
+                "state" => $city->state->state_name ?? '',
                 "priority" => 'High',
-                "point_of_contact_info" => null,
-                "odometer" => 0,
-                "observation" => null,
-                "location" => null,
-                "lastsync" => null,
-                "labour_description" => null,
-                "job_type" => $repair_type,
+                "point_of_contact_info" => $request->poc_name.' - '. $request->poc_contact_no,
+                "job_type" => $repair_type->name ?? '',
                 "issue_description" => $request->issue_remarks,
-                'image' => $imageUrl ? [$imageUrl] : [],
-                "greendrive_ticketid" => $ticket_id,
-                "final_image" => null,
-                "ended_location" => null,
-                "ended_at" => null,
-                "deletedat" => null,
-                "delete" => false,
-                "customer_number" => $request->poc_contact_no,
-                "customer_name" => $request->poc_name,
-                "current_status" => 'open',
-                "createdat" => $createdDatetime,
-                "contact_details" => "",
-                "city" => $city->city_name ?? null,
-                "chassis_number" => "",
-                "category" => "",
-                "battery" => null,
-                "assignment_info" => null,
-                "assigned_technician_id" => null,
-                "assigned_by" => null,
-                "assigned_at" => null,
+                'image' => $imagePath ? [$imagePath] : [],
                 "address" => $request->address,
-                "final_technician_notes" => null
+                "greendrive_ticketid" => $ticket_id,
+                'driver_name'   => $request->poc_name ?? '',
+                'driver_number'   => $request->poc_contact_no ?? '',
+                "customer_number" => '',
+                "customer_name" => '',
+                'customer_email' => '',
+               'customer_location' => [
+                    $customerLongitude,
+                    $customerLatitude
+                ], 
+                "current_status" => 'open',
+                "createdAt" => $createdDatetime,
+                "city" => $city->city_name ?? null,
             ];
+
+            $fieldProxyTicket = FieldProxyTicket::create(array_merge($ticketData, [
+                'type'       => 'rider-app',
+            ]));
             
             
-    
+            FieldProxyLog::create([
+                'fp_id'      => $fieldProxyTicket->id,  
+                'status'     => 'unassigned',      
+                "current_status" => 'open',
+                'remarks'    => "Ticket raised for vehicle {$request->vehicle_no}",
+                'type'       => 'rider-app',
+            ]);
+            
+            $apiTicketData = $ticketData;
+            $apiTicketData['image'] = $imageUrl ? [$imageUrl] : [];
+            $apiTicketData['driver_number'] = preg_replace('/^\+91/', '', $ticketData['driver_number']);
+            
+            
             $apiData = [
-                "tableName" => "tickets",
-                "data" => [$ticketData]
+                "sheetId" => "tickets",
+                "tableData" => $apiTicketData
             ];
     
-            $apiUrl = 'https://api-india-1.fieldproxy.ai/api/insert';
+            $fieldproxy_base_url = BusinessSetting::where('key_name', 'fieldproxy_base_url')->value('value');
+            $fieldproxy_create_endpoint = BusinessSetting::where('key_name', 'fieldproxy_create_enpoint')->value('value');
+            
+            $apiUrl = $fieldproxy_base_url . $fieldproxy_create_endpoint;
             $apiKey = env('FIELDPROXY_API_KEY', null); // set in .env
     
             $ch = curl_init($apiUrl);
@@ -301,4 +331,31 @@ class VehicleServiceTicketController extends Controller
         return response()->json(['success' => true,'message' => 'tickets fetched successfully','data'=>$get_dm_tickets], 200);
         
     }
+    
+    
+    public function get_repair_types(Request $request){
+        
+         try {
+             
+            $repair_types = RepairTypeMaster::where('status', 1)
+            ->select('id', 'name')
+            ->get();
+
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Repair types fetched successfully.',
+                'data' => $repair_types
+            ], 200);
+        
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch repair types.',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
+    }
+    
+    
 }

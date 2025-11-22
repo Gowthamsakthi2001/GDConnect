@@ -2878,8 +2878,8 @@ class B2BVehicleController extends Controller
 
             $createdDatetime = Carbon::now()->utc();
             
-            $customerLongitude = $request->longitude ?? '';
-            $customerLatitude  = $request->latitude ?? '';
+            $customerLongitude = $request->longitude ?? null;
+            $customerLatitude  = $request->latitude ?? null;
                 
              $ticketData = [
                 "vehicle_number" => $validated['vehicle_number'],
@@ -2938,51 +2938,51 @@ class B2BVehicleController extends Controller
             ];
             
            
-            // $apiUrl = 'https://webapi.fieldproxy.com/v3/zapier/sheetsRow';
-            // $apiKey = env('FIELDPROXY_API_KEY', null); 
+            $apiUrl = 'https://webapi.fieldproxy.com/v3/zapier/sheetsRow';
+            $apiKey = env('FIELDPROXY_API_KEY', null); 
     
-            // $ch = curl_init($apiUrl);
-            // $payload = json_encode($apiData);
+            $ch = curl_init($apiUrl);
+            $payload = json_encode($apiData);
     
-            // curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            //     "x-api-key: {$apiKey}",
-            //     "Content-Type: application/json",
-            //     "Accept: application/json"
-            // ]);
-            // curl_setopt($ch, CURLOPT_POST, true);
-            // curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            // curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "x-api-key: {$apiKey}",
+                "Content-Type: application/json",
+                "Accept: application/json"
+            ]);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     
-            // $responseBody = curl_exec($ch);
-            // $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            // $curlError = curl_error($ch);
-            // curl_close($ch);
+            $responseBody = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
     
-            // $fieldproxyResult = null;
-            // if ($curlError) {
-            //     Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-            // } elseif ($httpCode >= 400) {
+            $fieldproxyResult = null;
+            if ($curlError) {
+                Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
+            } elseif ($httpCode >= 400) {
                
-            //     Log::error('FieldProxy returned HTTP error', [
-            //         'ticket_id' => $ticket_id,
-            //         'http_code' => $httpCode,
-            //         'body' => $responseBody
-            //     ]);
-            // } else {
+                Log::error('FieldProxy returned HTTP error', [
+                    'ticket_id' => $ticket_id,
+                    'http_code' => $httpCode,
+                    'body' => $responseBody
+                ]);
+            } else {
                 
-            //     $decoded = json_decode($responseBody, true);
-            //     if (json_last_error() !== JSON_ERROR_NONE) {
-            //         Log::warning('FieldProxy returned non-JSON response', [
-            //             'ticket_id' => $ticket_id,
-            //             'http_code' => $httpCode,
-            //             'body' => $responseBody
-            //         ]);
-            //     } else {
-            //         $fieldproxyResult = $decoded;
-            //         Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-            //     }
-            // }
+                $decoded = json_decode($responseBody, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    Log::warning('FieldProxy returned non-JSON response', [
+                        'ticket_id' => $ticket_id,
+                        'http_code' => $httpCode,
+                        'body' => $responseBody
+                    ]);
+                } else {
+                    $fieldproxyResult = $decoded;
+                    Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
+                }
+            }
             
             
             

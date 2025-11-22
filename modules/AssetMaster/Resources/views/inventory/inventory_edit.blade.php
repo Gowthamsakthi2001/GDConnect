@@ -1177,7 +1177,7 @@
                                     @if(isset($customers))
                                        @foreach($customers as $customer)
                                          
-                                          <option value="{{$customer->id}}" {{ (isset($data->assetVehicle->client) && $data->assetVehicle->client == $val->id) ? 'selected' : '' }} >{{$customer->trade_name}}</option>
+                                          <option value="{{$customer->id}}" {{ (isset($data->assetVehicle->client) && $data->assetVehicle->client == $customer->id) ? 'selected' : '' }} >{{$customer->trade_name}}</option>
                                        @endforeach
                                     @endif
                                 </select>
