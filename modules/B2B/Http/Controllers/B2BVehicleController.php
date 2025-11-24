@@ -641,18 +641,20 @@ class B2BVehicleController extends Controller
             $cc_Customers = $customerEmail;
     
             if(!empty($toRiders)){
-                CustomHandler::sendEmail('pmugesh735@gmail.com', $riderSubject, $riderBody,$cc_Customers);
+                CustomHandler::sendEmail($toRiders, $riderSubject, $riderBody,$cc_Customers);
             }
             
             $toCustomers = $customerLoginEmail;
             
             if(!empty($toCustomers)){
-                CustomHandler::sendEmail('pmugesh735@gmail.com', $customerSubject, $customerBody,$cc_Customers);
+                CustomHandler::sendEmail($toCustomers, $customerSubject, $customerBody,$cc_Customers);
             }
 
             if(!empty($toAdmins)){
-              CustomHandler::sendEmail(['mugesh@alabtechnology.com' , 'gowtham@alabtechnology.com'], $adminSubject, $adminBody);   
+              CustomHandler::sendEmail($toAdmins, $adminSubject, $adminBody);   
             }
+            
+            
              
         }
         
