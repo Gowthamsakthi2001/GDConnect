@@ -33,87 +33,6 @@ use Modules\Zones\Entities\Zones;
 class B2BDashboardController extends Controller
 {
     
-    // public function index(Request $request){
-        
-    //     $guard = Auth::guard('master')->check() ? 'master' : 'zone';
-    //     $user  = Auth::guard($guard)->user();
-    // $today = now();
-    // $last30Days = $today->copy()->subDays(30);
-    // $prev30Days = $last30Days->copy()->subDays(30);
-
-    // $totalAssignedCurrent = B2BVehicleAssignment::whereBetween('created_at', [$last30Days, $today])->count();
-    // $totalAssignedPrev = B2BVehicleAssignment::whereBetween('created_at', [$prev30Days, $last30Days])->count();
-
-    // $totalReturnCurrent = B2BReturnRequest::whereBetween('created_at', [$last30Days, $today])->count();
-    // $totalReturnPrev = B2BReturnRequest::whereBetween('created_at', [$prev30Days, $last30Days])->count();
-    
-    // $totalServiceCurrent = B2BServiceRequest::whereBetween('created_at', [$last30Days, $today])->count();
-    // $totalServicePrev = B2BServiceRequest::whereBetween('created_at', [$prev30Days, $last30Days])->count();
-        
-    // $totalAccidentCurrent = B2BReportAccident::whereBetween('created_at', [$last30Days, $today])->count();
-    // $totalAccidentPrev = B2BReportAccident::whereBetween('created_at', [$prev30Days, $last30Days])->count();
-    
-    // $totalRecoveryCurrent = B2BRecoveryRequest::whereBetween('created_at', [$last30Days, $today])->count();
-    // $totalRecoveryPrev = B2BRecoveryRequest::whereBetween('created_at', [$prev30Days, $last30Days])->count();
-    
-    // $totalActiveRider = B2BRider::whereBetween('created_at', [$last30Days, $today])->where('status',1)->count();
-    // $totalInactiveRider = B2BRider::whereBetween('created_at', [$prev30Days, $last30Days])->where('status',1)->count();
-    
-    // $contractEnd = B2BReturnRequest::whereBetween('created_at', [$last30Days, $today])->where('return_reason','Contract End')->count();
-    // $performanceIssue = B2BReturnRequest::whereBetween('created_at', [$last30Days, $today])->where('return_reason','Performance Issue')->count();
-    // $vehicleIssue = B2BReturnRequest::whereBetween('created_at', [$last30Days, $today])->where('return_reason','Vehicle Issue')->count();
-    // $noLongerNeeded = B2BReturnRequest::whereBetween('created_at', [$last30Days, $today])->where('return_reason','No Longer Needed')->count();
-    
-    
-    // $collision = B2BReportAccident::whereBetween('created_at', [$last30Days, $today])->where('accident_type','Collision')->count();
-    // $fall = B2BReportAccident::whereBetween('created_at', [$last30Days, $today])->where('accident_type','Fall')->count();
-    // $fire = B2BReportAccident::whereBetween('created_at', [$last30Days, $today])->where('accident_type','Fire')->count();
-    // $other = B2BReportAccident::whereBetween('created_at', [$last30Days, $today])->where('accident_type','Other')->count();
-    
-    //     $assigned_vehicles =[
-        
-    //             'current' => $totalAssignedCurrent,
-    //             'previous' => $totalAssignedPrev,
-    //             'change_percent' => $this->calculatePercentageChange($totalAssignedPrev, $totalAssignedCurrent),
-        
-    //     ];
-        
-    //     $return_requests = [
-           
-    //             'current' => $totalReturnCurrent,
-    //             'previous' => $totalReturnPrev,
-    //             'change_percent' => $this->calculatePercentageChange($totalReturnPrev, $totalReturnCurrent),
-       
-    //     ];
-        
-    //     $service_requests = [
-            
-    //             'current' => $totalServiceCurrent,
-    //             'previous' => $totalServicePrev,
-    //             'change_percent' => $this->calculatePercentageChange($totalServicePrev, $totalServiceCurrent),
-           
-    //     ];
-    //     $recovery_requests = [
-           
-    //             'current' => $totalRecoveryCurrent,
-    //             'previous' => $totalRecoveryPrev,
-    //             'change_percent' => $this->calculatePercentageChange($totalRecoveryPrev, $totalRecoveryCurrent),
-            
-    //     ];
-    //     $accident_report = [
-            
-    //             'current' => $totalAccidentCurrent,
-    //             'previous' => $totalAccidentPrev,
-    //             'change_percent' => $this->calculatePercentageChange($totalAccidentPrev, $totalAccidentCurrent),
-          
-    //     ];
-        
-    //     return view('b2b::dashboard',compact('assigned_vehicles','return_requests','service_requests','recovery_requests',
-    //                                         'accident_report','totalInactiveRider','totalActiveRider','contractEnd',
-    //                                         'performanceIssue','vehicleIssue','noLongerNeeded','other','fire','fall','collision'));
-      
-    // }
-    
 public function index(Request $request)
 {
     $guard = Auth::guard('master')->check() ? 'master' : 'zone';
@@ -275,14 +194,6 @@ public function index(Request $request)
     )
     ->where('status', 'running')
     ->count();
-    
-    
-        
-        
-        // dd($totalAssignedCurrent->toSql(), $totalAssignedCurrent->getBindings(),$totalAssignedCurrent->count());
-    $totalAssignedPrev = $applyFilter(B2BVehicleAssignment::query(), 'assignment')
-        // ->whereBetween('created_at', [$prev30Days, $last30Days])
-        ->where('status','running')->count();
 
     // === Return Requests ===
   $totalReturnCurrent = $applyFilter(
@@ -328,12 +239,6 @@ public function index(Request $request)
     )
     ->where('status', 'opened')
     ->count();
-        
-        
-        
-    $totalReturnPrev = $applyFilter(B2BReturnRequest::query(), 'request')
-        // ->whereBetween('created_at', [$prev30Days, $last30Days])
-        ->where('status','closed')->count();
 
     // === Service Requests ===
     $totalServiceCurrent = $applyFilter(
@@ -349,11 +254,6 @@ public function index(Request $request)
             ->where('status', '!=', 'closed'),
         'request'
     )->count();
-    
-    
-    $totalServicePrev = $applyFilter(B2BServiceRequest::query(), 'request')
-        // ->whereBetween('created_at', [$prev30Days, $last30Days])
-        ->count();
 
     // === Accident Reports ===
     $totalAccidentCurrent = $applyFilter(
@@ -368,11 +268,6 @@ public function index(Request $request)
             }),
         'request'
     )->count();
-    
-    
-    $totalAccidentPrev = $applyFilter(B2BReportAccident::query(), 'request')
-        // ->whereBetween('created_at', [$prev30Days, $last30Days])
-        ->count();
 
     // === Recovery Requests ===
     $totalRecoveryCurrent = $applyFilter(
@@ -387,10 +282,7 @@ public function index(Request $request)
             ->where('status', '!=', 'closed'),
         'request'
     )->count();
-    
-    $totalRecoveryPrev = $applyFilter(B2BRecoveryRequest::query(), 'request')
-        // ->whereBetween('created_at', [$prev30Days, $last30Days])
-        ->count();
+
 
     // === Active / Inactive Riders ===
     $totalActiveRider = $applyFilter(B2BRider::query(), 'rider')
@@ -502,8 +394,8 @@ public function index(Request $request)
                 'request'
             )
             ->where('status', $status)
-            ->whereYear('created_at', now()->year)
-            ->whereMonth('created_at', $month)
+            // ->whereYear('created_at', now()->year)
+            // ->whereMonth('created_at', $month)
             ->count();
             $monthlyData[] = $count;
         }
@@ -527,28 +419,28 @@ public function index(Request $request)
 
     $assigned_vehicles = [
         'current' => $totalAssignedCurrent,
-        'previous' => $totalAssignedPrev,
-        'change_percent' => $this->calculatePercentageChange($totalAssignedPrev, $totalAssignedCurrent),
+        'previous' => 0,
+        'change_percent' => 0,
     ];
     $return_requests = [
         'current' => $totalReturnCurrent,
-        'previous' => $totalReturnPrev,
-        'change_percent' => $this->calculatePercentageChange($totalReturnPrev, $totalReturnCurrent),
+        'previous' => 0,
+        'change_percent' => 0,
     ];
     $service_requests = [
         'current' => $totalServiceCurrent,
-        'previous' => $totalServicePrev,
-        'change_percent' => $this->calculatePercentageChange($totalServicePrev, $totalServiceCurrent),
+        'previous' => 0,
+        'change_percent' => 0,
     ];
     $recovery_requests = [
         'current' => $totalRecoveryCurrent,
-        'previous' => $totalRecoveryPrev,
-        'change_percent' => $this->calculatePercentageChange($totalRecoveryPrev, $totalRecoveryCurrent),
+        'previous' => 0,
+        'change_percent' => 0,
     ];
     $accident_report = [
         'current' => $totalAccidentCurrent,
-        'previous' => $totalAccidentPrev,
-        'change_percent' => $this->calculatePercentageChange($totalAccidentPrev, $totalAccidentCurrent),
+        'previous' => 0,
+        'change_percent' => 0,
     ];
     
     $cities = City::where('status', 1)->where('id',$user->city_id)->get();
@@ -563,6 +455,7 @@ public function index(Request $request)
     return view('b2b::dashboard', compact(
         'assigned_vehicles',
         'accountability_types',
+        'accountability_Type',
         'return_requests',
         'service_requests',
         'recovery_requests',
@@ -655,9 +548,19 @@ public function dashboard_data(Request $request)
         $end_date   = Carbon::parse($to_date)->endOfDay();
         $interval = $start_date->diffInDays($end_date) <= 31 ? '1 day' : '1 month';
     } else {
-        $start_date = $today->copy()->subDays(30);
-        $end_date = $today;
-        $interval = '1 day';
+        // $start_date = '';
+        // $end_date = '';
+        // $interval = '1 month';
+        
+    $start_date = B2BRider::min('created_at') 
+                  ? Carbon::parse(B2BRider::min('created_at'))->startOfDay()
+                  : now()->subYears(5);
+
+    $end_date   = now()->endOfDay();
+
+    $diffYears = $start_date->diffInYears($end_date);
+
+    $interval = $diffYears >= 1 ? '1 year' : '1 month';
     }
 
     $daysInRange = $start_date->diffInDays($end_date) + 1;
@@ -783,10 +686,7 @@ $total_rfd = AssetVehicleInventory::where('transfer_status', 3)
 
     // === Metrics ===
     $totalAssignedCurrent = $applyFilter(B2BVehicleAssignment::query(), 'assignment')
-        ->whereBetween('created_at', [$start_date, $end_date])
-        ->where('status','running')->count();
-    $totalAssignedPrev = $applyFilter(B2BVehicleAssignment::query(), 'assignment')
-        ->whereBetween('created_at', [$prev_start_date, $prev_end_date])
+        // ->whereBetween('created_at', [$start_date, $end_date])
         ->where('status','running')->count();
 
     $totalReturnCurrent = $applyFilter(B2BReturnRequest::query(), 'request')
@@ -794,30 +694,19 @@ $total_rfd = AssetVehicleInventory::where('transfer_status', 3)
         
     $totalReturnOpenRequests = $applyFilter(B2BReturnRequest::query(), 'request')
         ->whereBetween('created_at', [$start_date, $end_date])->where('status','opened')->count();
-        
-    $totalReturnPrev = $applyFilter(B2BReturnRequest::query(), 'request')
-        ->whereBetween('created_at', [$prev_start_date, $prev_end_date])->where('status','closed')->count();
 
     $totalServiceCurrent = $applyFilter(B2BServiceRequest::query(), 'request')
     ->where('status', '!=', 'closed')
         ->whereBetween('created_at', [$start_date, $end_date])->count();
-        
-        
-    $totalServicePrev = $applyFilter(B2BServiceRequest::query(), 'request')
-        ->whereBetween('created_at', [$prev_start_date, $prev_end_date])->count();
 
     $totalAccidentCurrent = $applyFilter(B2BReportAccident::query(), 'request')
         ->whereBetween('created_at', [$start_date, $end_date])->count();
-    $totalAccidentPrev = $applyFilter(B2BReportAccident::query(), 'request')
-        ->whereBetween('created_at', [$prev_start_date, $prev_end_date])->count();
+    
 
-   $totalRecoveryCurrent = $applyFilter(B2BRecoveryRequest::query(), 'request')
+    $totalRecoveryCurrent = $applyFilter(B2BRecoveryRequest::query(), 'request')
         ->where('status', '!=', 'closed')
         ->whereBetween('created_at', [$start_date, $end_date])->count();
         
-        
-    $totalRecoveryPrev = $applyFilter(B2BRecoveryRequest::query(), 'request')
-        ->whereBetween('created_at', [$prev_start_date, $prev_end_date])->count();
 
     $totalActiveRider = $applyFilter(B2BRider::query(), 'rider')
         ->whereHas('latestVehicleRequest', function ($q) use ($start_date,$end_date) {
@@ -872,11 +761,11 @@ $total_rfd = AssetVehicleInventory::where('transfer_status', 3)
     }
 
     return response()->json([
-        'assigned_vehicles'=>['current'=>$totalAssignedCurrent,'previous'=>$totalAssignedPrev,'change_percent' => $this->calculatePercentageChange($totalAssignedPrev, $totalAssignedCurrent)],
-        'return_requests'=>['current'=>$totalReturnCurrent,'previous'=>$totalReturnPrev,'change_percent' => $this->calculatePercentageChange($totalReturnPrev, $totalReturnCurrent)],
-        'service_requests'=>['current'=>$totalServiceCurrent,'previous'=>$totalServicePrev ,'change_percent' => $this->calculatePercentageChange($totalServicePrev, $totalServiceCurrent)],
-        'recovery_requests'=>['current'=>$totalRecoveryCurrent,'previous'=>$totalRecoveryPrev ,'change_percent' => $this->calculatePercentageChange($totalRecoveryPrev, $totalRecoveryCurrent)],
-        'accident_report'=>['current'=>$totalAccidentCurrent,'previous'=>$totalAccidentPrev, 'change_percent' => $this->calculatePercentageChange($totalAccidentPrev, $totalAccidentCurrent)],
+        'assigned_vehicles'=>['current'=>$totalAssignedCurrent,'previous'=>0,'change_percent' => 0],
+        'return_requests'=>['current'=>$totalReturnCurrent,'previous'=>0,'change_percent' =>0],
+        'service_requests'=>['current'=>$totalServiceCurrent,'previous'=>0 ,'change_percent' =>0],
+        'recovery_requests'=>['current'=>$totalRecoveryCurrent,'previous'=>0 ,'change_percent' => 0],
+        'accident_report'=>['current'=>$totalAccidentCurrent,'previous'=>0, 'change_percent' => 0],
         'totalActiveRider'=>$totalActiveRider,
         'totalInactiveRider'=>$totalInactiveRider,
         'contractEnd'=>$contractEnd,

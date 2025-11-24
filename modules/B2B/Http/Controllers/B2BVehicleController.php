@@ -2881,6 +2881,7 @@ class B2BVehicleController extends Controller
             $customerLongitude = $request->longitude ?? null;
             $customerLatitude  = $request->latitude ?? null;
                 
+                
              $ticketData = [
                 "vehicle_number" => $validated['vehicle_number'],
                 "updatedAt" => $createdDatetime,
@@ -2938,7 +2939,9 @@ class B2BVehicleController extends Controller
             ];
             
            
-            $apiUrl = 'https://webapi.fieldproxy.com/v3/zapier/sheetsRow';
+            $fieldproxy_base_url = BusinessSetting::where('key_name', 'fieldproxy_base_url')->value('value');
+            $fieldproxy_create_endpoint = BusinessSetting::where('key_name', 'fieldproxy_create_enpoint')->value('value');
+            $apiUrl = $fieldproxy_base_url . $fieldproxy_create_endpoint;
             $apiKey = env('FIELDPROXY_API_KEY', null); 
     
             $ch = curl_init($apiUrl);
@@ -2960,29 +2963,20 @@ class B2BVehicleController extends Controller
             curl_close($ch);
     
             $fieldproxyResult = null;
+            // ========== THROW ERROR TO TRIGGER ROLLBACK ==========
             if ($curlError) {
-                Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-            } elseif ($httpCode >= 400) {
-               
-                Log::error('FieldProxy returned HTTP error', [
-                    'ticket_id' => $ticket_id,
-                    'http_code' => $httpCode,
-                    'body' => $responseBody
-                ]);
-            } else {
-                
-                $decoded = json_decode($responseBody, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning('FieldProxy returned non-JSON response', [
-                        'ticket_id' => $ticket_id,
-                        'http_code' => $httpCode,
-                        'body' => $responseBody
-                    ]);
-                } else {
-                    $fieldproxyResult = $decoded;
-                    Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-                }
+                throw new \Exception("FieldProxy cURL Error: {$curlError}");
             }
+    
+            if ($httpCode >= 400) {
+                throw new \Exception("FieldProxy HTTP {$httpCode} Error: {$responseBody}");
+            }
+    
+            $decoded = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception("FieldProxy returned invalid JSON");
+            }
+            // ======================================================
             
             
             
@@ -3026,6 +3020,16 @@ class B2BVehicleController extends Controller
     
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // ========== ACCURATE FAIL LOG ==========
+            Log::error('Service Request Failed - Exception', [
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
+                'input'   => $request->all(),
+                'user_id' => $user->id ?? null,
+            ]);
     
             return response()->json([
                 'success' => false,

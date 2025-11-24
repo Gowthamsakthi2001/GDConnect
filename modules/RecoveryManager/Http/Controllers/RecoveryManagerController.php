@@ -1293,29 +1293,21 @@ class RecoveryManagerController extends Controller
                         curl_close($ch);
                 
                         $fieldproxyResult = null;
+                        
+                        // ========== THROW ERROR TO TRIGGER ROLLBACK ==========
                         if ($curlError) {
-                            Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-                        } elseif ($httpCode >= 400) {
-                           
-                            Log::error('FieldProxy returned HTTP error', [
-                                'ticket_id' => $ticket_id,
-                                'http_code' => $httpCode,
-                                'body' => $responseBody
-                            ]);
-                        } else {
-                            
-                            $decoded = json_decode($responseBody, true);
-                            if (json_last_error() !== JSON_ERROR_NONE) {
-                                Log::warning('FieldProxy returned non-JSON response', [
-                                    'ticket_id' => $ticket_id,
-                                    'http_code' => $httpCode,
-                                    'body' => $responseBody
-                                ]);
-                            } else {
-                                $fieldproxyResult = $decoded;
-                                Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-                            }
+                            throw new \Exception("FieldProxy cURL Error: {$curlError}");
                         }
+                
+                        if ($httpCode >= 400) {
+                            throw new \Exception("FieldProxy HTTP {$httpCode} Error: {$responseBody}");
+                        }
+                
+                        $decoded = json_decode($responseBody, true);
+                        if (json_last_error() !== JSON_ERROR_NONE) {
+                            throw new \Exception("FieldProxy returned invalid JSON");
+                        }
+                        // ======================================================
                         
                      // FIELDPROXY TICKET RAISE SECTION END
                     
@@ -1647,7 +1639,13 @@ class RecoveryManagerController extends Controller
         
         } catch (\Exception $e) {
             DB::rollBack();
-            \Log::error('Recovery update failed: ' . $e->getMessage());
+            Log::error('Recovery update failed', [
+                'error_message' => $e->getMessage(),
+                'file'          => $e->getFile(),
+                'line'          => $e->getLine(),
+                'trace'         => $e->getTraceAsString(),
+                'input'         => $request->all()
+            ]);
     
             return response()->json([
                 'success' => false,

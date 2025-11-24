@@ -512,6 +512,23 @@
   </style>
 @endsection
 
+
+<div id="page-loader" style="
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255,255,255,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+
+">
+    <div class="spinner-border text-success" role="status" style="width: 4rem; height: 4rem;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
 <div class="container-fluid p-0">
     <div class="col-12 d-flex align-items-center justify-content-between mt-3 card-header bg-white" >
     <!-- Left side: Dashboard Title -->
@@ -541,7 +558,7 @@
                 <h6>Total No of Clients</h6>
                 <h2 id="total-clients">{{ $client_count }}</h2>
                 <p class="m-0" id="current-month-client"></p>
-                <!--<p class="m-0" id="current-month-client">From {{ $start_date_formatted }} to {{ $end_date_formatted }}</p>-->
+               
             </div>
         </div>
         <div class="col-md-6">
@@ -549,7 +566,7 @@
                 <h6>Total No of Agents</h6>
                 <h2 id="total-agents">{{ $agent_count }}</h2>
                 <p class="m-0" id="current-month-agent"></p>
-                <!--<p class="m-0" id="current-month-agent">From {{ $start_date_formatted }} to {{ $end_date_formatted }}</p>-->
+           
             </div>
         </div>
         </div>
@@ -781,7 +798,45 @@
                 </div>
             </div>
 
-
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountability_type_1" class="form-control custom-select2-field">
+                            <option value="">Select Type</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Customer</label>
+                        <select name="customer_master" id="customer_master" class="form-control custom-select2-field">
+                            <option value="">Select Customer</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" >{{$customer->trade_name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
             <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select City</h6></div>
@@ -974,6 +1029,9 @@ const recoveryChart = new Chart(document.getElementById('recoveryChart'), {
 <script>
     function RightSideFilerOpen() {
         const bsOffcanvas = new bootstrap.Offcanvas('#offcanvasRightHR01');
+        $('.custom-select2-field').select2({
+            dropdownParent: $('#offcanvasRightHR01') // Fix for offcanvas
+        });
         bsOffcanvas.show();
     }
 
@@ -987,6 +1045,8 @@ $('#clearFilterBtn').on('click', function (e) {
     $('#ToDate').val('');
     $('#city_id_1').val('').trigger('change');
     $('#zone_id_1').val('').trigger('change');
+    $('#customer_master').val('').trigger('change');
+    $('#accountability_type_1').val('').trigger('change');
     let service_status = $('#service-status').val();
     let return_status = $('#return-status').val();
     let accident_status = $('#accident-status').val();
@@ -994,7 +1054,7 @@ $('#clearFilterBtn').on('click', function (e) {
 
     // Prepare filters object
     let filters = {
-        quick_date_filter: 'month',
+        quick_date_filter: 'year',
         city_id: '',
         zone_id: '',
         service_status: service_status,
@@ -1002,7 +1062,9 @@ $('#clearFilterBtn').on('click', function (e) {
         accident_status: accident_status,
         recovery_status: recovery_status,
         from_date: '',
-        to_date: ''
+        to_date: '',
+        customer_id: '',
+        accountability_type: ''
     };
 
     // Call the same filter function via AJAX
@@ -1010,7 +1072,15 @@ $('#clearFilterBtn').on('click', function (e) {
         url: "{{ route('b2b.admin.dashboard.filter') }}",
         type: "GET",
         data: filters,
+        beforeSend: function () {
+                const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
+                if (bsOffcanvas) {
+                    bsOffcanvas.hide();
+                }
+                showLoader();
+            },
         success: function (response) {
+            hideLoader(); 
             // Update HTML
             $('#metrics-cards-container').html(response.metricsHtml);
             $('#cities-cards-container').html(response.citiesHtml);
@@ -1048,12 +1118,11 @@ $('#clearFilterBtn').on('click', function (e) {
             recoveryChart.data.datasets[0].data = response.charts.recovery;
             recoveryChart.update();
 
-            // Close offcanvas
-            const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
-            if (bsOffcanvas) bsOffcanvas.hide();
+            
         },
         error: function () {
             toastr.error('Failed to update dashboard');
+            hideLoader(); 
         }
     });
 });
@@ -1086,6 +1155,8 @@ $('#clearFilterBtn').on('click', function (e) {
             return_status: $('#return-status').val(),
             accident_status: $('#accident-status').val(),
             recovery_status: $('#recovery-status').val(),
+            customer_id: $('#customer_master').val(),
+            accountability_type: $('#accountability_type_1').val(),
             from_date: from_date,
             to_date: to_date
         };
@@ -1097,12 +1168,15 @@ $('#clearFilterBtn').on('click', function (e) {
             url: "{{ route('b2b.admin.dashboard.filter') }}",
             type: "GET",
             data: filters,
-            // beforeSend: function () {
-            //     $('#metrics-cards-container').html('<p>Loading metrics...</p>');
-            //     $('#cities-cards-container').html('<p>Loading cities...</p>');
-            // },
+            beforeSend: function () {
+                const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
+                if (bsOffcanvas) {
+                    bsOffcanvas.hide();
+                }
+                showLoader();
+            },
             success: function (response) {
-                console.log(response);
+                hideLoader(); 
                 $('#metrics-cards-container').html(response.metricsHtml);
                 $('#cities-cards-container').html(response.citiesHtml);
                 
@@ -1171,13 +1245,11 @@ $('#clearFilterBtn').on('click', function (e) {
                         recoveryChart.update();
         
                 // Close offcanvas after success
-                const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
-                if (bsOffcanvas) {
-                    bsOffcanvas.hide();
-                }
+               
             },
             error: function () {
                 toastr.error('Failed to update dashboard');
+                hideLoader();
             }
         });
         
@@ -1186,6 +1258,14 @@ $('#clearFilterBtn').on('click', function (e) {
         // fetchReturnData();
         // fetchServiceData();
     });
+    
+function showLoader() {
+    document.getElementById('page-loader').style.display = 'flex';
+}
+
+function hideLoader() {
+    document.getElementById('page-loader').style.display = 'none';
+}
 </script>
 
 <script>
@@ -1231,6 +1311,8 @@ $('#clearFilterBtn').on('click', function (e) {
         var fromDate = $('#FromDate').val();
         var toDate = $('#ToDate').val();
         var status = $('#recovery-status').val();
+        var customer_id = $('#customer_master').val();
+        var accountability_type = $('#accountability_type_1').val();
 
         if(quickDateFilter) data.quick_date_filter = quickDateFilter;
         if(cityId) data.city_id = cityId;
@@ -1238,6 +1320,8 @@ $('#clearFilterBtn').on('click', function (e) {
         if(fromDate) data.from_date = fromDate;
         if(toDate) data.to_date = toDate;
         if(status) data.status = status;
+        if(customer_id) data.customer_id = customer_id;
+        if(accountability_type) data.accountability_type = accountability_type;
 
         data._token = '{{ csrf_token() }}';
 
@@ -1276,14 +1360,18 @@ $('#clearFilterBtn').on('click', function (e) {
         var fromDate = $('#FromDate').val();
         var toDate = $('#ToDate').val();
         var status = $('#service-status').val();
-
+        var customer_id = $('#customer_master').val();
+        var accountability_type = $('#accountability_type_1').val();
+        
         if(quickDateFilter) data.quick_date_filter = quickDateFilter;
         if(cityId) data.city_id = cityId;
         if(zoneId) data.zone_id = zoneId;
         if(fromDate) data.from_date = fromDate;
         if(toDate) data.to_date = toDate;
         if(status) data.status = status;
-
+        if(customer_id) data.customer_id = customer_id;
+        if(accountability_type) data.accountability_type = accountability_type;
+        
         data._token = '{{ csrf_token() }}';
 
         $.ajax({
@@ -1321,6 +1409,8 @@ $('#clearFilterBtn').on('click', function (e) {
         var fromDate = $('#FromDate').val();
         var toDate = $('#ToDate').val();
         var status = $('#accident-status').val();
+        var customer_id = $('#customer_master').val();
+        var accountability_type = $('#accountability_type_1').val();
 
         if(quickDateFilter) data.quick_date_filter = quickDateFilter;
         if(cityId) data.city_id = cityId;
@@ -1328,7 +1418,9 @@ $('#clearFilterBtn').on('click', function (e) {
         if(fromDate) data.from_date = fromDate;
         if(toDate) data.to_date = toDate;
         if(status) data.status = status;
-
+        if(customer_id) data.customer_id = customer_id;
+        if(accountability_type) data.accountability_type = accountability_type;
+        
         data._token = '{{ csrf_token() }}';
 
         $.ajax({
@@ -1366,6 +1458,8 @@ function fetchReturnData() {
     var fromDate = $('#FromDate').val();
     var toDate = $('#ToDate').val();
     var status = $('#return-status').val();
+    var customer_id = $('#customer_master').val();
+    var accountability_type = $('#accountability_type_1').val();
 
     if (quickDateFilter) data.quick_date_filter = quickDateFilter;
     if (cityId) data.city_id = cityId;
@@ -1373,7 +1467,9 @@ function fetchReturnData() {
     if (fromDate) data.from_date = fromDate;
     if (toDate) data.to_date = toDate;
     if (status) data.status = status;
-
+    if(customer_id) data.customer_id = customer_id;
+    if(accountability_type) data.accountability_type = accountability_type;
+        
     data._token = '{{ csrf_token() }}';
 
     $.ajax({

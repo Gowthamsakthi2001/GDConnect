@@ -120,6 +120,23 @@
 @endsection
 
 @section('content')
+    
+<div id="page-loader" style="
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255,255,255,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+
+">
+    <div class="spinner-border text-success" role="status" style="width: 4rem; height: 4rem;">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
     <div class="container-fluid">
             <div class="col-12 d-flex align-items-center justify-content-between mb-2 card-header" >
                 <!-- Left side: Dashboard Title -->
@@ -135,7 +152,7 @@
                 </div>
             </div>
         <!-- Stats Row 1 -->
-        <div class="row mb-2">
+        <div class="mb-2">
             
             
       @php
@@ -660,6 +677,14 @@
         });
     </script>
     <script>
+    function showLoader() {
+        document.getElementById('page-loader').style.display = 'flex';
+    }
+    
+    function hideLoader() {
+        document.getElementById('page-loader').style.display = 'none';
+    }
+
         function RightSideFilerOpen() {
             const bsOffcanvas = new bootstrap.Offcanvas('#offcanvasRightHR01');
             bsOffcanvas.show();
@@ -931,7 +956,7 @@
         $('#FromDate').val('');
         $('#ToDate').val('');
         $('#zone_id_1').val('').trigger('change');
-        $('#accountability_type').val('').trigger('change');
+        $('#accountability_type').val("{{ $accountability_Type }}").trigger('change');
         $('#service-status').val('');
         $('#return-status').val('');
         $('#accident-status').val('');
@@ -946,6 +971,7 @@
             return_status: '',
             accident_status: '',
             recovery_status: '',
+            accountability_type: $('#accountability_type').val() || '',
             from_date: '',
             to_date: ''
         };
@@ -955,7 +981,15 @@
             url: "{{ route('b2b.dashboard_data') }}",
             type: "GET",
             data: filters,
+            beforeSend: function () {
+                const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
+                if (bsOffcanvas) {
+                    bsOffcanvas.hide();
+                }
+                showLoader();
+            },
             success: function (response) {
+                hideLoader(); 
                 updateDashboard(response); // 🔥 use shared function
                  let defaultTypes = @json($accountabilityTypes).map(Number); // convert strings to numbers
                 if(defaultTypes.includes(2)){
@@ -1010,7 +1044,15 @@
             url: "{{ route('b2b.dashboard_data') }}",
             type: "GET",
             data: filters,
+            beforeSend: function () {
+                const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
+                if (bsOffcanvas) {
+                    bsOffcanvas.hide();
+                }
+                showLoader();
+            },
             success: function (response) {
+                hideLoader(); 
                 updateDashboard(response); // 🔥 use shared function
                 // Close filter offcanvas if open
                  let selectedAccountability = $('#accountability_type').val(); // value from filter (string)

@@ -237,7 +237,6 @@ class VehicleServiceTicketController extends Controller
             $apiTicketData = $ticketData;
             $apiTicketData['image'] = $imageUrl ? [$imageUrl] : [];
             $apiTicketData['driver_number'] = preg_replace('/^\+91/', '', $ticketData['driver_number']);
-            $apiTicketData['customer_number'] = preg_replace('/^\+91/', '', $ticketData['customer_number']);
             
             $apiData = [
                 "sheetId" => "tickets",
@@ -268,28 +267,20 @@ class VehicleServiceTicketController extends Controller
             curl_close($ch);
     
             $fieldproxyResult = null;
+             // ========== THROW ERROR TO TRIGGER ROLLBACK ==========
             if ($curlError) {
-                Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-            } elseif ($httpCode >= 400) {
-                
-                Log::error('FieldProxy returned HTTP error', [
-                    'ticket_id' => $ticket_id,
-                    'http_code' => $httpCode,
-                    'body' => $responseBody
-                ]);
-            } else {
-                $decoded = json_decode($responseBody, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning('FieldProxy returned non-JSON response', [
-                        'ticket_id' => $ticket_id,
-                        'http_code' => $httpCode,
-                        'body' => $responseBody
-                    ]);
-                } else {
-                    $fieldproxyResult = $decoded;
-                    Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-                }
+                throw new \Exception("FieldProxy cURL Error: {$curlError}");
             }
+    
+            if ($httpCode >= 400) {
+                throw new \Exception("FieldProxy HTTP {$httpCode} Error: {$responseBody}");
+            }
+    
+            $decoded = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception("FieldProxy returned invalid JSON");
+            }
+            // ======================================================
             
         
         DB::commit();
@@ -304,7 +295,15 @@ class VehicleServiceTicketController extends Controller
      
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Ticket creation exception', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Ticket creation exception', 
+            [                
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
+                'input'   => $request->all()
+                
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Ticket creation failed: ' . $e->getMessage()

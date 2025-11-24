@@ -11,6 +11,7 @@ use Modules\City\Entities\City; //updated by Mugesh.B
 use Modules\City\Entities\Area;
 use Modules\VehicleManagement\Entities\VehicleType; //updated by Mugesh.B
 use Modules\MasterManagement\Entities\RepairTypeMaster; //updated by Mugesh.B
+use Modules\AssetMaster\Entities\AssetMasterVehicle;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
@@ -107,6 +108,9 @@ class VehicleServiceTicketController extends Controller
                 
                  $imageUrl = asset('EV/images/vehicle_ticket_images/' . $imagePath);
             }
+            
+           $vehicle = AssetMasterVehicle::where('permanent_reg_number', $request->vehicle_no)
+                ->first();
         
             // Store record
             $ticket = VehicleTicket::create([
@@ -158,14 +162,13 @@ class VehicleServiceTicketController extends Controller
                 ? null
                 : $request->lat;
                 
-                
              $ticketData = [
                 "vehicle_number" => $request->vehicle_no,
                 "updatedAt" => $createdDatetime,
                 "ticket_status" => "unassigned",
-                "chassis_number" => null,
-                "telematics" =>  null,
-                "battery" =>  null,
+                "chassis_number" => $vehicle->chassis_number ?? null,
+                "telematics" =>  $vehicle->telematics_imei_number ?? null,
+                "battery" =>  $vehicle->battery_serial_no ?? null,
                 "vehicle_type" => $vehicle_type,
                 "state" => $city->state->state_name ?? '',
                 "priority" => 'High',
@@ -237,27 +240,20 @@ class VehicleServiceTicketController extends Controller
             curl_close($ch);
     
             $fieldproxyResult = null;
+            // ========== THROW ERROR TO TRIGGER ROLLBACK ==========
             if ($curlError) {
-                Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-            } elseif ($httpCode >= 400) {
-                Log::error('FieldProxy returned HTTP error', [
-                    'ticket_id' => $ticket_id,
-                    'http_code' => $httpCode,
-                    'body' => $responseBody
-                ]);
-            } else {
-                $decoded = json_decode($responseBody, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning('FieldProxy returned non-JSON response', [
-                        'ticket_id' => $ticket_id,
-                        'http_code' => $httpCode,
-                        'body' => $responseBody
-                    ]);
-                } else {
-                    $fieldproxyResult = $decoded;
-                    Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-                }
+                throw new \Exception("FieldProxy cURL Error: {$curlError}");
             }
+    
+            if ($httpCode >= 400) {
+                throw new \Exception("FieldProxy HTTP {$httpCode} Error: {$responseBody}");
+            }
+    
+            $decoded = json_decode($responseBody, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception("FieldProxy returned invalid JSON");
+            }
+            // ======================================================
     
     
             DB::commit();
@@ -271,7 +267,16 @@ class VehicleServiceTicketController extends Controller
         
         } catch (\Exception $e) {
             DB::rollBack();
-     Log::error('Ticket creation exception', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Ticket creation exception', 
+            [                
+                'message' => $e->getMessage(),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
+                'trace'   => $e->getTraceAsString(),
+                'input'   => $request->all()
+                
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Ticket creation failed: ' . $e->getMessage()
