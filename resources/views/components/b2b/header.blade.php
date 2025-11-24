@@ -6,17 +6,18 @@
 
 
 <nav class="navbar-custom-menu navbar navbar-expand-lg m-0 shadow-none" style="background:#ffff !important;">
-    <!--/.sidebar toggle icon-->
-    <div class="navbar-icon d-flex justify-content-between">
+
+          <!--/.sidebar toggle icon-->
         
-        <button id="sidebarToggleMobile" class="btn d-lg-none me-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button id="sidebarToggleMobile" class="btn d-lg-none">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M4 6h16M4 12h16M4 18h16"/>
             </svg>
         </button>
 
-
+  
+    <div class="navbar-icon d-flex justify-content-between">
         <ul class="navbar-nav flex-row align-items-center ">
             <!--<li class="nav-item dropdown language-menu">-->
             <!--   <button type="button" class="btn position-relative" id="notificationDropdownButton">-->
@@ -54,10 +55,12 @@
 
             <li class="nav-item dropdown user_profile custom-dropdown">
                 {{-- This is the single dropdown toggle button --}}
-                <a class="dropdown-toggle text-decoration-no+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ne d-flex align-items-center gap-3 bg-white p-2" href="#" role="button" id="profileDropdownButton" aria-expanded="false">
-                    <div class="user_img border rounded-circle overflow-hidden" style="width: 40px; height: 40px;">
-                        <img src="<?= $profile_img ?>" alt="" class="img-fluid w-100 h-100 object-fit-cover">
-                    </div>
+                <a class="dropdown-toggle text-decoration-no+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ne d-flex align-items-center gap-3 bg-white p-2" href="#" role="button" id="profileDropdownButton" aria-expanded="false"
+                       data-bs-toggle="tooltip" data-bs-placement="bottom" 
+                       title="{{ $user->email }}">
+                        <div class="user_img border rounded-circle overflow-hidden profile-img">
+                            <img src="<?= $profile_img ?>" alt="Profile Image" class="img-fluid w-100 h-100 object-fit-cover">
+                        </div>
                     
                     <?php  //Updated by Gowtham.S 
                     $locationText = '';
@@ -75,7 +78,7 @@
                     
                     <div class="text-start">
                          <small style="font-size:11px;" class="text-secondary text-muted">{{ ucfirst($user->type) }} ({{$locationText}})</small>
-                         <p class="mb-0 text-dark fs-15">{{ $user->email }}</p>
+                        <p class="mb-0 text-dark fs-15 navbar-user-text">{{ $user->email }}</p>
                          
                     </div>
                 </a>

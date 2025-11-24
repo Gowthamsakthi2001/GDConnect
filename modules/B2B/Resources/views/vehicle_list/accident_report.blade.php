@@ -326,13 +326,31 @@
                             </div>
                       </div>
                       
-                      <div class="col-md-12 d-flex align-items-center">
-                          <input type="checkbox" id="confirm" class="form-check-input me-2" name="terms_condition" required>
-                          <label for="confirm" class="form-check-label small text-nowrap">
-                            I confirm the details provided are correct to the best of my knowledge.
-                          </label>
-                      </div>
+                      <!--<div class="col-md-12 d-flex align-items-center">-->
+                      <!--    <input type="checkbox" id="confirm" class="form-check-input me-2" name="terms_condition" required>-->
+                      <!--    <label for="confirm" class="form-check-label small text-nowrap">-->
+                      <!--      I confirm the details provided are correct to the best of my knowledge.-->
+                      <!--    </label>-->
+                      <!--</div>-->
                       
+                      
+                      <div class="col-12 mb-4">
+                            <div class="d-flex align-items-start flex-wrap">
+                                <input 
+                                    type="checkbox" 
+                                    id="confirm" 
+                                    class="form-check-input me-2 mt-1" 
+                                    name="terms_condition" 
+                                    required
+                                >
+                        
+                                <label for="confirm" class="form-check-label small">
+                                    I confirm the details provided are correct to the best of my knowledge.
+                                </label>
+                            </div>
+                        </div>
+
+
                        <div class="col-md-12 d-flex justify-content-end gap-2">
                         <button type="reset" class="btn btn-danger">Reset</button>
                         <button type="submit" class="btn btn-primary btn-submit">Submit</button>

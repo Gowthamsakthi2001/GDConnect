@@ -12,6 +12,19 @@
     @yield('css')
     
 <style>
+
+    /* Force center on screens smaller than 768px */
+@media (max-width: 767.98px) {
+  .footer-text .row,
+  .footer-text .copy,
+  .footer-text .credit,
+  .footer-text .col-12 {
+    text-align: center !important;
+    justify-content: center !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+}
 .navbar-custom-menu .navbar-nav {
     gap: 0 !important;          /* Remove any gap spacing */
 }
@@ -533,6 +546,69 @@ body.sidebar-minimized .main-content-wrapper {
 }
 .sidebar.collapsed .arrow-right {
     display: inline-block;
+}
+
+@media (max-width: 991px) { /* Adjust breakpoint if needed */
+    .arrow-left {
+        display: none !important;
+    }
+}
+
+
+/* Default size for mobile */
+.profile-img {
+    width: 32px;
+    height: 32px;
+}
+
+/* Small screens (sm ≥ 576px) */
+@media (min-width: 576px) {
+    .profile-img {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* Medium screens (md ≥ 768px) */
+@media (min-width: 768px) {
+    .profile-img {
+        width: 45px;
+        height: 45px;
+    }
+}
+
+/* Large screens (lg ≥ 992px) */
+@media (min-width: 992px) {
+    .profile-img {
+        width: 50px;
+        height: 50px;
+    }
+}
+
+/* Extra large screens (xl ≥ 1200px) */
+@media (min-width: 1200px) {
+    .profile-img {
+        width: 55px;
+        height: 55px;
+    }
+}
+
+
+/* Wrap and truncate text */
+.navbar-user-text {
+    max-width: 200px; /* adjust width for your layout */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    transition: max-width 0.3s ease;
+}
+
+/* On larger screens, allow more space */
+@media (min-width: 768px) {
+    .navbar-user-text {
+        max-width: 250px;
+    }
 }
 
 </style>

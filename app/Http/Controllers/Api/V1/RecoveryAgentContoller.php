@@ -665,14 +665,14 @@ public function addComment(Request $request)
             
                         $ticket_id = CustomHandler::GenerateTicketId($vehicle->quality_check->location);
                            
-                            if ($ticket_id == "" || $ticket_id == null) {
-                                
-                                   Log::error('TICKET ID creation failed', [
-                                        'ticket_id' => $ticket_id
-                                    ]);
+                        if ($ticket_id == "" || $ticket_id == null) {
+                            
+                               Log::error('TICKET ID creation failed', [
+                                    'ticket_id' => $ticket_id
+                                ]);
 
-                                return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
-                            }
+                            return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
+                        }
                             
                          $customer = optional(optional($vehicle)->quality_check)->accountability_type == 2
                             ? optional(optional($vehicle)->quality_check)->customer_relation
@@ -695,7 +695,7 @@ public function addComment(Request $request)
                             'long'              => '',
                             'driver_name'       =>  $recovery->assignment->rider->name ?? '',
                             'driver_number'     =>  $recovery->assignment->rider->mobile_no ?? '',
-                            'image'             => '',
+                            'image'             => [],
                             'created_datetime'  => now(),                                                                                                          
                             'created_by'        => $user->id,
                             'created_role'      => '',
@@ -709,8 +709,7 @@ public function addComment(Request $request)
             
                         $createdDatetime = Carbon::now()->utc();
                         
-                        $customerLongitude = '';
-                        $customerLatitude  = '';
+
                             
                          $ticketData = [
                             "vehicle_number" => $vehicle->permanent_reg_number ?? '',
@@ -792,29 +791,20 @@ public function addComment(Request $request)
                         curl_close($ch);
                 
                         $fieldproxyResult = null;
+                        // ========== THROW ERROR TO TRIGGER ROLLBACK ==========
                         if ($curlError) {
-                            Log::error('FieldProxy cURL error', ['ticket_id' => $ticket_id, 'error' => $curlError]);
-                        } elseif ($httpCode >= 400) {
-                           
-                            Log::error('FieldProxy returned HTTP error', [
-                                'ticket_id' => $ticket_id,
-                                'http_code' => $httpCode,
-                                'body' => $responseBody
-                            ]);
-                        } else {
-                            
-                            $decoded = json_decode($responseBody, true);
-                            if (json_last_error() !== JSON_ERROR_NONE) {
-                                Log::warning('FieldProxy returned non-JSON response', [
-                                    'ticket_id' => $ticket_id,
-                                    'http_code' => $httpCode,
-                                    'body' => $responseBody
-                                ]);
-                            } else {
-                                $fieldproxyResult = $decoded;
-                                Log::info('FieldProxy response', ['ticket_id' => $ticket_id, 'response' => $fieldproxyResult]);
-                            }
+                            throw new \Exception("FieldProxy cURL Error: {$curlError}");
                         }
+                
+                        if ($httpCode >= 400) {
+                            throw new \Exception("FieldProxy HTTP {$httpCode} Error: {$responseBody}");
+                        }
+                
+                        $decoded = json_decode($responseBody, true);
+                        if (json_last_error() !== JSON_ERROR_NONE) {
+                            throw new \Exception("FieldProxy returned invalid JSON");
+                        }
+                        // ======================================================
                         
                      // FIELDPROXY TICKET RAISE SECTION END
                     
@@ -1104,7 +1094,15 @@ public function addComment(Request $request)
         
     } catch (\Throwable $e) {
         DB::rollBack(); 
-        Log::error('Error adding recovery comment:', ['error' => $e->getMessage()]);
+        Log::error('Error adding recovery comment:', 
+        [
+            'message' => $e->getMessage(),
+            'file'    => $e->getFile(),
+            'line'    => $e->getLine(),
+            'trace'   => $e->getTraceAsString(),
+            'input'   => $request->all()
+        
+        ]);
         return response()->json([
             'success' => false,
             'message' => 'Something went wrong: ' . $e->getMessage()

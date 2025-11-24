@@ -184,7 +184,8 @@
                             $defaultImage = asset('b2b/img/file_upload_dummy.png');
                         @endphp
                                 
-                         <div class="col-6 mt-2">
+                        <div class="col-12 col-md-6 mb-4">
+
                                         <div class="form-group ">
                                             <label for="aadhaar_front form-label">Aadhar Card Front</label>
                                             <div id="aadhaarFrontPreview" class="file-preview-container">
@@ -205,7 +206,8 @@
                                             
                                         </div>
                                     </div>
-                         <div class="col-6 mt-2">
+                        <div class="col-12 col-md-6 mb-4">
+
                                         <div class="form-group ">
                                             <label for="aadhaar_back">Aadhar Card Back</label>
                                             <div id="aadhaarBackPreview" class="file-preview-container" >
@@ -252,7 +254,8 @@
                             $defaultImage = asset('b2b/img/file_upload_dummy.png');
                         @endphp
                                 
-                         <div class="col-6 mt-2">
+                         <div class="col-12 col-md-6 mb-4">
+
                                         <div class="form-group ">
                                             <label for="pan_front form-label">Pan Card Front</label>
                                             <div id="panFrontPreview" class="file-preview-container">
@@ -275,7 +278,8 @@
                                             <!--@endif-->
                                         </div>
                                     </div>
-                                    <div class="col-6 mt-2">
+                                   <div class="col-12 col-md-6 mb-4">
+
                                         <div class="form-group ">
                                             <label for="pan_back">Pan Card Back</label>
                                             <div id="panBackPreview" class="file-preview-container" >
@@ -323,7 +327,7 @@
                             $defaultImage = asset('b2b/img/file_upload_dummy.png');
                         @endphp
                                 
-                         <div class="col-6 mt-2">
+                         <div class="col-12 col-md-6 mb-4">
                                         <div class="form-group ">
                                             <label for="driving_front form-label">Driving Licence Front</label>
                                             <div id="drivingFrontPreview" class="file-preview-container">
@@ -345,7 +349,7 @@
                                             
                                         </div>
                                     </div>
-                         <div class="col-6 mt-2">
+                         <div class="col-12 col-md-6 mb-4">
                                         <div class="form-group ">
                                             <label for="driving_back">Driving Licence Back</label>
                                             <div id="drivingBackPreview" class="file-preview-container" >
@@ -406,7 +410,8 @@
                             $defaultImage = asset('b2b/img/file_upload_dummy.png');
                         @endphp
                                 
-                         <div class="col-6 mt-2">
+                       <div class="col-12 col-md-6 mb-4">
+
                                         <div class="form-group ">
                                             <label for="llr form-label">LLR</label>
                                             <div id="llrImagePreview" class="file-preview-container">
@@ -693,16 +698,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
     
         // Email (optional but must be valid if entered)
-        if (email.value.trim() !== "") {
-            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailPattern.test(email.value.trim())) {
-                setError(email, "Please enter a valid email address");
-            } else {
-                clearError(email);
-            }
-        } else {
-            clearError(email); // optional and empty is fine
-        }
+        // if (email.value.trim() !== "") {
+        //     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        //     if (!emailPattern.test(email.value.trim())) {
+        //         setError(email, "Please enter a valid email address");
+        //     } else {
+        //         clearError(email);
+        //     }
+        // } else {
+        //     clearError(email); // optional and empty is fine
+        // }
     
 
  
