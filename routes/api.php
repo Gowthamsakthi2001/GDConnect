@@ -9,6 +9,10 @@ use App\Http\Controllers\Api\V1\EvLeaveManagementContoller;
 use App\Http\Controllers\Api\V1\LiveOrderController;
 use App\Http\Controllers\Api\V1\VehicleServiceTicketController;
 use App\Http\Controllers\Api\V1\RecoveryAgentContoller; // updated by logesh
+use Modules\AssetMaster\Entities\QualityCheck;
+use Modules\AssetMaster\Entities\QualityCheckReinitiate;
+use Modules\AssetMaster\Entities\AssetMasterVehicle;
+use Modules\AssetMaster\Entities\AssetMasterVehicleLogHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -424,6 +428,138 @@ Route::post('/bulk-assign-vehicles', function (Request $request) {
             'failed' => count($results['failed']),
         ],
         'results' => $results,
+    ]);
+});
+
+Route::post('/bulk-update-accountability-type', function (Request $request)
+{
+    $validated = $request->validate([
+        'chassis_numbers' => 'required|array',
+        'chassis_numbers.*' => 'required|string',
+        'accountability_type' => 'required',
+        'customer_id' => 'required|string',
+        'customer_name' => 'required|string'
+    ]);
+
+    $chassisNumbers     = $validated['chassis_numbers'];
+    $accountabilityType = $validated['accountability_type'];
+    $customerId         = $validated['customer_id'];
+    $customerName       = $validated['customer_name'];
+
+    $success = [];
+    $failed  = [];
+    $skipped = []; // NEW
+
+    foreach ($chassisNumbers as $chassis) {
+
+    /** ----------------------------------------------------
+     * 0. Fetch QC first (before starting transaction)
+     * ---------------------------------------------------- */
+    $qc = QualityCheck::where('chassis_number', $chassis)->first();
+
+    if (!$qc) {
+        $failed[] = [
+            'chassis_number' => $chassis,
+            'error'          => "Chassis not found in QualityCheck",
+        ];
+        continue;
+    }
+
+    /** ----------------------------------------------------
+     * Fetch Asset before deciding update rule
+     * ---------------------------------------------------- */
+    $asset = AssetMasterVehicle::where('chassis_number', $chassis)->first();
+
+    if (!$asset) {
+        $failed[] = [
+            'chassis_number' => $chassis,
+            'error'          => "Chassis not found in AssetMasterVehicle",
+        ];
+        continue;
+    }
+
+    /** ----------------------------------------------------
+     * NEW RULE: Skip if BOTH QC & Asset fields match
+     * ---------------------------------------------------- */
+    $qcNoChange    = ($qc->accountability_type == $accountabilityType &&
+                      $qc->customer_id == $customerId);
+
+    $assetNoChange = ($asset->client == $customerId);
+
+    if ($qcNoChange && $assetNoChange) {
+        $skipped[] = $chassis;
+        continue;
+    }
+
+    DB::beginTransaction();
+
+    try {
+
+        /** ----------------------------------------------------
+         * 1. Update QualityCheck ONLY IF changes exist
+         * ---------------------------------------------------- */
+        if (!$qcNoChange) {
+
+            $qc->update([
+                'accountability_type' => $accountabilityType,
+                'customer_id'         => $customerId,
+            ]);
+
+            QualityCheckReinitiate::create([
+                'qc_id'        => $qc->id,
+                'status'       => 'updated',
+                'initiated_by' => 51,
+                'dm_id'        => null,
+                'role'         => null,
+                "remarks"      => "Vehicle Chassis {$chassis} updated successfully via backend bulk update (as per Maithra TM / GDM instruction). Updated fields Accountability Type - (Fixed) and Customer ({$customerName})."
+            ]);
+        }
+
+        /** ----------------------------------------------------
+         * 2. Update AssetMasterVehicle ONLY IF client changed
+         * ---------------------------------------------------- */
+        if (!$assetNoChange) {
+
+            $asset->update([
+                'client' => $customerId,
+            ]);
+
+            AssetMasterVehicleLogHistory::create([
+                'user_id'          => 51,
+                'remarks'          => "The Asset Master Vehicle Chassis Number {$chassis} has been Updated with Client ({$customerName}).",
+                'asset_vehicle_id' => $asset->id,
+                'status_type'      => 'updated'
+            ]);
+        }
+
+        DB::commit();
+        $success[] = $chassis;
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        $failed[] = [
+            'chassis_number' => $chassis,
+            'error'          => $e->getMessage(),
+        ];
+    }
+}
+
+    return response()->json([
+        "status"                  => true,
+        "total_processed"         => count($chassisNumbers),
+        "total_success"           => count($success),
+        "total_failed"            => count($failed),
+        "total_skipped"           => count($skipped), // NEW
+
+        // Lists
+        "success_chassis_numbers" => $success,
+        "failed_chassis_numbers"  => array_column($failed, 'chassis_number'),
+        "skipped_chassis_numbers" => $skipped, // NEW
+
+        // Detailed failures
+        "failed_details"          => $failed,
     ]);
 });
 
