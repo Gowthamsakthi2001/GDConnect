@@ -1672,6 +1672,9 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
         $coords = $drawing->getCoordinates(); // e.g., H2
         preg_match('/([A-Z]+)(\d+)/', $coords, $matches);
         $row = $matches[2];
+        
+
+
 
 
 
@@ -1706,6 +1709,15 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             $cellValues[$heading] = $sheet->getCell($col . $rowIndex)->getValue() ?? null;
         }
         
+      $rowData = $sheet->rangeToArray("A{$rowIndex}:{$highestColumn}{$rowIndex}", null, true, true, true);
+      $rowData = $rowData[ $rowIndex ] ?? null;
+    
+        // Skip empty rows
+        if (empty(array_filter($rowData))) {
+            continue;
+        }
+        
+        
 
         // Access fields individually
         $vehicleType        = $cellValues['vehicle_type']        ?? null;
@@ -1730,7 +1742,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
         if (empty($city)) $missingFields[] = 'Location';
         if (empty($zone)) $missingFields[] = 'Zone';
         if (empty($accountability_type)) $missingFields[] = 'Accountability Type';
-        if (empty($customer_trade_name)) $missingFields[] = 'Customer Trade Name';
+        // if (empty($customer_trade_name)) $missingFields[] = 'Customer Trade Name';
         if (empty($battery_number)) $missingFields[] = 'Battery Number';
         if (empty($motor_number)) $missingFields[] = 'Motor Number';
 
@@ -1743,7 +1755,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             continue;
         }
         
-        
+
         $vehicle_type_id = null;
         $vehicleModel_id = null;
         $location_id = null;
@@ -1785,7 +1797,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
         //accounttype
 
         if (!empty($accountability_type)) {
-            $accountabilityRecord = EvTblAccountabilityType::whereRaw('LOWER(name) = ?', [trim(strtolower($accountability_type))])->first();
+            $accountabilityRecord = EvTblAccountabilityType::whereRaw( 'LOWER(TRIM(name)) = ?', [trim(strtolower($accountability_type))] )->first();
             $accounttype_id = $accountabilityRecord?->id ?? null;
         }
 
@@ -1799,9 +1811,9 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             $invalids = [];
             if (empty($vehicle_type_id)) $invalids[] = 'Vehicle Type (invalid)';
             if (empty($vehicleModel_id)) $invalids[] = 'Vehicle Model (invalid)';
-            if (empty($city)) $invalids[] = 'City (invalid)';
-            if (empty($zone)) $invalids[] = 'Zone (invalid)';
-            if (empty($accountability_type)) $invalids[] = 'Accountability Type (invalid)';
+            if (empty($city_id)) $invalids[] = 'City (invalid)';
+            if (empty($zone_id)) $invalids[] = 'Zone (invalid)';
+            if (empty($accounttype_id)) $invalids[] = 'Accountability Type (invalid)';
             if (empty($recovery_id)) $invalids[] = 'Is Recoverable (invalid)';
             
            if ($accounttype_id == 2 && empty($customer_id)) {
@@ -1816,7 +1828,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             
             continue;
         }
-        
+
         
 
         // Generate custom ID
