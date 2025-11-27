@@ -123,15 +123,14 @@ class B2BVehicleController extends Controller
                 'llr_image'             => 'nullable|mimes:jpg,jpeg,png,pdf',
                 'submission_type'       => 'required|in:license,llr,terms',
             ];
-    
             $messages = [
-                // 'aadhaar_back.max'  => 'The Aadhaar back file may not be greater than 10 MB.',
-                // 'aadhaar_front.max' => 'The Aadhaar front file may not be greater than 10 MB.',
-                // 'pan_front.max'     => 'The PAN front file may not be greater than 10 MB.',
-                // 'pan_back.max'      => 'The PAN back file may not be greater than 10 MB.',
-                // 'driving_front.max' => 'The Driving License front file may not be greater than 10 MB.',
-                // 'driving_back.max'  => 'The Driving License back file may not be greater than 10 MB.',
-                // 'llr_image.max'     => 'The LLR file may not be greater than 10 MB.',
+                // 'aadhaar_back.max'  => 'The Aadhaar back file may not be greater than 1 MB.',
+                // 'aadhaar_front.max' => 'The Aadhaar front file may not be greater than 1 MB.',
+                // 'pan_front.max'     => 'The PAN front file may not be greater than 1 MB.',
+                // 'pan_back.max'      => 'The PAN back file may not be greater than 1 MB.',
+                // 'driving_front.max' => 'The Driving License front file may not be greater than 1 MB.',
+                // 'driving_back.max'  => 'The Driving License back file may not be greater than 1 MB.',
+                // 'llr_image.max'     => 'The LLR file may not be greater than 1 MB.',
             ];
 
             $validator = Validator::make($request->all(), $rules ,$messages);
@@ -885,37 +884,7 @@ class B2BVehicleController extends Controller
                               ->where('assign_zone_id', $user->zone_id);
                     }
 
-                    if (!empty($request->zone_id)) {
-                        $query->where('assign_zone_id', $request->zone_id);
-                    }
                     
-                    if (!empty($request->datefilter)) {
-                        switch ($request->datefilter) {
-                            case 'today':
-                                $from = Carbon::today()->toDateString();
-                                $to   = Carbon::today()->toDateString();
-                                break;
-                    
-                            case 'week':
-                                $from = Carbon::now()->startOfWeek()->toDateString();
-                                $to   = Carbon::now()->endOfWeek()->toDateString();
-                                break;
-                    
-                            case 'month':
-                                $from = Carbon::now()->startOfMonth()->toDateString();
-                                $to   = Carbon::now()->endOfMonth()->toDateString();
-                                break;
-                    
-                            case 'year':
-                                $from = Carbon::now()->startOfYear()->toDateString();
-                                $to   = Carbon::now()->endOfYear()->toDateString();
-                                break;
-                    
-                            case 'custom':
-                            default:
-                                break;
-                        }
-                    }
         
                     if (!empty($from)) {
                         $query->whereDate('created_at', '>=', $from);
@@ -2006,8 +1975,6 @@ class B2BVehicleController extends Controller
         $user->load('customer_relation');
             
         $accountability_Types = $user->customer_relation->accountability_type_id;
-        
-         $zones = Zones::where('city_id',$user->city_id)->where('status',1)->get();  
 
         // Make sure it's an array (sometimes could be stored as string or null)
         if (!is_array($accountability_Types)) {
@@ -2183,7 +2150,7 @@ class B2BVehicleController extends Controller
         ->orderBy('id', 'desc')
         ->get();
     
-        return view('b2b::vehicles.vehicle_request_list', compact('accountability_types' , 'zones'));
+        return view('b2b::vehicles.vehicle_request_list', compact('accountability_types'));
     }
 
     
@@ -4204,13 +4171,13 @@ class B2BVehicleController extends Controller
 
        public function rider_export(Request $request)
     {
-
+        
         $fields    = $request->input('fields', []);  
         $from_date = $request->input('from_date');
         $to_date   = $request->input('to_date');
+        $zone = $request->input('zone_id')?? null;
+        $city = $request->input('city_id')?? null;
          $selectedIds = $request->input('selected_ids', []);
-         $datefilter = $request->input('datefilter');
-         $zone = $request->input('zone');
 
     
         if (empty($fields)) {
@@ -4218,7 +4185,7 @@ class B2BVehicleController extends Controller
         }
     
         return Excel::download(
-            new B2BRiderExport($from_date, $to_date, $selectedIds, $fields, $datefilter ,$zone),
+            new B2BRiderExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
             'rider_list-' . date('d-m-Y') . '.xlsx'
         );
     }
