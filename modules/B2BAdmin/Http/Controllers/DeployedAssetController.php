@@ -970,6 +970,7 @@ class DeployedAssetController extends Controller
     $zoneName = null;
     $cityName = null;
     $customerName = null;
+    $accountability_name = null;
     if (!empty($zone)) {
         $zoneName = optional(Zones::find($zone))->name ?? $zone;
     }
