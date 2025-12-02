@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth; //updated by logesh
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -6555,6 +6556,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
      public function reupdate_vehicle_data(Request $request)
     {
+        
         $user     = Auth::user();
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
     
@@ -6566,15 +6568,24 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             return response()->json([
                 'success' => false,
                 'message' => 'Asset Master Vehicle Not Found',
-            ]);
+            ],200);
         }
+        
+        $get_exists_chassis_no = AssetMasterVehicle::where('chassis_number', $request->chassis_number)->where('delete_status',0)->where('id','!=',$vehicle_update->id)->first();
+
+        if ($get_exists_chassis_no) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The chassis number has already been taken.',
+            ],200);
+        }
+       
+        
 
         $oldValues = $vehicle_update->toArray();
-
-
-        
+  
         $validator = Validator::make($request->all(), [
-        'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number,'.$vehicle_update->id,
+        'chassis_number' => 'required|string',
         'status'=>'required|in:accepted,rejected',
         'reject_remark' => 'sometimes|required_if:status,rejected|string',
         'vehicle_category' => 'required|string',
@@ -6678,10 +6689,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     
         DB::beginTransaction();
         try {
-            
-       
-    
-    
+
         // tax_invoice_attachment
         if ($request->hasFile('tax_invoice_attachment')) {
             $old_file = $vehicle_update->tax_invoice_attachment;
