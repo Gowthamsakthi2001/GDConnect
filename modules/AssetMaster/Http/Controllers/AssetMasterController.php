@@ -6534,7 +6534,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
         }
 
         $vehicle_types = VehicleType::where('is_active', 1)->get();
-        $locations = LocationMaster::where('status',1)->get();
+        $locations = City::where('status', 1)->select('id', 'city_name')->get();
         $passed_chassis_numbers = AssetMasterVehicle::where('qc_status','pass')->get();
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         
@@ -6589,7 +6589,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
         'tax_invoice_number' => 'nullable|string',
         'tax_invoice_date' => 'nullable|date',
         'tax_invoice_value' => 'nullable',
-        'location' => 'required|numeric',
+        'location' => 'nullable|numeric',
         'gd_hub_id' => 'nullable|string',
         'financing_type' => 'nullable|string',
         'asset_ownership' => 'nullable|string',
@@ -6643,7 +6643,8 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
         'telematics_serial_no_replacement3' => 'nullable|string',
         'telematics_serial_no_replacement4' => 'nullable|string',
         'telematics_serial_no_replacement5' => 'nullable|string',
-        'city_code' => 'nullable|string',
+        'city_code' => 'required',
+        'zone_id' => 'required',
          'telematics_oem' => 'nullable|string',
 
         // File validations
@@ -6654,6 +6655,11 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
         'hypothecation_document' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'temporary_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
         'hsrp_certificate_attachment' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+    ],
+    [
+       
+        'zone_id.required' => 'Please select a Zone. Zone field is mandatory.',
+        'city_code.required' => 'Please select a City. City field is mandatory.',
     ]);
     
 
@@ -6667,6 +6673,8 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             'errors' => $validator->errors()
         ], 422);
     }
+    
+    $GetoldValues = $vehicle_update->getOriginal(); 
     
         DB::beginTransaction();
         try {
@@ -6891,6 +6899,17 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             
     
             $vehicle_update->save();
+            
+            $changes = array_diff_assoc($vehicle_update->getDirty(), $GetoldValues);
+            $vehicle_update->save();
+            
+            
+            $quality_check = QualityCheck::where('chassis_number', $vehicle_update->chassis_number)
+                ->where('status', 'pass')
+                ->first();
+                
+                
+            $this->handleLogsAndQcUpdate($vehicle_update, $changes , $request, $GetoldValues, $quality_check);
 
             if($request->status == 'rejected'){
                 $remarks = $request->reject_remark;
