@@ -63,7 +63,7 @@
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="vehicle_type">Vehicle Type</label>
-                                <select class="form-select custom-select2-field form-control-sm"  disabled>
+                                <select class="form-select custom-select2-field form-control-sm" id="vehicle_type" name="vehicle_type">
                                     <option value="">Select</option>
                                     @if(isset($vehicle_types))
                                        @foreach($vehicle_types as $type)
@@ -73,13 +73,13 @@
                                 </select>
                             </div>
                         </div>
-                        <input type="hidden" id="vehicle_type" name="vehicle_type" value="{{$vehicle_data->vehicle_type}}">
+                        <input type="hidden" value="{{$vehicle_data->vehicle_type}}" >
                         <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="model">Model</label>
                                 <!--<input type="text" class="form-control bg-white" name="model" id="model"  value="{{$vehicle_data->model ?? ''}}" placeholder="Enter Model" >-->
                                 
-                                   <select class="form-select custom-select2-field form-control-sm"  disabled>
+                                   <select class="form-select custom-select2-field form-control-sm" id="model" name="model">
                                         <option value="">Select</option>
                                         @if(isset($vehicle_models))
                                            @foreach($vehicle_models as $type)
@@ -89,7 +89,7 @@
                                     </select>
                             </div>
                         </div>
-                         <input type="hidden" id="model" name="model" value="{{$vehicle_data->model}}">
+                         <input type="hidden" value="{{$vehicle_data->model}}">
                          
                     @php
                         $model_data = \Modules\AssetMaster\Entities\VehicleModelMaster::where('id', $vehicle_data->model)->first();
@@ -100,7 +100,7 @@
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="make">Make</label>
                                 <!--<input type="text" class="form-control bg-white" style="padding: 12px 20px;" name="make" id="make"  value="{{$vehicle_data->make ?? ''}}" placeholder="Enter Make" >-->
-                                <select class="form-select custom-select2-field form-control-sm"  disabled>
+                                <select class="form-select custom-select2-field form-control-sm" name="make" id="make">
                                        @if($model_data)
                                             <option value="{{ $model_data->id }}" selected>{{ $model_data->make }}</option>
                                         @else
@@ -109,14 +109,14 @@
                                 </select>
                             </div>
                         </div>
-                         <input type="hidden" name="make" id="make" value="{{$vehicle_data->make ?? ''}}">
+                         <input type="hidden" value="{{$vehicle_data->make ?? ''}}">
 
 
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="variant">Variant</label>
                                 <!--<input type="text" class="form-control bg-white" name="variant" id="variant"  value="{{$vehicle_data->variant ?? ''}}" placeholder="Enter Variant" >-->
-                             <select class="form-select custom-select2-field form-control-sm"  disabled>
+                             <select class="form-select custom-select2-field form-control-sm" name="variant" id="variant">
                                        @if($model_data)
                                             <option value="{{ $model_data->id }}" selected>{{ $model_data->variant }}</option>
                                         @else
@@ -125,7 +125,7 @@
                                 </select>
                             </div>
                         </div>
-                        <input type="hidden" name="variant" id="variant" value="{{$vehicle_data->variant ?? ''}}">
+                        <input type="hidden" value="{{$vehicle_data->variant ?? ''}}">
                         
                          <div class="col-md-6 mb-3">
                             <div class="form-group">
@@ -1403,6 +1403,7 @@ function ReUpdate_VehicleAcceptOrRejectStatus(id, message, status, title = "Are 
                     },
                     error: function (xhr) {
                         // Swal.fire("Error!", "The network connection has failed. Please try again later", "error");
+                        
                         if (xhr.status === 422) {
                             const errors = xhr.responseJSON.errors;
                             for (const field in errors) {
@@ -1454,6 +1455,7 @@ function ReUpdate_VehicleAcceptOrRejectStatus(id, message, status, title = "Are 
                     processData: false, 
                     contentType: false,
                     success: function (response) {
+                        console.log("checkk");
                         if (response.success) {
                             showToast('success', 'Rejected! ' + response.message);
                             resetClickedButton();
@@ -1462,8 +1464,18 @@ function ReUpdate_VehicleAcceptOrRejectStatus(id, message, status, title = "Are 
                             resetClickedButton();
                         }
                     },
-                    error: function () {
-                        showToast('error', 'Error! The network connection has failed. Please try again later.');
+                    error: function (xhr) {
+                        // showToast('error', 'Error! The network connection has failed. Please try again later.');
+                         if (xhr.status === 422) {
+                            const errors = xhr.responseJSON.errors;
+                            for (const field in errors) {
+                                errors[field].forEach(msg => {
+                                    showToast('error', msg);
+                                });
+                            }
+                        } else {
+                            Swal.fire("Error!", "The network connection has failed. Please try again later", "error");
+                        }
                         resetClickedButton();
                     }
                 });
@@ -1582,9 +1594,9 @@ $(document).ready(function() {
         var Id = selectedOption.data('id') || '';
 
         // Set dropdowns dynamically
-        $('#make').html('<option value="' + Id + '" selected>' + make + '</option>');
-        $('#variant').html('<option value="' + Id + '" selected>' + variant + '</option>');
-        $('#color').html('<option value="' + Id + '" selected>' + color + '</option>');
+        // $('#make').html('<option value="' + Id + '" selected>' + make + '</option>');
+        // $('#variant').html('<option value="' + Id + '" selected>' + variant + '</option>');
+        // $('#color').html('<option value="' + Id + '" selected>' + color + '</option>');
     });
 });
 </script>
