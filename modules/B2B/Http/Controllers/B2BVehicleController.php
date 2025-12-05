@@ -2728,6 +2728,7 @@ class B2BVehicleController extends Controller
         return view('b2b::vehicle_list.accident_report', compact('data'));
     }
     
+    
     public function service_request_functionality(Request $request)
     {    
 
@@ -2854,7 +2855,7 @@ class B2BVehicleController extends Controller
                 'vehicle_no'        => $validated['vehicle_number'],
                 'city_id'           => $request->city,
                 'area_id'           => $request->zone,
-                'vehicle_type'      => $vehicle->vehicle_type ?? '',
+                'vehicle_type'      => $assignment->vehicle->vehicle_type ?? '',
                 'poc_name'          => $customer->customer_relation->trade_name ?? '',
                 'poc_contact_no'    => $customer->customer_relation->phone ?? '',
                 'issue_remarks'     => $validated['description'],
@@ -2887,10 +2888,10 @@ class B2BVehicleController extends Controller
                 "vehicle_number" => $validated['vehicle_number'],
                 "updatedAt" => $createdDatetime,
                 "ticket_status" => "unassigned",
-                "chassis_number" => $vehicle->chassis_number ?? null,
-                "telematics" => $vehicle->telematics_imei_number ?? null,
-                "battery" => $vehicle->battery_serial_no ?? null,
-                "vehicle_type" => $vehicle->vehicle_type_relation->name ?? null,
+                "chassis_number" => $assignment->vehicle->chassis_number ?? null,
+                "telematics" => $assignment->vehicle->telematics_imei_number ?? null,
+                "battery" => $assignment->vehicle->battery_serial_no ?? null,
+                "vehicle_type" => $assignment->vehicle->vehicle_type_relation->name ?? null,
                 "state" => $city->state->state_name ?? '',
                 "priority" => 'High',
                 "point_of_contact_info" => $customer->customer_relation->phone.' - '. $customer->customer_relation->trade_name,
@@ -2984,7 +2985,7 @@ class B2BVehicleController extends Controller
             $customerName = $customer->customer_relation->name ?? 'Customer';  //updated by Gowtham.s
             $riderID = $assignment->rider->id;
             $riderData = $assignment->rider;
-            $vehicleId = $vehicle->id;
+            $vehicleId = $assignment->vehicle->id;
             $issue_description = $request->description;
             $address = $request->gps_pin_address;
             $lat = $request->latitude;
