@@ -801,7 +801,7 @@ class VehicleServiceTicketController extends Controller
                     // Update assignment log if linked
                     $assignment = B2BVehicleAssignment::where('id', $service->assign_id)->first();
                     
-                    if (isset($assignment) && !in_array($assignment->status, ['returned', 'return_request'])) {
+                    if (isset($assignment) && !in_array($assignment->status, ['returned', 'return_request', 'recovery_request' , 'recovered'])) {
                         
                         if($new_ticket_status == "closed"){
                              $assignment->status = "running";
@@ -851,7 +851,7 @@ class VehicleServiceTicketController extends Controller
             
                         if ($service) {
                             // ---- SCENARIO 1: Ticket belongs to a Service Request ----
-                            if ($activeAssignment && in_array($activeAssignment->status, ['returned', 'return_request'])) {
+                            if ($activeAssignment && in_array($activeAssignment->status, ['returned', 'return_request' , 'recovery_request' , 'recovered'])) {
                                 // Vehicle was returned/requested → mark as RFD
                                 $inventory->transfer_status = 3; // Ready for Deployment
                                 $remarks = "Vehicle status changed to Ready for Deployment after service completion, due to FieldProxy ticket closure.";
@@ -862,8 +862,8 @@ class VehicleServiceTicketController extends Controller
                             }
                         } else {
                             // ---- SCENARIO 2: Ticket only exists in FieldProxy (no service request) ----
-                            $inventory->transfer_status = 1; // On Rent
-                            $remarks = "Vehicle remains On Rent after ticket closure, due to FieldProxy ticket closure.";
+                            $inventory->transfer_status = 3; // RFD
+                            $remarks = "Vehicle moved to Ready for Deployment (RFD) as the ticket is closed in FieldProxy.";
                         }
             
                         $inventory->save();
