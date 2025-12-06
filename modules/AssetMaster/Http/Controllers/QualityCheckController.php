@@ -801,8 +801,6 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
         
     }
     
-    
-    
     public function reinitiate(Request $request){
               
               
@@ -810,7 +808,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
         ->where('vehicle_type_id', $request->vehicle_type)
         ->get();
 
-        $id = $request->qc_id;
+        $qc_id = $request->qc_id;
     
         $rules = [
             'vehicle_type' => 'required',
@@ -819,9 +817,9 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             'accountability_type' => 'required',
             'customer_id' => 'required_if:accountability_type,2',
             'zone_id' => 'required',
-            'chassis_number' => 'required|unique:vehicle_qc_check_lists,chassis_number,' . $id . ',id',
+            'chassis_number' => 'required|unique:vehicle_qc_check_lists,chassis_number,' . $qc_id . ',id',
             'battery_number' => 'required',
-            'telematics_number' => 'required|unique:vehicle_qc_check_lists,telematics_number,' . $id . ',id',
+            'telematics_number' => 'required|unique:vehicle_qc_check_lists,telematics_number,' . $qc_id . ',id',
             'motor_number' => 'required',
             'datetime' => 'required',
             'result' => 'required',
@@ -855,7 +853,8 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
   DB::beginTransaction(); // ✅ Start transaction
 
     try {
-        $existing = QualityCheck::findOrFail($id);
+       
+        $existing = QualityCheck::findOrFail($qc_id);
         
         $valToString = function ($v) {
             if (is_null($v) || $v === '') return 'N/A';
@@ -1024,7 +1023,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             
             if ($request->hasFile('file')) {
                 
-                $existing = QualityCheck::find($id);
+                $existing = QualityCheck::find($qc_id);
                 
                 if ($existing && $existing->image) {
                     $oldPath = public_path('EV/images/quality_check/' . $existing->image);
@@ -1040,7 +1039,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
     
             $user = Auth::user();
             
-            
+           
             
             $statusMessage = ($existing->status == "qc_pending")
             ? "Quality check updated successfully"
@@ -1096,7 +1095,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
                     $qcAuditData = [
                         'module_id'         => 4,
                         'short_description' => 'QC Reinitiated/Updated',
-                        'long_description'  => "QC ({$id}) reinitiated/updated. New status: {$request->result}. Changes: {$shortDiff}",
+                        'long_description'  => "QC ({$qc_id}) reinitiated/updated. New status: {$request->result}. Changes: {$shortDiff}",
                         'role'              => $roleName,
                         'user_id'           => Auth::id(),
                         'user_type'         => 'gdc_admin_dashboard',
@@ -1138,7 +1137,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
               
             AssetMasterVehicle::create([
                 'id'=>$Acode ,
-                'qc_id' => $id,
+                'qc_id' => $qc_id,
                 'client' => $customerId ,
                  'chassis_number' => $request->chassis_number ,
                 'vehicle_type'=> $request->vehicle_type ?? '' ,
@@ -1157,7 +1156,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             $assetAudit = [
                 'module_id'         => 4,
                 'short_description' => 'Vehicle Asset Created (QC Pass)',
-                'long_description'  => "Asset ({$Acode}) created from QC ({$id}),Chassis Number ({$request->chassis_number}) after pass.",
+                'long_description'  => "Asset ({$Acode}) created from QC ({$qc_id}),Chassis Number ({$request->chassis_number}) after pass.",
                 'role'              => $roleName,
                 'user_id'           => Auth::id(),
                 'user_type'         => 'gdc_admin_dashboard',
@@ -1170,7 +1169,7 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
             }
             
              
-
+  
             
             // return redirect()->route('admin.asset_management.quality_check.list')->with('success', 'Quality check reinitiated successfully.');
             
@@ -1180,7 +1179,9 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
 
     } catch (\Exception $e) {
         DB::rollback(); // ❌ Rollback transaction
-        return response()->json(['error' => 'Something went wrong. Please try again.','error_message'=>$e->getMessage()], 500);
+        return response()->json(['error' => 'Something went wrong. Please try again.','error_message'=>$e->getMessage(),'file' => $e->getFile(),
+    'line' => $e->getLine(),
+    'trace' => $e->getTrace()], 500);
         // return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
     }
             
@@ -1189,6 +1190,393 @@ $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
         
         
     }
+    
+//     public function reinitiate(Request $request){
+              
+              
+//           $checklists = QualityCheckMaster::where('status', 1)
+//         ->where('vehicle_type_id', $request->vehicle_type)
+//         ->get();
+
+//         $id = $request->qc_id;
+    
+//         $rules = [
+//             'vehicle_type' => 'required',
+//             'vehicle_model' => 'required',
+//             'location' => 'required',
+//             'accountability_type' => 'required',
+//             'customer_id' => 'required_if:accountability_type,2',
+//             'zone_id' => 'required',
+//             'chassis_number' => 'required|unique:vehicle_qc_check_lists,chassis_number,' . $id . ',id',
+//             'battery_number' => 'required',
+//             'telematics_number' => 'required|unique:vehicle_qc_check_lists,telematics_number,' . $id . ',id',
+//             'motor_number' => 'required',
+//             'datetime' => 'required',
+//             'result' => 'required',
+//             'remarks' => 'max:255',
+//             'file' => 'nullable|file|mimes:jpg,jpeg,png,pdf',
+//         ];
+        
+        
+        
+//                 $messages = [
+//             'location.required' => 'Please select the city.',
+//             'accountability_type.required' => 'Please select the accountability type.',
+//             'customer_id.required_if' => 'Please select a customer when accountability type is Fixed.',
+//             'zone_id.required' => 'Please select the zone.',
+//         ];    
+        
+        
+//         if ($checklists->count() > 0) {
+//             $rules['qc'] = 'required|array';
+//         }
+    
+//       $messages['qc.required'] = 'QC Checklist is required.';
+    
+//         $request->validate($rules, $messages);
+    
+  
+    
+        
+        
+     
+//   DB::beginTransaction(); // ✅ Start transaction
+
+//     try {
+//         $existing = QualityCheck::findOrFail($id);
+        
+//         $valToString = function ($v) {
+//             if (is_null($v) || $v === '') return 'N/A';
+//             if (is_bool($v)) return $v ? '1' : '0';
+//             if (is_array($v)) return json_encode($v, JSON_UNESCAPED_UNICODE);
+//             return (string)$v;
+//         };
+            
+            
+//         $imageName = null;
+
+
+//         // Track changed fields
+//         $changes = [];
+//         $diffs = [];
+//         // Compare and track changes
+//         if ($existing->vehicle_type != $request->vehicle_type) {
+//             $changes[] = 'Vehicle Type';
+//             $diffs[] = "Vehicle Type: " . $valToString($existing->vehicle_type) . " → " . $valToString($request->vehicle_type);
+//         }
+//         if ($existing->vehicle_model != $request->vehicle_model) {
+//             $changes[] = 'Vehicle Model';
+//             $diffs[] = "Vehicle Model: " . $valToString($existing->vehicle_model) . " → " . $valToString($request->vehicle_model);
+//         }
+//         if ($existing->location != $request->location) {
+//             $changes[] = 'City';
+//             $oldLoc = optional(City::find($existing->location))->city_name ?? $existing->location;
+//             $newLoc = optional(City::find($request->location))->city_name ?? $request->location;
+//             $diffs[] = "City: {$oldLoc} → {$newLoc}";
+//         }
+//         if ($existing->chassis_number != $request->chassis_number) {
+//             $changes[] = 'Chassis Number';
+//             $diffs[] = "Chassis Number: " . $valToString($existing->chassis_number) . " → " . $valToString($request->chassis_number);
+//         }
+//         if ($existing->battery_number != $request->battery_number) {
+//             $changes[] = 'Battery Number';
+//             $diffs[] = "Battery Number: " . $valToString($existing->battery_number) . " → " . $valToString($request->battery_number);
+//         }
+//         if ($existing->telematics_number != $request->telematics_number) {
+//             $changes[] = 'Telematics Number';
+//             $diffs[] = "Telematics Number: " . $valToString($existing->telematics_number) . " → " . $valToString($request->telematics_number);
+//         }
+//         if ($existing->motor_number != $request->motor_number) {
+//             $changes[] = 'Motor Number';
+//             $diffs[] = "Motor Number: " . $valToString($existing->motor_number) . " → " . $valToString($request->motor_number);
+//         }
+        
+//         if ($existing->accountability_type != $request->accountability_type) {
+//             $changes[] = 'Accountability Type';
+//             $oldAcc = optional(EvTblAccountabilityType::find($existing->accountability_type))->name ?? $existing->accountability_type;
+//             $newAcc= optional(EvTblAccountabilityType::find($request->accountability_type))->name ?? $request->accountability_type;
+//             $diffs[] = "Accountability Type: {$oldAcc} → {$newAcc}";
+//         }
+        
+//         if ($existing->customer_id != $request->customer_id) {
+//             $changes[] = 'Customer';
+//             $oldCust = optional(CustomerMaster::find($existing->customer_id))->name ?? $existing->customer_id;
+//             $newCust = optional(CustomerMaster::find($request->customer_id))->name ?? $request->customer_id;
+//             $diffs[] = "Customer: {$oldCust} → {$newCust}";
+//         }
+        
+//         if ($existing->zone_id != $request->zone_id) {
+//             $changes[] = 'Zone';
+//             $oldZone = optional(Zones::find($existing->zone_id))->name ?? $existing->zone_id;
+//             $newZone = optional(Zones::find($request->zone_id))->name ?? $request->zone_id;
+//             $diffs[] = "Zone: " . $valToString($oldZone) . " → " . $valToString($newZone);
+//         }
+        
+//         // if ($existing->datetime != $request->datetime) {
+//         //     $changes[] = 'Datetime';
+//         // }
+//         if ($existing->status != $request->result) {
+            
+//             $changes[] = 'Status';
+//             $diffs[] = "Status: " . $valToString($existing->status) . " → " . $valToString($request->result);
+//         }
+        
+//         if ($existing->is_recoverable != $request->is_recoverable) {
+//             $changes[] = 'Is Recoverable';
+//             $oldRec = $existing->is_recoverable ? 'Yes':'No';
+//             $newRec =$request->is_recoverable ? 'Yes':'No';
+//              $diffs[] = "Is Recoverable: " . $oldRec . " → " . $newRec;
+//         }
+            
+            
+//         // $oldChecklist = json_decode($existing->check_lists ?? '[]', true);
+//         // $newChecklist = $request->qc ?? [];
+
+
+//         // $oldDecoded = is_string($oldChecklist) ? json_decode($oldChecklist, true) : $oldChecklist;
+//         // $newDecoded = is_string($newChecklist) ? json_decode($newChecklist, true) : $newChecklist;
+        
+//         // if ($oldDecoded !== $newDecoded) {
+//         //     $changes[] = 'Checklist';
+//         // }
+        
+        
+//         // Decode old checklist safely
+//         // --------------------------
+//         // Checklist comparison (with label lookups)
+//         // --------------------------
+        
+//         // Decode old checklist safely (may be JSON string or already array)
+//         $oldChecklist = json_decode($existing->check_lists ?? '[]', true);
+//         if (!is_array($oldChecklist)) $oldChecklist = [];
+        
+//         // Ensure new checklist is an array (request->qc may be stringified JSON)
+//         $newChecklist = $request->qc ?? [];
+//         if (is_string($newChecklist)) {
+//             $decoded = json_decode($newChecklist, true);
+//             $newChecklist = is_array($decoded) ? $decoded : [$newChecklist];
+//         }
+//         if (!is_array($newChecklist)) $newChecklist = [];
+        
+//         // Normalize keys to strings (some sources use numeric keys)
+//         $oldKeys = array_keys($oldChecklist);
+//         $newKeys = array_keys($newChecklist);
+//         $allKeys = array_unique(array_merge($oldKeys, $newKeys));
+        
+//         // If there are checklist IDs, load labels from QualityCheckMaster
+//         $labelMap = [];
+//         if (!empty($allKeys)) {
+//             // cast keys to ints if your ids are ints in DB
+//             $idsToLoad = array_map(function($k){ return (int)$k; }, $allKeys);
+//             $labelMap = QualityCheckMaster::whereIn('id', $idsToLoad)
+//                         ->pluck('label_name', 'id')
+//                         ->toArray();
+//         }
+        
+//         // Helper to build labeled checklist array: [ "Seatbelt" => "ok", "Headlight" => "ok" ]
+//         $labeledOld = [];
+//         foreach ($oldChecklist as $k => $v) {
+//             $id = (int)$k;
+//             $label = $labelMap[$id] ?? (string)$k; // fallback to id string
+//             $labeledOld[$label] = $v;
+//         }
+        
+//         $labeledNew = [];
+//         foreach ($newChecklist as $k => $v) {
+//             $id = (int)$k;
+//             $label = $labelMap[$id] ?? (string)$k;
+//             $labeledNew[$label] = $v;
+//         }
+        
+//         // If labeled arrays differ, add to changes/diffs
+//         if ($labeledOld !== $labeledNew) {
+//             $changes[] = 'Checklist';
+        
+//             // Build readable inline representation: "Seatbelt: ok, Headlight: ok"
+//             $oldParts = [];
+//             foreach ($labeledOld as $label => $val) {
+//                 $value = ucwords(str_replace('_', ' ', $val));
+//                 $oldParts[] = "{$label}: {$value}";
+//             }
+//             $newParts = [];
+//             foreach ($labeledNew as $label => $val) {
+//                 $value = ucwords(str_replace('_', ' ', $val));
+//                 $newParts[] = "{$label}: {$value}";
+//             }
+        
+//             $oldText = empty($oldParts) ? '[]' : '[' . implode(', ', $oldParts) . ']';
+//             $newText = empty($newParts) ? '[]' : '[' . implode(', ', $newParts) . ']';
+        
+//             $diffs[] = "Checklist: {$oldText} → {$newText}";
+//         }
+            
+//             if ($request->hasFile('file')) {
+                
+//                 $existing = QualityCheck::find($id);
+                
+//                 if ($existing && $existing->image) {
+//                     $oldPath = public_path('EV/images/quality_check/' . $existing->image);
+//                     if (file_exists($oldPath)) {
+//                         unlink($oldPath); // ❌ Delete previous file
+//                     }
+//                 }
+                
+            
+            
+//                 $imageName = $this->uploadFile($request->file('file'), 'EV/images/quality_check');
+//             }
+    
+//             $user = Auth::user();
+            
+            
+            
+//             $statusMessage = ($existing->status == "qc_pending")
+//             ? "Quality check updated successfully"
+//             : "Quality check reinitiated successfully";
+            
+            
+            
+//             $userRemark = trim($request->remarks ?? '');
+//             $changeRemark = empty($changes) ? 'No major field updates.' : 'Updated Fields: ' . implode(', ', $changes);
+//             $detailedDiffText = empty($diffs) ? '' : implode('; ', $diffs);
+    
+//             $finalRemark = $userRemark
+//                 ? "1) $userRemark\n2) $changeRemark"
+//                 : $changeRemark;
+                
+//             $customerId = ($request->accountability_type == 1) ? null : $request->customer_id;
+
+            
+
+
+//           QualityCheckReinitiate::insert([
+//                 'qc_id'=>$request->qc_id ?? '' ,
+//                 'status' => $request->result ?? '',
+//                 'remarks' => $finalRemark ?? '',
+//                 'initiated_by' => $user->id ?? '' ,
+//                 'created_at'=>now() ,
+//                 'updated_at' => now()
+//             ]);
+           
+               
+        
+//                 $updateData = [
+//                 'vehicle_type'       => $request->vehicle_type ?? '',
+//                 'vehicle_model'      => $request->vehicle_model ?? '',
+//                 'location'           => $request->location ?? '',
+//                 'zone_id'             =>$request->zone_id ?? '',
+//                 'accountability_type' => $request->accountability_type ?? '',
+//                 'customer_id'         => $customerId,
+//                 'chassis_number'     => $request->chassis_number ?? '',
+//                 'battery_number'     => $request->battery_number ?? '',
+//                 'telematics_number'  => $request->telematics_number ?? '',
+//                 'motor_number'       => $request->motor_number ?? '',
+//                 'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
+//                 'datetime'           => $request->datetime ?? '',
+//                 'status'             => $request->result ?? '',
+//                 'remarks'            => $request->remarks ?? '',
+//                 'check_lists' => json_encode($request->qc),
+//                 'updated_at'         => now()
+//             ];
+                
+//                     $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+//                     $shortDiff = \Str::limit($detailedDiffText ?: $changeRemark, 800); // truncated
+//                     $qcAuditData = [
+//                         'module_id'         => 4,
+//                         'short_description' => 'QC Reinitiated/Updated',
+//                         'long_description'  => "QC ({$id}) reinitiated/updated. New status: {$request->result}. Changes: {$shortDiff}",
+//                         'role'              => $roleName,
+//                         'user_id'           => Auth::id(),
+//                         'user_type'         => 'gdc_admin_dashboard',
+//                         'dashboard_type'    => 'web',
+//                         'page_name'         => 'quality_check.reinitiate',
+//                         'ip_address'        => $request->ip(),
+//                         'user_device'       => $request->userAgent()
+//                     ];
+//                     audit_log_after_commit($qcAuditData);
+//             // Only add image field if a file is uploaded
+//             if ($imageName) {
+//                 $updateData['image'] = $imageName;
+//             }
+
+            
+            
+          
+//              QualityCheck::where('id', $request->qc_id)->update($updateData);
+             
+
+
+
+//             if($request->result == 'pass'){
+                
+//                  $lastCode = DB::table('ev_tbl_asset_master_vehicles')
+//                 ->where('id', 'LIKE', 'VH%')
+//                 ->orderByRaw("CAST(SUBSTRING(id, 3) AS UNSIGNED) DESC")
+//                 ->value('id');
+            
+//             if ($lastCode && preg_match('/VH(\d+)/', $lastCode, $matches)) {
+//                 $lastNumber = (int)$matches[1];
+//                 $newNumber = $lastNumber + 1;
+//             } else {
+//                 $newNumber = 1001;
+//             }
+            
+//             $Acode = 'VH' . $newNumber;
+         
+              
+//             AssetMasterVehicle::create([
+//                 'id'=>$Acode ,
+//                 'qc_id' => $id,
+//                 'client' => $customerId ,
+//                  'chassis_number' => $request->chassis_number ,
+//                 'vehicle_type'=> $request->vehicle_type ?? '' ,
+//                 'motor_number' => $request->motor_number ?? '' ,
+//                 'location' => $request->location ?? '',
+//                 'battery_serial_no'=> $request->battery_number ?? '',
+//                 'telematics_serial_no' => $request->telematics_number ?? '' ,
+//                 'model' => $request->vehicle_model ?? '' ,
+//                 'qc_status' => 'pass',
+//                 'is_status' => 'pending',
+               
+//             ]);
+            
+            
+//             // ===== AUDIT: Asset created due to QC pass =====
+//             $assetAudit = [
+//                 'module_id'         => 4,
+//                 'short_description' => 'Vehicle Asset Created (QC Pass)',
+//                 'long_description'  => "Asset ({$Acode}) created from QC ({$id}),Chassis Number ({$request->chassis_number}) after pass.",
+//                 'role'              => $roleName,
+//                 'user_id'           => Auth::id(),
+//                 'user_type'         => 'gdc_admin_dashboard',
+//                 'dashboard_type'    => 'web',
+//                 'page_name'         => 'quality_check.reinitiate.pass',
+//                 'ip_address'        => $request->ip(),
+//                 'user_device'       => $request->userAgent()
+//             ];
+//             audit_log_after_commit($assetAudit);
+//             }
+            
+             
+
+            
+//             // return redirect()->route('admin.asset_management.quality_check.list')->with('success', 'Quality check reinitiated successfully.');
+            
+//                   DB::commit(); // ✅ Commit transaction
+
+//         return response()->json(['success' => true, 'message' => $statusMessage]);
+
+//     } catch (\Exception $e) {
+//         DB::rollback(); // ❌ Rollback transaction
+//         return response()->json(['error' => 'Something went wrong. Please try again.','error_message'=>$e->getMessage()], 500);
+//         // return response()->json(['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
+//     }
+            
+   
+        
+        
+        
+//     }
     
     
     
