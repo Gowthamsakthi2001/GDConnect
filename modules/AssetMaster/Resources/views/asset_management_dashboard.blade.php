@@ -240,6 +240,44 @@
       font-weight: 800;
       fill: #555;
     }
+    .map-preloader {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 99;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    .map-preloader.active {
+        opacity: 1;
+        pointer-events: all;
+    }
+    
+    .map-spinner {
+        width: 42px;
+        height: 42px;
+        border: 4px solid #c7d2fe;
+        border-top: 4px solid #2563eb;
+        border-radius: 50%;
+        animation: mapSpin 0.8s linear infinite;
+    }
+    
+    .map-loader-text {
+        margin-top: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1e3a8a;
+    }
+    
+    @keyframes mapSpin {
+        to { transform: rotate(360deg); }
+    }
 
     .OEMChartType-legend {
         display: grid;
@@ -517,14 +555,10 @@
                     </button>
                 </div>
                 <div class="card-body d-flex justify-content-center align-items-center position-relative">
-                    <!-- Loader -->
-                    <!--<div id="mapLoader" class="position-absolute d-flex flex-column justify-content-center align-items-center" style="display:none; z-index: 10; background: rgba(255,255,255,0.8); top:0; left:0; right:0; bottom:0;">-->
-                    <!--    <div class="spinner-border text-primary" role="status">-->
-                    <!--      <span class="visually-hidden">Loading...</span>-->
-                    <!--    </div>-->
-                    <!--    <small class="mt-2 text-muted">Processing Map...</small>-->
-                    <!--</div>-->
-                
+                    <div id="mapLoader" class="map-preloader active">
+                        <div class="map-spinner"></div>
+                        <div class="map-loader-text" id="mapLoaderText">Loading Map...</div>
+                    </div>
                     <!-- Map -->
                     <svg id="indiaMapUnique">
                       <!-- Gradients -->
@@ -1311,54 +1345,54 @@
             }
         }
 
-        function animateCounter(selector, value, suffix = '') {
-            $({ Counter: 0 }).animate({ Counter: value }, {
-                duration: 1200, // 1.2 seconds
-                easing: 'swing',
-                step: function (now) {
-                    $(selector).text(Math.floor(now) + suffix);
-                },
-                complete: function() {
-                    $(selector).text(value + suffix);
-                }
-            });
-        }
-
-
-       $("#customer_search").on("keyup", function() {
-            let search = $(this).val();
-            if(search.length > 1){
-                $.ajax({
-                    url: "{{ route('admin.asset_management.asset_master.inventory_summary.get_name') }}",
-                    type: "GET",
-                    data: { search: search },
-                    success: function(data){
-                        let options = "";
-                        if(data.length > 0){
-                            data.forEach(item => {
-                                options += `<button class="dropdown-item" 
-                                                onclick="selectCustomer('${item.id}','${item.trade_name}')">
-                                                ${item.id} / ${item.trade_name}
-                                            </button>`;
-                            });
-                        } else {
-                            options = `<span class="dropdown-item disabled">No records found</span>`;
-                        }
-                        $("#customer_results").html(options).addClass("show");
-                    }
-                });
-            } else {
-                $("#customer_results").html('');
-                $("#customer_name").val('');
-                $("#customer_results").removeClass("show");
+    function animateCounter(selector, value, suffix = '') {
+        $({ Counter: 0 }).animate({ Counter: value }, {
+            duration: 1200, // 1.2 seconds
+            easing: 'swing',
+            step: function (now) {
+                $(selector).text(Math.floor(now) + suffix);
+            },
+            complete: function() {
+                $(selector).text(value + suffix);
             }
         });
+    }
 
-        function selectCustomer(id, name){
-            $("#customer_search").val(name);
-            $("#customer_name").val(id);
+
+   $("#customer_search").on("keyup", function() {
+        let search = $(this).val();
+        if(search.length > 1){
+            $.ajax({
+                url: "{{ route('admin.asset_management.asset_master.inventory_summary.get_name') }}",
+                type: "GET",
+                data: { search: search },
+                success: function(data){
+                    let options = "";
+                    if(data.length > 0){
+                        data.forEach(item => {
+                            options += `<button class="dropdown-item" 
+                                            onclick="selectCustomer('${item.id}','${item.trade_name}')">
+                                            ${item.id} / ${item.trade_name}
+                                        </button>`;
+                        });
+                    } else {
+                        options = `<span class="dropdown-item disabled">No records found</span>`;
+                    }
+                    $("#customer_results").html(options).addClass("show");
+                }
+            });
+        } else {
+            $("#customer_results").html('');
+            $("#customer_name").val('');
             $("#customer_results").removeClass("show");
         }
+    });
+
+    function selectCustomer(id, name){
+        $("#customer_search").val(name);
+        $("#customer_name").val(id);
+        $("#customer_results").removeClass("show");
+    }
 
     </script>
     
@@ -1435,11 +1469,15 @@
         console.error("Error loading India map:", err);
       }
     }
+    function setMapLoaderText(text) {
+        $("#mapLoaderText").text(text);
+    }
+
 
     async function fetchMapData() {
       try {
         $("#mapLoader").addClass("active");
-    
+        setMapLoaderText("Rendering Cities...");
         const params = get_filter_params("MapChart"); 
     
          const url = "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}?" 
@@ -1447,7 +1485,6 @@
     
         const response = await fetch(url);
         const res = await response.json();
-    
         if (res.status && res.map_data) {
             requestAnimationFrame(() => {
               renderCities(res.map_data);
@@ -1457,19 +1494,19 @@
       } catch (error) {
         console.error("Error fetching map data:", error);
     
-      } finally {
-        $("#mapLoader").removeClass("active");
+      } 
+      finally {
+        $("#mapLoader").removeClass("active"); 
       }
     }
 
     function renderCities(cities) {
-          
         $("#mapLoader").addClass("active");
-            cityLayer.raise();
-           cityLayer.selectAll("*").remove();
+        setMapLoaderText("Rendering Cities...");
+        cityLayer.raise();
+        cityLayer.selectAll("*").remove();
           const placedRight = [];
           const placedLeft = [];
-        
           function getNonOverlappingPosSide(x, y, side = "right") {
             let lx, ly;
         
@@ -1796,26 +1833,6 @@
         }
     }
 
-
-    // function showPreloader() {
-    //     if ($("#clientWise-chart-preloader").length === 0) {
-    //         let preloader = `
-    //             <div id="clientWise-chart-preloader" 
-    //                  class="d-flex align-items-center justify-content-center"
-    //                  style="position:absolute; top:0; left:0; right:0; bottom:0; 
-    //                         background:rgba(255,255,255,0.7); z-index:10;">
-    //                 <div class="spinner-border text-primary" role="status">
-    //                     <span class="visually-hidden">Loading...</span>
-    //                 </div>
-    //             </div>`;
-    //         $(".card-body.position-relative").append(preloader); 
-    //     }
-    // }
-    
-    // function hidePreloader() {
-    //     $("#clientWise-chart-preloader").remove(); 
-    // }
-
     async function ClientwisebarChartFunction() {
          document.getElementById('ClientwisebarChartLoader').style.display = 'flex';
         const params = get_filter_params("ClientwisebarChart"); 
@@ -1913,7 +1930,7 @@
     }
 
     async function OEMChartFunction() {
-        // showOEMPreloader(); 
+        showOEMPreloader(); 
         console.log("function called OEM Chart");
         try {
             const params = get_filter_params("OEMChart");
@@ -2177,7 +2194,6 @@
             }
         });
 
-        // Show or hide the "no results" message
         document.getElementById('noResultsMessage').style.display = anyVisible ? 'none' : 'block';
     });
 </script>
@@ -2186,7 +2202,7 @@
 <script>
      $(document).ready(function() {
         $('#city_id_filter').select2({
-          width: '100%' // Ensures Select2 adapts to 100% width
+          width: '100%' 
         });
       });
       
@@ -2236,7 +2252,6 @@
 <script>
     async function loadInventorySummary() {
         try {
-            // Show loader
             $("#inventorySummaryTable tbody").html(`
                 <tr>
                     <td colspan="10" class="text-center">
@@ -2247,14 +2262,12 @@
                 </tr>
             `);
             const params = get_filter_params("InventoryDataTable"); 
-            // Await AJAX response
             const response = await $.ajax({
                 url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
                 type: "GET",
                 data: params
             });
-    
-            // Render table HTML
+
             $("#inventorySummaryTable tbody").html(response.html);
     
         } catch (error) {
@@ -2663,8 +2676,7 @@
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-    
-                // Reset button
+
                 $btn.html('<i class="bi bi-file-earmark-arrow-down"></i> Export').prop("disabled", false);
             },
             error: function () {
