@@ -121,6 +121,41 @@
         display: flex !important;
     }
 
+    .oem-preloader {
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.85);
+        display: none;             /* hidden by default */
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        border-radius: 10px;
+    }
+    
+    .oem-spinner {
+        width: 38px;
+        height: 38px;
+        border: 4px solid #ddd;
+        border-top: 4px solid #0d6efd;
+        border-radius: 50%;
+        animation: oem-spin 0.8s linear infinite;
+    }
+    
+    .oem-loading-text {
+        margin-top: 8px;
+        font-size: 13px;
+        color: #555;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    @keyframes oem-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+
 
 
     #indiaMapUnique {
@@ -265,6 +300,40 @@
       background: #70a7d5;
       border-radius: 10px;
     }
+
+    .Custom-Clientwise-chart-preloader {
+        position: absolute;
+        inset: 0;
+        background: rgba(255,255,255,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    .client-deploy-loader {
+        position: absolute;
+        inset: 0;
+        background: rgba(255,255,255,0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+    }
+    
+    .client-deploy-spinner {
+        width: 36px;
+        height: 36px;
+        border: 4px solid #ddd;
+        border-top: 4px solid #0d6efd;
+        border-radius: 50%;
+        animation: client-deploy-spin 0.8s linear infinite;
+    }
+    
+    @keyframes client-deploy-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
 
     </style>
 
@@ -487,15 +556,11 @@
 
                         </div>
                         <div class="card-body position-relative" style="min-height:220px;">
-                            <!-- Preloader -->
-                            <!--<div id="oem-chart-preloader" -->
-                            <!--     class="d-flex align-items-center justify-content-center"-->
-                            <!--     style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:10; display:none;">-->
-                            <!--    <div class="spinner-border text-primary" role="status">-->
-                            <!--        <span class="visually-hidden">Loading...</span>-->
-                            <!--    </div>-->
-                            <!--</div>-->
-                
+                            <div class="oem-preloader" id="OEMPreloader">
+                                <div class="oem-spinner"></div>
+                                <div class="oem-loading-text">Loading...</div>
+                            </div>
+                            
                             <div class="row align-items-center g-3">
                                 <div class="col-lg-7 col-md-6 col-12 d-flex justify-content-center">
                                     <canvas id="OEMChartType" style="max-height:200px; width:100%;"></canvas>
@@ -667,20 +732,10 @@
                       <i class="bi bi-car-front me-2"></i> Vehicle Status
                     </h6>
                 </div>
-                <div class="card-body position-relative">
-                    
-                    <!-- Preloader -->
-                <!--<div id="clientWise-chart-preloader" -->
-                <!--     class="d-flex align-items-center justify-content-center"-->
-                <!--     style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:10;">-->
-                <!--    <div class="spinner-border text-primary" role="status">-->
-                <!--        <span class="visually-hidden">Loading...</span>-->
-                <!--    </div>-->
-                <!--</div>-->
-
-
-        
-                    <!-- Chart -->
+                <div class="card-body position-relative" id="ClientwisebarChartPreloader">
+                    <div class="Custom-Clientwise-chart-preloader" id="ClientwisebarChartLoader">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
                     <canvas id="ClientwisebarChart"></canvas>
                 </div>
             </div>
@@ -694,16 +749,9 @@
               </h6>
             </div>
             <div class="card-body position-relative">
-              <!-- Preloader -->
-              <!--<div id="client-dep-chart-preloader" -->
-              <!--     class="d-flex align-items-center justify-content-center"-->
-              <!--     style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:10;">-->
-              <!--  <div class="spinner-border text-primary" role="status">-->
-              <!--    <span class="visually-hidden">Loading...</span>-->
-              <!--  </div>-->
-              <!--</div>-->
-        
-              <!-- Scrollable Wrapper -->
+               <div class="client-deploy-loader" id="ClientDeployLoader">
+                  <div class="client-deploy-spinner"></div>
+              </div>
               <div class="asset-ownership-scrollbar" style="overflow-y:auto; max-height:300px;">
                 <canvas id="AssetOwnershipChart"></canvas>
               </div>
@@ -772,8 +820,6 @@
                         
                             <div class="d-flex">
                                 <div class="bg-white p-2 px-3 rounded me-2 DashboardExportBtn" style="cursor:pointer;border:1px solid #ced4da;" onclick="ExportDashboardDataTable()"><i class="bi bi-file-earmark-arrow-down"></i>  Export
-                                </div>
-                                <div class="bg-white p-2 px-3 rounded" style="cursor:pointer;border:1px solid #ced4da;" onclick="InventorySummaryOpen()"><i class="bi bi-funnel"></i>  Filter
                                 </div>
                             </div>
                         </div>
@@ -1025,58 +1071,6 @@
           </div>
         </div>
 
-        <div class="offcanvas offcanvas-start" data-bs-keyboard="false" tabindex="-1" id="InventorySummaryFil" aria-labelledby="InventorySummaryFilLabel">
-
-          <div class="offcanvas-header">
-            <h5 class="offcanvas-title" id="InventorySummaryFilLabel">Data Table Filter</h5>
-            <!--<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>-->
-          </div>
-          <div class="offcanvas-body">
-             <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-outline-secondary w-50" onclick="clearDataTbleFilter()">Clear All</button>
-                <button class="btn btn-success w-50" onclick="InSumFilter_Function()">Apply</button>
-            </div>
-            <div class="card mb-3">
-              <div class="card-header p-2">
-                <h6 class="custom-dark">Select Status</h6>
-              </div>
-              <div class="card-body">
-                
-                <div class="mb-3">
-                  <label class="form-label" for="asset_fil_status">Select Status</label>
-                  <select name="asset_fil_status" id="asset_fil_status" class="form-select">
-                    <option value="all">All</option>
-                    @if(isset($inventory_locations))
-                      @foreach($inventory_locations as $data)
-                        <option value="{{ $data->id }}">{{ $data->name }}</option>
-                      @endforeach
-                    @endif
-                  </select>
-                </div>
-                <div class="mb-3">
-                  <label class="form-label" for="vehicle_make">Vehicle Make</label>
-                  <select name="vehicle_make" id="vehicle_make" class="form-select">
-                    <option value="all">All</option>
-                    @if(isset($vehicle_models))
-                      @foreach($vehicle_models as $data)
-                        <option value="{{ $data->id }}">{{ $data->make }}</option>
-                      @endforeach
-                    @endif
-                  </select>
-                </div>
-        
-                <div class="mb-3 position-relative">
-                  <label class="form-label" for="customer_search">Enter a Customer</label>
-                  <input type="text" id="customer_search" class="form-control" placeholder="Enter a  customer name..." autocomplete="off">
-                  <div id="customer_results" class="dropdown-menu w-100"></div>
-                  <input type="hidden" name="customer_name" id="customer_name">
-                </div>
-        
-              </div>
-            </div>
-          </div>
-        </div>
-        
      
     @push('css')
     <link rel="stylesheet" href="{{ admin_asset('css/dashboard.min.css') }}">
@@ -1455,7 +1449,9 @@
         const res = await response.json();
     
         if (res.status && res.map_data) {
-          renderCities(res.map_data);
+            requestAnimationFrame(() => {
+              renderCities(res.map_data);
+            });
         }
     
       } catch (error) {
@@ -1467,7 +1463,8 @@
     }
 
     function renderCities(cities) {
-          $("#mapLoader").removeClass("active");
+          
+        $("#mapLoader").addClass("active");
             cityLayer.raise();
            cityLayer.selectAll("*").remove();
           const placedRight = [];
@@ -1566,6 +1563,8 @@
               .style("cursor", "pointer")
               .on("click", () => MapFilter(city.location_id));
           });
+          
+        $("#mapLoader").removeClass("active");
     }
 
     function MapFilter(lo_id) {
@@ -1818,8 +1817,7 @@
     // }
 
     async function ClientwisebarChartFunction() {
-
-        // showPreloader();
+         document.getElementById('ClientwisebarChartLoader').style.display = 'flex';
         const params = get_filter_params("ClientwisebarChart"); 
     
         const url = "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}?" 
@@ -1895,7 +1893,7 @@
         } catch (error) {
             console.error("Clientwise Bar Chart Error:", error);
         } finally {
-            // hidePreloader();
+            document.getElementById('ClientwisebarChartLoader').style.display = 'none';
         }
 
         function getColor(i) {
@@ -1905,38 +1903,17 @@
     }
     
     function showOEMPreloader() {
-        const container = document.querySelector('.card-body.position-relative');
-        const oldLoader = document.getElementById("oem-chart-preloader");
-        if (oldLoader) oldLoader.remove();
-        const loader = document.createElement("div");
-        loader.id = "oem-chart-preloader";
-        loader.style.cssText = `
-            position:absolute;
-            top:0; left:0; right:0; bottom:0;
-            background:rgba(255,255,255,0.7);
-            z-index:10;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-        `;
-    
-        loader.innerHTML = `
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-        `;
-    
-        container.appendChild(loader);
+       const el = document.getElementById("OEMPreloader");
+       if (el) el.style.display = "flex";
     }
     
     function hideOEMPreloader() {
-        const loader = document.getElementById("oem-chart-preloader");
-        if (loader) loader.remove();
+        const el = document.getElementById("OEMPreloader");
+        if (el) el.style.display = "none";
     }
 
-
     async function OEMChartFunction() {
-        showOEMPreloader(); 
+        // showOEMPreloader(); 
         console.log("function called OEM Chart");
         try {
             const params = get_filter_params("OEMChart");
@@ -2038,28 +2015,9 @@
         }
     }
 
-    function showCDPreloader() {
-        // if ($("#client-dep-chart-preloader").length === 0) {
-        //     let preloader = `
-        //         <div id="clientWise-chart-preloader" 
-        //              class="d-flex align-items-center justify-content-center"
-        //              style="position:absolute; top:0; left:0; right:0; bottom:0; 
-        //                     background:rgba(255,255,255,0.7); z-index:10;">
-        //             <div class="spinner-border text-primary" role="status">
-        //                 <span class="visually-hidden">Loading...</span>
-        //             </div>
-        //         </div>`;
-        //     $(".card-body.position-relative").append(preloader); 
-        // }
-    }
-    
-    function hideCDPreloader() {
-        // $("#client-dep-chart-preloader").remove();
-    }
-
     async function ClientwiseDeploymentFunction() {
         try {
-            // showCDPreloader();
+            document.getElementById('ClientDeployLoader').style.display = 'flex';
             const params = get_filter_params("ClientwiseDeployment"); 
             const response = await $.ajax({
                 url: "{{ route('admin.asset_management.asset_master.dashboard.get_overall_data') }}",
@@ -2176,7 +2134,8 @@
         } catch (error) {
             console.error("Async/Await Error:", error);
         } finally {
-            // hideCDPreloader();
+            
+             document.getElementById('ClientDeployLoader').style.display = 'none';
         }
     }
 
@@ -2270,18 +2229,6 @@
         }
     }
 
-    
-    function InventorySummaryOpen(){
-        const bsOffcanvas = new bootstrap.Offcanvas('#InventorySummaryFil');
-        $('.custom-select2-field').select2({
-            dropdownParent: $('#InventorySummaryFil') // Fix for offcanvas
-        });
-        bsOffcanvas.show();
-    }
-    function InventorySummaryHide(){
-        const bsOffcanvas = new bootstrap.Offcanvas('#InventorySummaryFil');
-        bsOffcanvas.hide();
-    }
 </script>
 
  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
