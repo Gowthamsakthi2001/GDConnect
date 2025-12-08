@@ -14,15 +14,19 @@ class B2BAdminRiderExport implements FromCollection, WithHeadings, WithMapping
     protected $to_date;
     protected $selectedIds;
     protected $selectedFields;
+    protected $datefilter;
+    protected $customer;
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [] , $datefilter , $customer=[])
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
         $this->selectedIds    = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->city           = $city;
-        $this->zone           = $zone;
+        $this->city           = (array) $city;
+        $this->zone           = (array) $zone;
+        $this->datefilter           = $datefilter;
+        $this->customer           = (array) $customer;
     }
 
     public function collection()
@@ -34,7 +38,7 @@ class B2BAdminRiderExport implements FromCollection, WithHeadings, WithMapping
     // $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
     //     ->where('city_id', $user->city_id)
     //     ->pluck('id');
-        $query = B2BRider::with('customerLogin','vehicleRequest');
+        $query = B2BRider::with('customerLogin','vehicleRequest' , 'customerLogin.customer_relation');
 
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
@@ -54,23 +58,57 @@ class B2BAdminRiderExport implements FromCollection, WithHeadings, WithMapping
             // }
             
             
-            if ($this->city) {
+            if (!empty($this->city)) {
                 // Zone: filter by city + zone
-            $query->where('createdby_city', $this->city);
+            $query->whereIn('createdby_city', $this->city);
             }
                     
-            if ($this->zone) {
+            if (!empty($this->zone)) {
                 // Zone: filter by city + zone
-                $query->where('assign_zone_id', $this->zone);
+                $query->whereIn('assign_zone_id', $this->zone);
             }
-                    
-            if ($this->from_date) {
-                $query->whereDate('created_at', '>=', $this->from_date);
+            
+            if (!empty($this->customer)) {
+                $query->whereHas('customerLogin.customer_relation', function ($q) {
+                    $q->whereIn('id', $this->customer);
+                });
             }
+            
+            if (!empty($this->datefilter)) {
+            switch ($this->datefilter) {
 
-            if ($this->to_date) {
-                $query->whereDate('created_at', '<=', $this->to_date);
+                case 'today':
+                    $query->whereDate('created_at', today());
+                    break;
+
+                case 'week':
+                    $query->whereBetween('created_at', [
+                        now()->startOfWeek(),
+                        now()->endOfWeek(),
+                    ]);
+                    break;
+
+                case 'month':
+                    $query->whereMonth('created_at', now()->month)
+                          ->whereYear('created_at', now()->year);
+                    break;
+
+                case 'year':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+
+                case 'custom':
+                    if ($this->from_date) {
+                            $query->whereDate('created_at', '>=', $this->from_date);
+                        }
+            
+                        if ($this->to_date) {
+                            $query->whereDate('created_at', '<=', $this->to_date);
+                        }
+                    break;
             }
+        }
+
         }
 
         return $query->orderBy('id', 'desc')->get();

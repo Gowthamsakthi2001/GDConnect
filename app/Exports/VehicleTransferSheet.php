@@ -25,8 +25,9 @@ class VehicleTransferSheet implements FromCollection, WithHeadings, WithMapping
     protected $selectedIds;
     protected $filters;
      protected $chassis_number;
+      protected $customer_id;
 
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] , $chassis_number)
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] , $chassis_number,$customer_id)
     {
         // dd($status,$from_date,$to_date,$timeline,$selectedFields,$selectedIds);
         $this->status = $status;
@@ -36,6 +37,7 @@ class VehicleTransferSheet implements FromCollection, WithHeadings, WithMapping
         $this->selectedFields = array_filter($selectedFields); 
         $this->selectedIds = array_filter($selectedIds) ?? []; 
         $this->chassis_number = $chassis_number;
+        $this->customer_id = $customer_id;
         
         
         
@@ -44,7 +46,7 @@ class VehicleTransferSheet implements FromCollection, WithHeadings, WithMapping
     
     public function collection()
     {
-        $query = VehicleTransfer::with(['transfer_details', 'transferLogs', 'transferType'])
+        $query = VehicleTransfer::with(['transfer_details', 'transferLogs', 'transferType','customerMaster'])
             ->withCount([
                 'transfer_details as return_vehicles_count' => function ($q) {
                     $q->where('initial_status', 1)->where('return_status', 1);
@@ -52,6 +54,7 @@ class VehicleTransferSheet implements FromCollection, WithHeadings, WithMapping
                 'transfer_details as running_vehicles_count' => function ($q) {
                     $q->where('initial_status', 1)->where('return_status', 0);
                 }
+                
             ]);
     
         if (!empty($this->selectedIds)) {
@@ -65,6 +68,12 @@ class VehicleTransferSheet implements FromCollection, WithHeadings, WithMapping
         if (!empty($this->chassis_number)) {
             $query->whereHas('transfer_details', function ($q) {
                 $q->where('chassis_number', $this->chassis_number);
+            });
+        }
+        
+         if (!empty($this->customer_id)) {
+            $query->whereHas('customerMaster', function ($q) {
+                $q->where('id', $this->customer_id);
             });
         }
 
@@ -140,7 +149,9 @@ class VehicleTransferSheet implements FromCollection, WithHeadings, WithMapping
                         ? \Carbon\Carbon::parse($last_vehicle->return_transfer_date)->format('d-m-Y')
                         : '-';
                     break;
-                
+                case 'customer':
+                    $mapped[] = $row->customerMaster->trade_name ?? '-';
+                    break;
                 case 'transfer_status':
                     $transferStatus = $row->return_status == 1 ? 'Closed' : 'Active';
                     $mapped[] = $transferStatus ?? 0;

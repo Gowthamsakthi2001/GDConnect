@@ -377,6 +377,24 @@
                       </div>
                     </div>
                     
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">City</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="city_id" name="city_id">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">Zone</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="zone_id" name="zone_id">
+                        </div>
+                      </div>
+                    </div>
+                    
                     
                         <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -430,17 +448,56 @@
             <!--    <button class="btn btn-success w-50" onclick="applyRequestFilter()">Apply</button>-->
             <!--</div>-->
             
+             <div class="card mb-3">
+               <div class="card-header p-2">
+                   <h6 class="custom-dark">Quick Date Filter</h6>
+               </div>
+               <div class="card-body">
+ 
+                     <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select id="quick_date_filter" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">From Date</label>
+                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="ToDate">To Date</label>
+                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                    </div>
+  
+               </div>
+            </div>
+            
             
            <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+                   <div><h6 class="custom-dark">Select Option</h6></div>
                </div>
                <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="FromDate">Accountability Type</label>
-                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field">
-                            <option value="">All</option>
+                        <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="accountability_type">Accountability Type</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="accountability_type_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">All</option>-->
                             @if(isset($accountability_types))
                             @foreach($accountability_types as $type)
                             <option value="{{$type->id}}" >{{$type->name}}</option>
@@ -449,6 +506,27 @@
 
                         </select>
                     </div>
+                    
+                     @if($guard == 'master')
+                    <div class="mb-3">
+                       <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="zone_id">Zone</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="zone_id_select_all">
+                                    Select All
+                                </label>
+                        </div>
+                        <select name="zone_id" id="zone_id_1" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select Zone</option>-->
+                            @if(!empty($zones))
+                            @foreach($zones as $zone)
+                            <option value='{{$zone->id}}'>{{$zone->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    @endif
                </div>
             </div>
          
@@ -481,24 +559,6 @@
            
 
             
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">From Date</label>
-                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label" for="ToDate">To Date</label>
-                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
-                    </div>
-  
-               </div>
-            </div>
          
             <div class="d-flex gap-2 mb-3">
                 <button class="btn btn-outline-secondary w-50" onclick="clearRequestFilter()">Clear All</button>
@@ -513,6 +573,43 @@
 @endsection
 
 @section('js')
+
+<script>
+    function initSelectAll(selector, checkboxSelector) {
+
+    // Select/Deselect all via checkbox
+    $(checkboxSelector).on('change', function () {
+        if (this.checked) {
+            let values = [];
+            $(selector + ' option').each(function () {
+                values.push($(this).val());
+            });
+            $(selector).val(values).trigger('change');
+        } else {
+            $(selector).val(null).trigger('change');
+        }
+    });
+
+    // Auto sync checkbox based on user actions
+    $(selector).on('change', function () {
+        let total = $(selector + ' option').length;
+        let selected = $(selector).val() ? $(selector).val().length : 0;
+
+        if (selected === total) {
+            $(checkboxSelector).prop('checked', true);
+        } else {
+            $(checkboxSelector).prop('checked', false);
+        }
+    });
+}
+
+$(document).ready(function () {
+
+    initSelectAll('#accountabilitytype', '#accountability_type_select_all');
+    initSelectAll('#zone_id_1', '#zone_id_select_all');
+
+});
+</script>
 
 
 <script>
@@ -630,6 +727,9 @@ function clearRequestFilter() {
     $('#ToDate').val('');
     $('input[name="status_value"][value="all"]').prop('checked', true);
     $('#accountabilitytype').val('').trigger('change');
+    $('#quick_date_filter').val('').trigger('change');
+    $('#zone_id_1').val('').trigger('change');
+    toggleDateFields();
     table.ajax.reload();
     
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
@@ -639,6 +739,29 @@ function clearRequestFilter() {
 }
 
   
+  
+      // -------------------------------
+    // SHOW/HIDE DATE FIELDS
+    // -------------------------------
+    function toggleDateFields() {
+        let value = $("#quick_date_filter").val();
+
+        if (value === "custom") {
+            $("#FromDate").closest(".mb-3").show();
+            $("#ToDate").closest(".mb-3").show();
+        } else {
+            $("#FromDate").closest(".mb-3").hide();
+            $("#ToDate").closest(".mb-3").hide();
+            $("#FromDate").val("");
+            $("#ToDate").val("");
+        }
+    }
+
+    toggleDateFields();
+
+    $("#quick_date_filter").on("change", function () {
+        toggleDateFields();
+    });
   
  $(document).ready(function () {
     $('#loadingOverlay').show();
@@ -656,6 +779,8 @@ function clearRequestFilter() {
             d.from_date = $('#FromDate').val();
             d.to_date = $('#ToDate').val();
             d.accountability_type = $('#accountabilitytype').val();
+            d.zone_id = $('#zone_id_1').val();
+            d.datefilter = $('#quick_date_filter').val();
             },
         
             beforeSend: function () {
@@ -747,15 +872,19 @@ function clearRequestFilter() {
     const status = document.querySelector('input[name="status_value"]:checked')?.value || 'all';
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
-    const accountability_type   = document.getElementById('accountabilitytype').value;
+    const accountability_type   = getMultiValues('accountabilitytype');
+    const zone_id   = getMultiValues('zone_id_1');
 
     // ✅ Build query params
     const params = new URLSearchParams();
     params.append('status', status);
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
-    if (accountability_type) params.append('accountability_type', accountability_type);
+    // if (accountability_type) params.append('accountability_type', accountability_type);
+    //  if (zone_id) params.append('zone_id', zone_id);
     
+        appendMultiSelect(params, 'accountability_type', accountability_type);
+        appendMultiSelect(params, 'zone_id', zone_id);
     if (selected.length > 0) {
         params.append('selected_ids', JSON.stringify(selected));
     }
@@ -767,6 +896,15 @@ function clearRequestFilter() {
     const url = `{{ route('b2b.export_vehicle_request') }}?${params.toString()}`;
     window.location.href = url;
   });
+    function appendMultiSelect(params, key, values) {
+            if (values && values.length > 0) {
+                values.forEach(v => params.append(key + '[]', v));
+            }
+        }
+    function getMultiValues(selector) {
+    return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                .map(option => option.value);
+}
 
 </script>
 

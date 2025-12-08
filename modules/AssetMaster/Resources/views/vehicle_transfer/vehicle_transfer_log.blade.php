@@ -284,6 +284,15 @@
                       </div>
                     </div>
                     
+                    <!--<div class="col-md-3 col-12 mb-3">-->
+                    <!--  <div class="d-flex justify-content-between align-items-center">-->
+                    <!--    <label class="form-check-label mb-0" for="field12">Customer</label>-->
+                    <!--    <div class="form-check form-switch m-0">-->
+                    <!--      <input class="form-check-input get-export-label" type="checkbox" id="field12" value="customer">-->
+                    <!--    </div>-->
+                    <!--  </div>-->
+                    <!--</div>-->
+                    
                   </div>
                 </div>
 
@@ -304,7 +313,40 @@
                 <button class="btn btn-outline-secondary w-50" onclick="clearAssetMasterFilter()">Clear All</button>
                 <button class="btn btn-success w-50" onclick="applyAssetMasterFilter()">Apply</button>
             </div>
-         
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Time Line</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="form-check mb-3">
+                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine1" value="today" {{$timeline == "today" ? 'checked' : ''}}>
+                      <label class="form-check-label" for="timeLine1">
+                        Today
+                      </label>
+                    </div>
+                    <div class="form-check mb-3">
+                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine2" value="this_week" {{$timeline == "this_week" ? 'checked' : ''}}>
+                      <label class="form-check-label" for="timeLine2">
+                       This Week
+                      </label>
+                    </div>
+                    <div class="form-check mb-3">
+                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine3" value="this_month" {{$timeline == "this_month" ? 'checked' : ''}}>
+                      <label class="form-check-label" for="timeLine3">
+                       This Month
+                      </label>
+                    </div>
+                    <div class="form-check mb-3">
+                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine4" value="this_year" {{$timeline == "this_year" ? 'checked' : ''}}>
+                      <label class="form-check-label" for="timeLine4">
+                       This Year
+                      </label>
+                    </div>
+               </div>
+            </div>
+            
            <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select Asset Status</h6></div>
@@ -353,40 +395,29 @@
                     </div>
                </div>
             </div>
-
-           
-           <div class="card mb-3">
+            
+            <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Time Line</h6></div>
+                   <div><h6 class="custom-dark">Select Customer</h6></div>
                </div>
                <div class="card-body">
  
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine1" value="today" {{$timeline == "today" ? 'checked' : ''}}>
-                      <label class="form-check-label" for="timeLine1">
-                        Today
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine2" value="this_week" {{$timeline == "this_week" ? 'checked' : ''}}>
-                      <label class="form-check-label" for="timeLine2">
-                       This Week
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine3" value="this_month" {{$timeline == "this_month" ? 'checked' : ''}}>
-                      <label class="form-check-label" for="timeLine3">
-                       This Month
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" name="STtimeLine" id="timeLine4" value="this_year" {{$timeline == "this_year" ? 'checked' : ''}}>
-                      <label class="form-check-label" for="timeLine4">
-                       This Year
-                      </label>
+                    <div class="mb-3">
+                        <label class="form-label" for="accountability_type_id">Customer</label>
+                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
+                            @endforeach
+                            @endif
+                        </select>
                     </div>
                </div>
             </div>
+            
+           
+           
             
            <div class="card mb-3">
                <div class="card-header p-2">
@@ -444,6 +475,7 @@ $(document).ready(function () {
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
                 d.chassis_number = $('#chassis_number').val(); // Changed from city to chassis_number
+                d.customer_id = $('#customer_id').val();
             },
             beforeSend: function() {
                 $('#loadingOverlay').show();
@@ -521,6 +553,7 @@ $(document).ready(function () {
         $('#FromDate').val('');
         $('#ToDate').val('');
         $('#chassis_number').val('').trigger('change');
+        $('#customer_id').val('').trigger('change');
         table.ajax.reload();
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
         if (bsOffcanvas) bsOffcanvas.hide();
@@ -597,7 +630,8 @@ function getStatusBadge(status) {
         const from_date = document.getElementById('FromDate').value;
         const to_date = document.getElementById('ToDate').value;
        const chassis_no = document.getElementById('chassis_number').value; // ✅ Corrected line
-    
+        const customer_id = document.getElementById('customer_id').value;
+        
         let req_ids = [];
         $('input[name="is_select[]"]:checked').each(function () {
             req_ids.push($(this).val());
@@ -650,7 +684,8 @@ function getStatusBadge(status) {
         form.append($('<input>', { type: 'hidden', name: 'from_date', value: from_date }));
         form.append($('<input>', { type: 'hidden', name: 'to_date', value: to_date }));
          form.append($('<input>', { type: 'hidden', name: 'chassis_number', value: chassis_no })); // ✅ Added
-    
+        form.append($('<input>', { type: 'hidden', name: 'customer_id', value: customer_id }));
+            
         // Submit form
         form.appendTo('body').submit();
     }

@@ -767,12 +767,15 @@ class VehicleTransferController extends Controller
     $to_date = $request->to_date ?? '';
     $chassis_number = $request->chassis_number ?? '';
     $searchValue = $request->search['value'] ?? ''; // DataTables search value
-    
+    $customer_id = $request->customer_id ?? '';
     // Eager load with necessary relationships
     $query = VehicleTransfer::with([
         'transferType',
         'transfer_details' => function($q) {
             $q->select('id', 'transfer_id', 'initial_status', 'return_status', 'return_transfer_date');
+        },
+        'customerMaster' => function($q) {
+            $q->select('id','trade_name');
         }
     ]);
     
@@ -797,6 +800,12 @@ class VehicleTransferController extends Controller
     if (!empty($chassis_number)) {
         $query->whereHas('transfer_details', function ($q) use ($chassis_number) {
             $q->where('chassis_number', $chassis_number);
+        });
+    }
+    
+    if (!empty($customer_id)) {
+        $query->whereHas('customerMaster', function ($q) use ($customer_id) {
+            $q->where('id', $customer_id);
         });
     }
     
@@ -920,8 +929,8 @@ class VehicleTransferController extends Controller
     $passed_chassis_nos = AssetVehicleInventory::leftJoin('ev_tbl_asset_master_vehicles as b', 'asset_vehicle_inventories.asset_vehicle_id', '=', 'b.id')
         ->select('b.id', 'b.chassis_number')
         ->get();
-    
-    return view('assetmaster::vehicle_transfer.vehicle_transfer_log', compact('lists', 'status', 'from_date', 'to_date', 'timeline', 'passed_chassis_nos', 'chassis_number','recordsTotal'));
+    $customers = CustomerMaster::where('status',1)->get();
+    return view('assetmaster::vehicle_transfer.vehicle_transfer_log', compact('lists', 'status', 'from_date', 'to_date', 'timeline', 'passed_chassis_nos', 'chassis_number','recordsTotal','customer_id','customers'));
 }
     
     public function export_detail(Request $request){
@@ -948,6 +957,7 @@ class VehicleTransferController extends Controller
     $labelsText = empty($labels) ? 'ALL' : implode(', ', $labels);
         
         $chassis_number = $request->chassis_number ?? '';
+        $customer_id = $request->customer_id ?? '';
 
  
         $export = new VehicleTransferExport(
@@ -957,7 +967,8 @@ class VehicleTransferController extends Controller
             $request->timeline,
             $request->get_export_labels ??[] ,
             $request->get_ids ?? [] ,
-            $chassis_number
+            $chassis_number,
+            $customer_id
             
         );
         $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
@@ -970,6 +981,8 @@ class VehicleTransferController extends Controller
                     $timeline ?: '-',
                     $from_date ?: '-',
                     $to_date ?: '-',
+                    $chassis_number ?: '-',
+                    $customer_id ?: '-',
                     $labelsText,
                     is_array($get_ids) ? count($get_ids) : 0
                 ),

@@ -1,14 +1,16 @@
 <?php
-
 namespace App\Exports;
-
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
 use Carbon\Carbon;
 use Modules\AssetMaster\Entities\AssetMasterVehicle;
-
-class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMapping
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+class AssetVehicleLogHistory implements FromQuery, WithHeadings, WithMapping, WithChunkReading
 {
 
     protected $from_date;
@@ -20,96 +22,261 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
     protected $zone;
     protected $customer;
     protected $accountability_type;
-    public function __construct($from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] , $city  , $zone , $customer , $accountability_type)
+    protected $vehicle_type;
+    protected $vehicle_model;
+    protected $vehicle_make;
+    public function __construct($from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] , $city = '[]'  , $zone = '[]', $customer = '[]' ,
+    $accountability_type,$vehicle_type = '[]',$vehicle_model = '[]',$vehicle_make = '[]')
     {
-        // dd($from_date,$to_date,$timeline,$selectedFields,$selectedIds);
         $this->from_date = $from_date;
         $this->to_date = $to_date;
         $this->timeline = $timeline;
-         $this->city = $city;
-          $this->zone = $zone;
-           $this->customer = $customer;
-            $this->accountability_type = $accountability_type;
+        $this->city     = is_array($city) ? $city : json_decode($city, true);
+        $this->zone     = is_array($zone) ? $zone : json_decode($zone, true);
+        $this->customer     = is_array($customer) ? $customer : json_decode($customer, true);
+        $this->accountability_type = $accountability_type;
+        $this->vehicle_type = is_array($vehicle_type) ? $vehicle_type : json_decode($vehicle_type, true);
+        $this->vehicle_model= is_array($vehicle_model) ? $vehicle_model : json_decode($vehicle_model, true);
+        $this->vehicle_make = is_array($vehicle_make) ? $vehicle_make : json_decode($vehicle_make, true);
         $this->selectedFields = array_filter($selectedFields); // removes null/empty
         $this->selectedIds = array_filter($selectedIds) ?? []; // removes null/empty
+        if (!empty($timeline) && $timeline !== 'custom') {
+            $this->timeline = $timeline;
+        } else {
+            $this->timeline = '';
+        }
+        $this->city     = $this->city ?? [];
+        $this->zone         = $this->zone ?? [];
+        $this->customer     = $this->customer ?? [];
+        $this->vehicle_type = $this->vehicle_type ?? [];
+        $this->vehicle_model= $this->vehicle_model ?? [];
+        $this->vehicle_make = $this->vehicle_make ?? [];
+        
     }
 
+    // public function collection()
+    // {
+    //     $query = AssetMasterVehicle::with('vehicle_type_relation' , 'quality_check' ,'vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' ,'color_relation' ,'leasing_partner_relation');
 
-    public function collection()
+
+    //     if (!empty($this->selectedIds)) {
+    //         $query->whereIn('id', $this->selectedIds);
+    //     }
+    //     else{
+            
+    //       if (!empty($this->city)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->whereIn('location', $this->city);
+    //             });
+    //         }
+            
+    //          if (!empty($this->zone)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->whereIn('zone_id', $this->zone);
+    //             });
+    //         }
+            
+    //         if (!empty($this->customer)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->whereIn('customer_id', $this->customer);
+    //             });
+    //         }
+    
+    //          if (!empty($this->accountability_type)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->where('accountability_type', $this->accountability_type);
+    //             });
+    //         }
+            
+    //          if (!empty($this->vehicle_type)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->whereIn('vehicle_type', $this->vehicle_type);
+    //             });
+    //         }
+            
+    //         if (!empty($this->vehicle_model)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->whereIn('vehicle_model', $this->vehicle_model);
+    //             });
+    //         }
+    //         if (!empty($this->vehicle_make)) {
+    //             $query->whereHas('quality_check', function ($q) {
+    //                 $q->whereIn('vehicle_model', $this->vehicle_make);
+    //             });
+    //         }
+
+    //     if ($this->timeline) {
+    //         switch ($this->timeline) {
+    //             case 'today':
+    //                 $query->whereDate('created_at', today());
+    //                 break;
+
+    //             case 'this_week':
+    //                 $query->whereBetween('created_at', [
+    //                     now()->startOfWeek(), now()->endOfWeek()
+    //                 ]);
+    //                 break;
+    //             case 'last_15_days':
+    //                     $query->whereBetween('created_at', [
+    //                         now()->subDays(14)->startOfDay(),
+    //                         now()->endOfDay()
+    //                     ]);
+    //                     break;
+    //             case 'this_month':
+    //                 $query->whereBetween('created_at', [
+    //                     now()->startOfMonth(), now()->endOfMonth()
+    //                 ]);
+    //                 break;
+
+    //             case 'this_year':
+    //                 $query->whereBetween('created_at', [
+    //                     now()->startOfYear(), now()->endOfYear()
+    //                 ]);
+    //                 break;
+    //         }
+
+    //         $this->from_date = null;
+    //         $this->to_date = null;
+    //     } else {
+    //         if ($this->from_date) {
+    //             $query->whereDate('created_at', '>=', $this->from_date);
+    //         }
+
+    //         if ($this->to_date) {
+    //             $query->whereDate('created_at', '<=', $this->to_date);
+    //         }
+    //     }
+        
+    //     }
+
+    //     return $query->latest()->get();
+    // }
+    
+     /**
+     * ✅ REQUIRED for FromQuery
+     */
+    public function query()
     {
-        $query = AssetMasterVehicle::with('vehicle_type_relation' , 'quality_check' ,'vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' ,'color_relation');
+        $query = AssetMasterVehicle::with([
+            'vehicle_type_relation',
+            'quality_check.zone',
+            'quality_check.location_relation',
+            'quality_check.accountability_type_relation',
+            'vehicle_model_relation',
+            'location_relation',
+            'hypothecation_relation',
+            'financing_type_relation',
+            'asset_ownership_relation',
+            'insurer_name_relation',
+            'insurer_type_relation',
+            'registration_type_relation',
+            'telematics_oem_relation',
+            'inventory_location_relation',
+            'color_relation',
+            'leasing_partner_relation',
+        ]);
 
-
+        /** ✅ Selected IDs Priority */
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
+            return $query->latest();
         }
-        else{
-            
-          if (!empty($this->city)) {
-                $query->whereHas('quality_check', function ($q) {
-                    $q->where('location', $this->city);
-                });
-            }
-            
-             if (!empty($this->zone)) {
-                $query->whereHas('quality_check', function ($q) {
-                    $q->where('zone_id', $this->zone);
-                });
-            }
-            
-            if (!empty($this->customer)) {
-                $query->whereHas('quality_check', function ($q) {
-                    $q->where('customer_id', $this->customer);
-                });
-            }
-    
-             if (!empty($this->accountability_type)) {
-                $query->whereHas('quality_check', function ($q) {
-                    $q->where('accountability_type', $this->accountability_type);
-                });
-            }
 
+        /** ✅ Filters */
+        if (!empty($this->city)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->whereIn('location', $this->city)
+            );
+        }
+
+        if (!empty($this->zone)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->whereIn('zone_id', $this->zone)
+            );
+        }
+
+        if (!empty($this->customer)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->whereIn('customer_id', $this->customer)
+            );
+        }
+
+        if (!empty($this->accountability_type)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->where('accountability_type', $this->accountability_type)
+            );
+        }
+
+        if (!empty($this->vehicle_type)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->whereIn('vehicle_type', $this->vehicle_type)
+            );
+        }
+
+        if (!empty($this->vehicle_model)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->whereIn('vehicle_model', $this->vehicle_model)
+            );
+        }
+
+        if (!empty($this->vehicle_make)) {
+            $query->whereHas('quality_check', fn ($q) =>
+                $q->whereIn('vehicle_make', $this->vehicle_make)
+            );
+        }
+
+        /** ✅ Timeline / Date Filters */
         if ($this->timeline) {
-            switch ($this->timeline) {
-                case 'today':
-                    $query->whereDate('created_at', today());
-                    break;
+            match ($this->timeline) {
+                'today' =>
+                    $query->whereDate('created_at', today()),
 
-                case 'this_week':
+                'this_week' =>
                     $query->whereBetween('created_at', [
-                        now()->startOfWeek(), now()->endOfWeek()
-                    ]);
-                    break;
+                        now()->startOfWeek(),
+                        now()->endOfWeek()
+                    ]),
 
-                case 'this_month':
+                'last_15_days' =>
                     $query->whereBetween('created_at', [
-                        now()->startOfMonth(), now()->endOfMonth()
-                    ]);
-                    break;
+                        now()->subDays(14)->startOfDay(),
+                        now()->endOfDay()
+                    ]),
 
-                case 'this_year':
+                'this_month' =>
                     $query->whereBetween('created_at', [
-                        now()->startOfYear(), now()->endOfYear()
-                    ]);
-                    break;
-            }
+                        now()->startOfMonth(),
+                        now()->endOfMonth()
+                    ]),
 
-            $this->from_date = null;
-            $this->to_date = null;
+                'this_year' =>
+                    $query->whereBetween('created_at', [
+                        now()->startOfYear(),
+                        now()->endOfYear()
+                    ]),
+                default => null
+            };
         } else {
-            if ($this->from_date) {
+            if (!empty($this->from_date)) {
                 $query->whereDate('created_at', '>=', $this->from_date);
             }
 
-            if ($this->to_date) {
+            if (!empty($this->to_date)) {
                 $query->whereDate('created_at', '<=', $this->to_date);
             }
         }
-        
-        }
 
-        return $query->latest()->get();
+        return $query->latest();
     }
+
+    /**
+     * ✅ Chunk size for large exports
+     */
+     public function chunkSize(): int
+    {
+        return 1000;
+    }
+
 
     public function map($row): array
     {
@@ -156,6 +323,10 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
                     break;
                  case 'zone':
                     $mapped[] = $row->quality_check->zone->name ?? '-';
+                    // $mapped[] = $row->location ?? '-';
+                    break;
+                 case 'leasing_partner':
+                    $mapped[] = $row->leasing_partner_relation->name ?? '-';
                     // $mapped[] = $row->location ?? '-';
                     break;
                 case 'accountability_type':
@@ -256,5 +427,5 @@ class AssetVehicleLogHistory implements FromCollection, WithHeadings, WithMappin
 
         return $headers;
     }
-
+ 
 }

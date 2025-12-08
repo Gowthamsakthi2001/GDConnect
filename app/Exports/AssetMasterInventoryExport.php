@@ -31,20 +31,42 @@ class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping
     protected $customer;
     protected $zone;
     protected $accountability_type;
+    protected $vehicle_type;
+    protected $vehicle_model;
+    protected $vehicle_make;
 
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city,$customer , $zone , $accountability_type)
+    public function __construct($status = '[]', $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city = '[]',$customer = '[]',
+    $zone = '[]' , $accountability_type,$vehicle_type = '[]',$vehicle_model = '[]', $vehicle_make = '[]')
     {
-        $this->status = $status;
+
         $this->from_date = $from_date;
         $this->to_date = $to_date;
-        $this->timeline = $timeline;
         $this->selectedFields = array_filter($selectedFields); // removes null/empty
         $this->selectedIds = array_filter($selectedIds ?? []);
-        $this->city = $city;
-        $this->customer = $customer;
-        $this->zone = $zone;
         $this->accountability_type = $accountability_type;
+      
         
+        $this->status     = is_array($status) ? $status : json_decode($status, true);
+        $this->city     = is_array($city) ? $city : json_decode($city, true);
+        $this->zone         = is_array($zone) ? $zone : json_decode($zone, true);
+        $this->customer     = is_array($customer) ? $customer : json_decode($customer, true);
+        $this->vehicle_type = is_array($vehicle_type) ? $vehicle_type : json_decode($vehicle_type, true);
+        $this->vehicle_model= is_array($vehicle_model) ? $vehicle_model : json_decode($vehicle_model, true);
+        $this->vehicle_make = is_array($vehicle_make) ? $vehicle_make : json_decode($vehicle_make, true);
+        
+        if (!empty($timeline) && $timeline !== 'custom') {
+            $this->timeline = $timeline;
+        } else {
+            $this->timeline = '';
+        }
+        
+        $this->city     = $this->city ?? [];
+        $this->zone         = $this->zone ?? [];
+        $this->customer     = $this->customer ?? [];
+        $this->vehicle_type = $this->vehicle_type ?? [];
+        $this->vehicle_model= $this->vehicle_model ?? [];
+        $this->vehicle_make = $this->vehicle_make ?? [];
+        // dd($this->status,$this->city,$this->zone,$this->customer,$this->vehicle_type,$this->vehicle_model,$this->vehicle_make);
     }
 
          public function query()
@@ -62,6 +84,7 @@ class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping
             ->leftJoin('ev_tbl_color_master as cmr', 'cmr.id', '=', 'amv.color')
             ->leftJoin('ev_tbl_customer_master as cum', 'cum.id', '=', 'amv.client')
             ->leftJoin('vehicle_types as vts', 'vts.id', '=', 'amv.vehicle_type')
+            ->leftJoin('ev_tbl_leasing_partner_master as lpm', 'lpm.id', '=', 'amv.leasing_partner')
             ->leftJoin('ev_tbl_city as cty', 'cty.id', '=', 'qcl.location')
             ->leftJoin('zones', 'zones.id', '=', 'qcl.zone_id')
             ->leftJoin('ev_tbl_financing_type_master as ftm', 'ftm.id', '=', 'amv.financing_type')
@@ -148,7 +171,8 @@ class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping
                 'int.name as insurance_type_name',
                 'ret.name as registration_type_name',
                 'tom.name as telmatics_oem_name',
-                'ilm.name as inventory_location_name'
+                'ilm.name as inventory_location_name',
+                'lpm.name as leasing_partner_name'
                 
             ]);
     
@@ -157,24 +181,37 @@ class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping
             $query->whereIn('avi.id', $this->selectedIds);
         }
     
-        if (in_array($this->status, $inventory_locations)) {
-            $query->where('avi.transfer_status', $this->status);
+        if (!empty($this->status)) {
+            $query->whereIn('avi.transfer_status', $this->status);
         }
     
         if (!empty($this->city)) {
-            $query->where('qcl.location', $this->city);
+            $query->whereIn('qcl.location', $this->city);
         }
     
         if (!empty($this->zone)) {
-            $query->where('qcl.zone_id', $this->zone);
+            $query->whereIn('qcl.zone_id', $this->zone);
         }
     
         if (!empty($this->customer) && $this->accountability_type == 2) {
-            $query->where('qcl.customer_id', $this->customer);
+            $query->whereIn('qcl.customer_id', $this->customer);
         }
     
         if (!empty($this->customer) && $this->accountability_type == 1) {
-            $query->where('amv.client', $this->customer);
+            $query->whereIn('amv.client', $this->customer);
+        }
+        if (!empty($this->customer) && empty($this->accountability_type)) {
+            $query->whereIn('amv.client', $this->customer);
+        }
+        
+        if (!empty($this->vehicle_type) ) {
+            $query->whereIn('amv.vehicle_type', $this->vehicle_type);
+        }
+        if (!empty($this->vehicle_model) ) {
+            $query->whereIn('amv.model', $this->vehicle_model);
+        }
+         if (!empty($this->vehicle_make) ) {
+            $query->whereIn('amv.model', $this->vehicle_make);
         }
     
         // TIMELINE FILTERS
@@ -188,7 +225,12 @@ class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping
                 case 'this_week':
                     $query->whereBetween('avi.created_at', [now()->startOfWeek(), now()->endOfWeek()]);
                     break;
-    
+                 case 'last_15_days':
+                        $query->whereBetween('created_at', [
+                            now()->subDays(14)->startOfDay(),
+                            now()->endOfDay()
+                        ]);
+                        break;
                 case 'this_month':
                     $query->whereBetween('avi.created_at', [now()->startOfMonth(), now()->endOfMonth()]);
                     break;
@@ -263,6 +305,10 @@ class AssetMasterInventoryExport implements FromQuery, WithHeadings, WithMapping
                 break;
                 case 'city':
                     $mapped[] = $row->city_name ?? '-';
+                    // $mapped[] = $row->location ?? '-';
+                    break;
+                case 'leasing_partner':
+                    $mapped[] = $row->leasing_partner_name ?? '-';
                     // $mapped[] = $row->location ?? '-';
                     break;
                 case 'accountability_type':

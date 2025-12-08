@@ -14,6 +14,7 @@ use Modules\RiderType\Entities\RiderType;
 use Modules\Deliveryman\Entities\Deliveryman;
 use Illuminate\Support\Facades\Http;
 use DateTimeInterface;
+use Modules\VehicleServiceTicket\Entities\FieldProxyTicket;
 
 class VehicleTicket extends Model
 {
@@ -72,6 +73,11 @@ class VehicleTicket extends Model
     public function zone()
     {
         return $this->belongsTo(Zones::class, 'zone_id', 'id');
+    }
+    
+    public function field_proxy_relation()
+    {
+        return $this->belongsTo(FieldProxyTicket::class, 'ticket_id', 'greendrive_ticketid');
     }
     
     public function current_city()

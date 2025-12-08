@@ -12,6 +12,7 @@ use Modules\Zones\Entities\Zones;
 use Modules\B2B\Entities\B2BAgent;
 use Modules\B2B\Entities\B2BVehicleRequests; 
 use Modules\VehicleManagement\Entities\VehicleType; 
+
 use App\Exports\B2BAgentExport;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -21,13 +22,15 @@ class B2BAgentController extends Controller
     {
         if ($request->ajax()) {
             try {
+                
                 $start  = $request->input('start', 0);
                 $length = $request->input('length', 10);
                 $search = $request->input('search.value');
                 $from   = $request->input('from_date');
                 $to     = $request->input('to_date');
-                $city   = $request->input('city_id');
-                $zone   = $request->input('zone_id');
+                $zone   = $request->input('zone_id', []);
+                $city   = $request->input('city_id', []);
+                $date_filter   = $request->input('date_filter');
                
                 $query = B2BAgent::where('role',17)->withCount([
                             'deploymentRequests as deployment_request_count' => function ($q) {
@@ -45,11 +48,44 @@ class B2BAgentController extends Controller
                           ->orWhere('email', 'like', "%$search%");
                     });
                 }
+            if (!empty($date_filter)) {
+                switch ($date_filter) {
 
+                    case 'today':
+                        $query->whereDate('created_at', today());
+                        break;
+
+                    case 'week':
+                        $query->whereBetween('created_at', [
+                            now()->startOfWeek(),
+                            now()->endOfWeek(),
+                        ]);
+                        break;
+                    case 'last_15_days':
+                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
+                              ->whereYear('created_at', now()->endOfDay());
+                        break;
+                    case 'month':
+                        $query->whereMonth('created_at', now()->month)
+                              ->whereYear('created_at', now()->year);
+                        break;
+
+                    case 'year':
+                        $query->whereYear('created_at', now()->year);
+                        break;
+
+                    case 'custom':
+                        // handled below by from/to date
+                        break;
+                }
+            }
                 if ($from) $query->whereDate('created_at', '>=', $from);
                 if ($to)   $query->whereDate('created_at', '<=', $to);
-                if ($city) $query->where('city_id', $city);
-                if ($zone) $query->where('zone_id', $zone);
+                
+                
+                
+                if ($city) $query->whereIn('city_id', $city);
+                if ($zone) $query->whereIn('zone_id', $zone);
 
                 $totalRecords = $query->count();
                 if ($length == -1) $length = $totalRecords;
@@ -134,108 +170,123 @@ class B2BAgentController extends Controller
             return view('b2badmin::agent.view', compact('agent'));
         }
 
-     public function agent_export(Request $request)
+    public function agent_export(Request $request)
     {
-        
-        $fields    = $request->input('fields', []);  
-        $from_date = $request->input('from_date');
-        $to_date   = $request->input('to_date');
-        $zone = $request->input('zone_id')?? null;
-        $city = $request->input('city_id')?? null;
-         $selectedIds = $request->input('selected_ids', []);
-
+        $fields      = $request->input('fields', []);  
+        $from_date   = $request->input('from_date');
+        $to_date     = $request->input('to_date');
+    
+        // ****** UPDATED FOR MULTIPLE ********
+        $zones       = (array) $request->input('zone_id', []);  // array
+        $cities      = (array) $request->input('city_id', []);  // array
+    
+        // Remove "all" if present
+        $zones   = array_filter($zones, fn($v) => $v !== "all");
+        $cities  = array_filter($cities, fn($v) => $v !== "all");
+    
+        $datefilter  = $request->input('datefilter') ?? null;
+        $selectedIds = $request->input('selected_ids', []);
     
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
-        
+    
+        // ******** FIELD FORMATTER ********
         $formattedFields = [];
-            if (is_array($fields)) {
-                foreach ($fields as $item) {
-                    $name = null;
-        
-                    if (is_string($item) && trim($item) !== '') {
-                        $name = $item;
-                    } elseif (is_array($item)) {
-                        if (!empty($item['name']) && is_string($item['name'])) {
-                            $name = $item['name'];
-                        } elseif (!empty($item['field']) && is_string($item['field'])) {
-                            $name = $item['field'];
-                        } else {
-                            $first = reset($item);
-                            if (is_string($first) && trim($first) !== '') {
-                                $name = $first;
-                            }
+        if (is_array($fields)) {
+            foreach ($fields as $item) {
+                $name = null;
+    
+                if (is_string($item) && trim($item) !== '') {
+                    $name = $item;
+                } elseif (is_array($item)) {
+                    if (!empty($item['name'])) {
+                        $name = $item['name'];
+                    } elseif (!empty($item['field'])) {
+                        $name = $item['field'];
+                    } else {
+                        $first = reset($item);
+                        if (is_string($first) && trim($first) !== '') {
+                            $name = $first;
                         }
                     }
-        
-                    if (empty($name) || !is_string($name)) {
-                        continue;
-                    }
-        
-                    $clean = str_replace('_', ' ', $name);
-                    $clean = ucwords(strtolower($clean));
-        
-                    // optional manual mapping for special labels
-                    $manual = [
-                        'Date Time' => 'Date & Time',
-                        'Qc Checklist' => 'QC Checklist',
-                        'Id' => 'ID'
-                    ];
-                    if (isset($manual[$clean])) {
-                        $clean = $manual[$clean];
-                    }
-        
-                    $formattedFields[] = $clean;
                 }
+    
+                if (empty($name)) continue;
+    
+                $clean = ucwords(strtolower(str_replace('_', ' ', $name)));
+    
+                $manual = [
+                    'Date Time'   => 'Date & Time',
+                    'Qc Checklist'=> 'QC Checklist',
+                    'Id'          => 'ID'
+                ];
+    
+                $formattedFields[] = $manual[$clean] ?? $clean;
             }
-            $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
-        
-            // Resolve friendly names for zone/city if possible
-            $zoneName = null;
-            $cityName = null;
-            if (!empty($zone)) {
-                $zoneName = optional(Zones::find($zone))->name ?? $zone;
-            }
-            if (!empty($city)) {
-                $cityName = optional(City::find($city))->city_name ?? $city;
-            }
-        
-            // Prepare audit log
-            $fileName = 'agent_list-' . date('d-m-Y') . '.xlsx';
-            $user = Auth::user();
-            $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
-        
-            $appliedFilters = [];
-            if (!is_null($from_date) && $from_date !== '') $appliedFilters[] = 'From: ' . $from_date;
-            if (!is_null($to_date) && $to_date !== '') $appliedFilters[] = 'To: ' . $to_date;
-            if (!is_null($zoneName) && $zoneName !== '') $appliedFilters[] = 'Zone: ' . $zoneName;
-            if (!is_null($cityName) && $cityName !== '') $appliedFilters[] = 'City: ' . $cityName;
-        
-            $filtersText = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
-            $selectedIdsText = empty($selectedIds) ? 'ALL' : implode(', ', array_map('strval', $selectedIds));
-        
-            $longDesc = "User initiated B2B Agent export. File: {$fileName} | Selected Fields: {$fieldsText} | Filters: {$filtersText} | Selected IDs: {$selectedIdsText}.";
-        
-            audit_log_after_commit([
-                'module_id'         => 5,
-                'short_description' => 'B2B Admin Agent Export Initiated',
-                'long_description'  => $longDesc,
-                'role'              => $roleName,
-                'user_id'           => Auth::id(),
-                'user_type'         => 'gdc_admin_dashboard',
-                'dashboard_type'    => 'web',
-                'page_name'         => 'agent.export',
-                'ip_address'        => $request->ip(),
-                'user_device'       => $request->userAgent()
-            ]);
-
-
+        }
+    
+        $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
+    
+        // ******** MULTIPLE ZONE/CITY NAMES ********
+        $zoneNames = [];
+        $cityNames = [];
+    
+        if (!empty($zones)) {
+            $zoneNames = Zones::whereIn('id', $zones)->pluck('name')->toArray();
+        }
+    
+        if (!empty($cities)) {
+            $cityNames = City::whereIn('id', $cities)->pluck('city_name')->toArray();
+        }
+    
+        // ******** LOG PREPARATION ********
+        $fileName = 'agent_list-' . date('d-m-Y') . '.xlsx';
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+        $appliedFilters = [];
+    
+        if (!empty($from_date))  $appliedFilters[] = "From: $from_date";
+        if (!empty($to_date))    $appliedFilters[] = "To: $to_date";
+    
+        if (!empty($zoneNames))  $appliedFilters[] = 'Zone: ' . implode(', ', $zoneNames);
+        if (!empty($cityNames))  $appliedFilters[] = 'City: ' . implode(', ', $cityNames);
+    
+        if (!empty($datefilter)) $appliedFilters[] = "Date Range: $datefilter";
+    
+        $filtersText      = empty($appliedFilters) ? 'No filters applied' : implode('; ', $appliedFilters);
+        $selectedIdsText  = empty($selectedIds) ? 'ALL' : implode(', ', $selectedIds);
+    
+        $longDesc = "User initiated B2B Agent export. File: {$fileName} | Selected Fields: {$fieldsText} | Filters: {$filtersText} | Selected IDs: {$selectedIdsText}.";
+    
+        audit_log_after_commit([
+            'module_id'         => 5,
+            'short_description' => 'B2B Admin Agent Export Initiated',
+            'long_description'  => $longDesc,
+            'role'              => $roleName,
+            'user_id'           => Auth::id(),
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'agent.export',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+    
         return Excel::download(
-            new B2BAgentExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
-            'agent_list-' . date('d-m-Y') . '.xlsx'
+            new B2BAgentExport(
+                $from_date,
+                $to_date,
+                $selectedIds,
+                $fields,
+                $cities,    // pass array
+                $zones,     // pass array
+                $datefilter
+            ),
+            $fileName
         );
     }
+
     
     public function updateStatus(Request $request)
     {

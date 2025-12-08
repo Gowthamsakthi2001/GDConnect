@@ -22,6 +22,7 @@ use Modules\MasterManagement\Entities\EvTblAccountabilityType; //updated by Muge
 use App\Exports\B2BRecoveryReportExport;//updated by Mugesh.B
 use Modules\B2B\Entities\B2BReportAccident;//updated by Mugesh.B
 use Modules\B2B\Entities\B2BRecoveryRequest;//updated by Mugesh.B
+use Modules\AssetMaster\Entities\VehicleModelMaster;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,14 @@ class B2BReportController extends Controller
             if (!is_array($accountability_Types)) {
                 $accountability_Types = json_decode($accountability_Types, true) ?? [];
             }
-
+            
+                $accountability_type = (array)$request->accountability_type ?? [];
+                $zone_id = (array)$request->zone ?? [];
+                $vehicle_type = (array)$request->vehicle_type ?? [];
+                $vehicle_make = (array)$request->vehicle_make ?? [];
+                $vehicle_model = (array)$request->vehicle_model ?? [];
+                $status = (array)$request->status ?? [];
+                
             // Handle Ajax DataTables request
             if ($request->ajax()) {
                 try {
@@ -77,8 +85,9 @@ class B2BReportController extends Controller
                     $query = B2BVehicleAssignment::with([
                         'rider',
                         'agent_relation',
-                        'vehicle.vehicle_type_relation',
-                        'vehicle.vehicle_model_relation',
+                        'vehicle.quality_check.vehicle_type_relation',
+                        'vehicle.quality_check.vehicle_model_relation',
+                        'vehicle.quality_check',
                         'vehicle.quality_check.customer_relation',
                         'zone',
                         'VehicleRequest',
@@ -87,36 +96,43 @@ class B2BReportController extends Controller
                     ]);
         
                     // Core filters
-                    $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request) {
+                    $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request,$accountability_type,$zone_id) {
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
                         }
                         
                         
-                        if (!empty($request->accountability_type)) {
-                            $q->where('account_ability_type', $request->accountability_type);
+                        if (!empty(array_filter($accountability_type))) {
+                            $q->whereIn('account_ability_type', $accountability_type);
                         }
         
                         if ($guard === 'master') {
                             $q->where('city_id', $user->city_id);
                             
-                            if ($request->filled('zone')) {
-                                $q->where('zone_id', $request->zone);
+                            if (!empty(array_filter($zone_id))) {
+                                $q->whereIn('zone_id', $zone_id);
                             }
                         } elseif ($guard === 'zone') {
-                            $zoneId = $request->filled('zone') ? $request->zone : $user->zone_id;
+                            // $zoneId = $request->filled('zone') ? $request->zone : $user->zone_id;
                             
                             $q->where('city_id', $user->city_id)
-                              ->where('zone_id', $zoneId);
+                              ->where('zone_id', $user->zone_id);
                         }
         
                     });
         
                     // Vehicle type filter
-                    if ($request->filled('vehicle_type')) {
-                        $query->whereHas('vehicle', function ($v) use ($request) {
-                            $v->where('vehicle_type', $request->vehicle_type);
-                        });
+                    if (!empty(array_filter($vehicle_type))) {
+
+                        $query->whereHas('vehicle', function ($v) use ($vehicle_type) {
+                                  $v->whereIn('vehicle_type', $vehicle_type);
+                              });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_make))) {
+                        $query->whereHas('vehicle.quality_check.vehicle_model_relation', function ($v) use ($vehicle_make) {
+                                  $v->whereIn('make', $vehicle_make);
+                              });
                     }
         
                     // Vehicle no filter
@@ -127,12 +143,19 @@ class B2BReportController extends Controller
                             $v->whereIn('id', $vehicleNos);
                         });
                     }
-             
+                    
+                    if (!empty(array_filter($vehicle_model))) {
+
+                    $query->whereHas('vehicle', function ($v) use ($vehicle_model) {
+                              $v->whereIn('model', $vehicle_model);
+                          });
+                }
+                
                     
         
-                    if ($request->filled('status')) {
-                        $query->where('status', $request->status);
-                    }
+                if(!empty(array_filter($status))){
+                  $query->whereIn('status' , $status);
+                }
                     
                     
                     // Date filters
@@ -182,7 +205,15 @@ class B2BReportController extends Controller
                                     $r->where('name', 'like', "%{$search}%")
                                       ->orWhere('mobile_no', 'like', "%{$search}%");
                                 })
-                                
+                                ->orWhereHas('vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('vehicle_model', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('make', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('vehicle_model', 'like', "%{$search}%");
+                                  })
                                 ->orWhereHas('agent_relation', function ($a) use ($search) {
                                       $a->where('name', 'like', "%{$search}%");
                                   })
@@ -310,8 +341,9 @@ class B2BReportController extends Controller
                             $data->VehicleRequest->accountAbilityRelation->name ?? '-',
                             $data->vehicle->permanent_reg_number ?? '-',
                             $data->vehicle->chassis_number ?? '-',
-                            $data->vehicle->vehicle_model_relation->make ?? '-',
-                            $data->vehicle->vehicle_type_relation->name ?? '-',
+                            $data->vehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-',
+                            $data->vehicle->quality_check->vehicle_model_relation->make ?? '-',
+                            $data->vehicle->quality_check->vehicle_type_relation->name ?? '-',
                             $data->vehicle->quality_check->location_relation->city_name ?? '-',
                             $data->vehicle->quality_check->zone->name ?? '-',
                             $data->VehicleRequest->customerLogin->customer_relation->trade_name ?? '-',
@@ -350,8 +382,10 @@ class B2BReportController extends Controller
             $zones = Zones::where('city_id', $user->city_id)->where('status', 1)->get();
             $vehicle_types = VehicleType::where('is_active', 1)->get();
             $city_id = $user->city_id ?? null;
+            $vehicle_models = VehicleModelMaster::where('status', 1)->get();
+            $vehicle_makes = VehicleModelMaster::where('status', 1)->distinct()->pluck('make');
         
-            return view('b2b::reports.deployment_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types'));
+            return view('b2b::reports.deployment_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types','vehicle_models','vehicle_makes'));
         }
 
 
@@ -360,15 +394,18 @@ class B2BReportController extends Controller
             $date_range = $request->date_range ?? null;
             $from_date = $request->from_date ?? null;
             $to_date = $request->to_date ?? null;
-            $vehicle_type = $request->vehicle_type ?? null;
-            $zone = $request->zone ?? null;
-            $city = $request->city ?? null;
-            $vehicle_no = $request->vehicle_no ?? null;
-            $status = $request->status ?? null;  
-            $accountability_type = $request->accountability_type ?? null; 
+            $vehicle_type = $request->vehicle_type ?? [];
+            $zone = $request->zone_id ?? [];
+            $city = $request->city_id ?? [];
+            $vehicle_no = $request->vehicle_no ?? [];
+            $status = (array) $request->status ?? []; 
+            $vehicle_model        = $request->input('vehicle_model', []);        
+            $vehicle_make         = $request->input('vehicle_make', []);  
+            $accountability_type = $request->accountability_type ?? []; 
+            
             
             return Excel::download(
-                new B2BDeploymentReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $accountability_type),
+                new B2BDeploymentReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $accountability_type,$vehicle_model,$vehicle_make),
                 'deployment-report-' . date('d-m-Y') . '.xlsx'
             );
         }
@@ -377,6 +414,7 @@ class B2BReportController extends Controller
         public function service_report(Request $request)
         {
             try {
+              
                 $guard = Auth::guard('master')->check() ? 'master' : 'zone';
                 $user = Auth::guard($guard)->user();
         
@@ -389,9 +427,16 @@ class B2BReportController extends Controller
                 if ($user->type === 'master' && empty($user->city_id)) {
                     return back()->with('error', 'City not assigned for master');
                 }
-        
+                
                 $accountability_Types = $user->customer_relation->accountability_type_id;
-    
+                
+                $accountability_type = (array)$request->accountability_type ?? [];
+                $zone_id = (array)$request->zone ?? [];
+                $vehicle_type = (array)$request->vehicle_type ?? [];
+                $vehicle_make = (array)$request->vehicle_make ?? [];
+                $vehicle_model = (array)$request->vehicle_model ?? [];
+                $status = (array)$request->status ?? [];
+                
                 // Make sure it's an array (sometimes could be stored as string or null)
                 if (!is_array($accountability_Types)) {
                     $accountability_Types = json_decode($accountability_Types, true) ?? [];
@@ -412,8 +457,8 @@ class B2BReportController extends Controller
         
                     $query = B2BServiceRequest::with([
                         'assignment.rider',
-                        'assignment.vehicle.vehicle_type_relation',
-                        'assignment.vehicle.vehicle_model_relation',
+                        'assignment.vehicle.quality_check.vehicle_type_relation',
+                        'assignment.vehicle.quality_check.vehicle_model_relation',
                         'assignment.vehicle.quality_check.customer_relation',
                         'assignment.vehicle.quality_check.location_relation',
                         'assignment.vehicle.quality_check.zone',
@@ -426,19 +471,20 @@ class B2BReportController extends Controller
                     // -------------------------------
                     // Core filters
                     // -------------------------------
-                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request) {
+                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request,$accountability_type,$zone_id) {
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
                         }
         
-                        if (!empty($request->accountability_type)) {
-                            $q->where('account_ability_type', $request->accountability_type);
+                        if (!empty(array_filter($accountability_type))) {
+                            $q->whereIn('account_ability_type', $accountability_type);
                         }
                         
                         if ($guard === 'master') {
                             $q->where('city_id', $user->city_id);
-                            if ($request->filled('zone')) {
-                                $q->where('zone_id', $request->zone);
+                            
+                            if (!empty(array_filter($zone_id))) {
+                                $q->whereIn('zone_id', $zone_id);
                             }
                         } elseif ($guard === 'zone') {
                             $zoneId = $request->filled('zone') ? $request->zone : $user->zone_id;
@@ -447,14 +493,41 @@ class B2BReportController extends Controller
                         }
                     });
         
-                    // -------------------------------
                     // Vehicle type filter
-                    // -------------------------------
-                    if ($request->filled('vehicle_type')) {
-                        $query->whereHas('assignment.vehicle', function ($v) use ($request) {
-                            $v->where('vehicle_type', $request->vehicle_type);
+                    if (!empty(array_filter($vehicle_type))) {
+
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_type) {
+                                  $v->whereIn('vehicle_type', $vehicle_type);
+                              });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_make))) {
+                        $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($vehicle_make) {
+                                  $v->whereIn('make', $vehicle_make);
+                              });
+                    }
+        
+                    // Vehicle no filter
+                    if ($request->filled('vehicle_no')) {
+                        $vehicleNos = (array) $request->vehicle_no; // Ensure it's an array
+                    
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicleNos) {
+                            $v->whereIn('id', $vehicleNos);
                         });
                     }
+                    
+                    if (!empty(array_filter($vehicle_model))) {
+
+                    $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_model) {
+                              $v->whereIn('model', $vehicle_model);
+                          });
+                }
+                
+                    
+        
+                if(!empty(array_filter($status))){
+                  $query->whereIn('status' , $status);
+                }
         
                     // -------------------------------
                     // Vehicle number filter (supports multi-select)
@@ -497,9 +570,9 @@ class B2BReportController extends Controller
                         $query->whereBetween(DB::raw('DATE(created_at)'), [$from, $to]);
                     }
                     
-                    if (!empty($request->status)) {
-                        $query->where('status' , $request->status);
-                    }
+                    // if (!empty($request->status)) {
+                    //     $query->where('status' , $request->status);
+                    // }
         
                     // -------------------------------
                     // Search filter
@@ -515,7 +588,17 @@ class B2BReportController extends Controller
                                     $r->where('name', 'like', "%{$search}%")
                                         ->orWhere('mobile_no', 'like', "%{$search}%");
                                 })
-                               
+                                
+                                ->orWhereHas('assignment.vehicle.quality_check.vehicle_type_relation', function ($v) use ($search) {
+                                      $v->where('name', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('make', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('vehicle_model', 'like', "%{$search}%");
+                                  })
+                                  
                                 ->orWhereHas('assignment.VehicleRequest.customerLogin.customer_relation', function ($c) use ($search) {
                                     $c->where('trade_name', 'like', "%{$search}%");
                                 })
@@ -580,8 +663,9 @@ class B2BReportController extends Controller
                             $data->assignment->VehicleRequest->accountAbilityRelation->name ?? '-',
                             $data->assignment->vehicle->permanent_reg_number ?? '-',
                             $data->assignment->vehicle->chassis_number ?? '-',
-                            $data->assignment->vehicle->vehicle_model_relation->make ?? '-',
-                            $data->assignment->vehicle->vehicle_type_relation->name ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->make ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_type_relation->name ?? '-',
                             $data->assignment->vehicle->quality_check->location_relation->city_name ?? '-',
                             $data->assignment->vehicle->quality_check->zone->name ?? '-',
                             $data->assignment->VehicleRequest->customerLogin->customer_relation->trade_name ?? '-',
@@ -613,14 +697,19 @@ class B2BReportController extends Controller
                     ->whereIn('id',$accountability_Types)
                     ->orderBy('id', 'desc')
                     ->get();
-        
+                
+                $vehicle_models = VehicleModelMaster::where('status', 1)->get();
+                $vehicle_makes = VehicleModelMaster::where('status', 1)->distinct()->pluck('make');
+            
                 return view('b2b::reports.service_report', [
                     'vehicle_types' => $vehicle_types,
                     'zone_id' => $user->zone_id ?? null,
                     'zones' => $zones,
                     'city_id' => $user->city_id ?? null,
                     'guard' => $guard,
-                    'accountability_types' => $accountability_types
+                    'accountability_types' => $accountability_types,
+                    'vehicle_models' => $vehicle_models,
+                    'vehicle_makes' => $vehicle_makes
                 ]);
             } catch (\Exception $e) {
                 \Log::error('Service Report Error: ' . $e->getMessage());
@@ -666,7 +755,14 @@ class B2BReportController extends Controller
             }
             
             $accountability_Types = $user->customer_relation->accountability_type_id;
-    
+            
+                $accountability_type = (array)$request->accountability_type ?? [];
+                $zone_id = (array)$request->zone ?? [];
+                $vehicle_type = (array)$request->vehicle_type ?? [];
+                $vehicle_make = (array)$request->vehicle_make ?? [];
+                $vehicle_model = (array)$request->vehicle_model ?? [];
+                $status = (array)$request->status ?? [];
+                
             // Make sure it's an array (sometimes could be stored as string or null)
             if (!is_array($accountability_Types)) {
                 $accountability_Types = json_decode($accountability_Types, true) ?? [];
@@ -688,8 +784,8 @@ class B2BReportController extends Controller
         
                     $query = B2BReturnRequest::with([
                         'assignment.rider',
-                        'assignment.vehicle.vehicle_type_relation',
-                        'assignment.vehicle.vehicle_model_relation',
+                        'assignment.vehicle.quality_check.vehicle_type_relation',
+                        'assignment.vehicle.quality_check.vehicle_model_relation',
                         'assignment.vehicle.quality_check.customer_relation',
                         'assignment.vehicle.quality_check.location_relation',
                         'assignment.vehicle.quality_check.zone',
@@ -703,18 +799,18 @@ class B2BReportController extends Controller
                     // -------------------------------
                     // Core filters
                     // -------------------------------
-                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request) {
+                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request,$accountability_type,$zone_id) {
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
                         }
         
-                         if (!empty($request->accountability_type)) {
-                            $q->where('account_ability_type', $request->accountability_type);
+                         if (!empty(array_filter($accountability_type))) {
+                            $q->whereIn('account_ability_type', $accountability_type);
                         }
                         if ($guard === 'master') {
                             $q->where('city_id', $user->city_id);
-                            if ($request->filled('zone')) {
-                                $q->where('zone_id', $request->zone);
+                             if (!empty(array_filter($zone_id))) {
+                                $q->whereIn('zone_id', $zone_id);
                             }
                         } elseif ($guard === 'zone') {
                             $zoneId = $request->filled('zone') ? $request->zone : $user->zone_id;
@@ -723,14 +819,35 @@ class B2BReportController extends Controller
                         }
                     });
         
-                    // -------------------------------
                     // Vehicle type filter
-                    // -------------------------------
-                    if ($request->filled('vehicle_type')) {
-                        $query->whereHas('assignment.vehicle', function ($v) use ($request) {
-                            $v->where('vehicle_type', $request->vehicle_type);
+                    if (!empty(array_filter($vehicle_type))) {
+
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_type) {
+                                  $v->whereIn('vehicle_type', $vehicle_type);
+                              });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_make))) {
+                        $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($vehicle_make) {
+                                  $v->whereIn('make', $vehicle_make);
+                              });
+                    }
+        
+                    // Vehicle no filter
+                    if ($request->filled('vehicle_no')) {
+                        $vehicleNos = (array) $request->vehicle_no; // Ensure it's an array
+                    
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicleNos) {
+                            $v->whereIn('id', $vehicleNos);
                         });
                     }
+                    
+                    if (!empty(array_filter($vehicle_model))) {
+
+                    $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_model) {
+                              $v->whereIn('model', $vehicle_model);
+                          });
+                }
         
                     // -------------------------------
                     // Vehicle number filter (supports multi-select)
@@ -773,7 +890,10 @@ class B2BReportController extends Controller
                         $query->whereBetween(DB::raw('DATE(created_at)'), [$from, $to]);
                     }
                     
-                    $query->where('status' , 'closed');
+                    if(!empty(array_filter($status))){
+                          $query->whereIn('status' , $status);
+                        }
+                    // $query->where('status' , 'closed');
                     
         
                     // -------------------------------
@@ -790,6 +910,15 @@ class B2BReportController extends Controller
                                     $r->where('name', 'like', "%{$search}%")
                                         ->orWhere('mobile_no', 'like', "%{$search}%");
                                 })
+                                ->orWhereHas('assignment.vehicle.quality_check.vehicle_type_relation', function ($v) use ($search) {
+                                      $v->where('name', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('make', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('vehicle_model', 'like', "%{$search}%");
+                                  })
                                 ->orWhereHas('agent', function ($z) use ($search) {
                                     $z->where('name', 'like', "%{$search}%");
                                 })
@@ -815,6 +944,16 @@ class B2BReportController extends Controller
                     // -------------------------------
                     $formattedData = $datas->map(function ($data, $key) use ($start) {
                         
+                        $statusConfig = [
+                            'opened' => ['label' => 'Opened', 'color' => '#F87171'], // Red
+                            'closed' => ['label' => 'Closed', 'color' => '#6B7280'], // Gray
+                        ];
+                        
+                        $statusKey = $data->status ?? '';
+                        $status = $statusConfig[$statusKey] ?? ['label' => ucfirst($statusKey), 'color' => '#6B7280'];
+                        $statusHtml = '<span style="background-color:'.$status['color'].'; color:#fff; padding:4px 8px; border-radius:4px; font-weight:500; font-size:13px;">'
+                                            . $status['label'] .
+                                      '</span>';
                         
                         $createdAt = $data->created_at ? Carbon::parse($data->created_at)->format('d M Y h:i A') : '-';
                         $closedAt  = $data->closed_at ? Carbon::parse($data->closed_at)->format('d M Y h:i A') : '-';
@@ -824,13 +963,15 @@ class B2BReportController extends Controller
                             $data->assignment->VehicleRequest->accountAbilityRelation->name ?? '-',
                             $data->assignment->vehicle->permanent_reg_number ?? '-',
                             $data->assignment->vehicle->chassis_number ?? '-',
-                            $data->assignment->vehicle->vehicle_model_relation->make ?? '-',
-                            $data->assignment->vehicle->vehicle_type_relation->name ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->make ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_type_relation->name ?? '-',
                             $data->assignment->vehicle->quality_check->location_relation->city_name ?? '-',
                             $data->assignment->vehicle->quality_check->zone->name ?? '-',
                             $data->assignment->rider->name ?? '-',
                             $data->assignment->rider->mobile_no ?? '-',
                             $data->agent->name ?? '-',
+                            $statusHtml,
                             $createdAt ,
                             $closedAt
                         ];
@@ -855,8 +996,9 @@ class B2BReportController extends Controller
                     ->whereIn('id',$accountability_Types)
                     ->orderBy('id', 'desc')
                     ->get();
-        
-            return view('b2b::reports.return_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types'));
+            $vehicle_models = VehicleModelMaster::where('status', 1)->get();
+            $vehicle_makes = VehicleModelMaster::where('status', 1)->distinct()->pluck('make');
+            return view('b2b::reports.return_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types','vehicle_models','vehicle_makes'));
             
         }
         
@@ -866,14 +1008,16 @@ class B2BReportController extends Controller
             $date_range = $request->date_range ?? null;
             $from_date = $request->from_date ?? null;
             $to_date = $request->to_date ?? null;
-            $vehicle_type = $request->vehicle_type ?? null;
-            $zone = $request->zone ?? null;
-            $city = $request->city ?? null;
-            $vehicle_no = $request->vehicle_no ?? null;
-            $accountability_type = $request->accountability_type ?? null;
-            
+            $vehicle_type = $request->vehicle_type ?? [];
+            $zone = $request->zone ?? [];
+            $city = $request->city ?? [];
+            $status = $request->status ?? [];
+            $vehicle_no = $request->vehicle_no ?? [];
+            $accountability_type = $request->accountability_type ?? [];
+            $vehicle_model     = $request->vehicle_model ?? [];
+            $vehicle_make      = $request->vehicle_make ?? [];
             return Excel::download(
-                new B2BReturnReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $accountability_type),
+                new B2BReturnReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $accountability_type,$status,$vehicle_model,$vehicle_make),
                 'return-report-' . date('d-m-Y') . '.xlsx'
             );
         }
@@ -893,12 +1037,19 @@ class B2BReportController extends Controller
                 return back()->with('error', 'City not assigned for master');
             }
             $accountability_Types = $user->customer_relation->accountability_type_id;
-    
+            
                 // Make sure it's an array (sometimes could be stored as string or null)
                 if (!is_array($accountability_Types)) {
                     $accountability_Types = json_decode($accountability_Types, true) ?? [];
                 }
-            
+                
+                $accountability_type = (array)$request->accountability_type ?? [];
+                $zone_id = (array)$request->zone ?? [];
+                $vehicle_type = (array)$request->vehicle_type ?? [];
+                $vehicle_make = (array)$request->vehicle_make ?? [];
+                $vehicle_model = (array)$request->vehicle_model ?? [];
+                $status = (array)$request->status ?? [];
+                
                 // -------------------------------
                 // AJAX request (DataTable)
                 // -------------------------------
@@ -915,8 +1066,8 @@ class B2BReportController extends Controller
         
                     $query = B2BReportAccident::with([
                         'assignment.rider',
-                        'assignment.vehicle.vehicle_type_relation',
-                        'assignment.vehicle.vehicle_model_relation',
+                        'assignment.vehicle.quality_check.vehicle_type_relation',
+                        'assignment.vehicle.quality_check.vehicle_model_relation',
                         'assignment.vehicle.quality_check.customer_relation',
                         'assignment.vehicle.quality_check.location_relation',
                         'assignment.vehicle.quality_check.zone',
@@ -928,19 +1079,19 @@ class B2BReportController extends Controller
                     // -------------------------------
                     // Core filters
                     // -------------------------------
-                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request) {
+                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request,$accountability_type,$zone_id) {
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
                         }
-                        if (!empty($request->accountability_type)) {
-                            $q->where('account_ability_type', $request->accountability_type);
+                        if (!empty(array_filter($accountability_type))) {
+                            $q->whereIn('account_ability_type', $accountability_type);
                         }
                         
         
                         if ($guard === 'master') {
                             $q->where('city_id', $user->city_id);
-                            if ($request->filled('zone')) {
-                                $q->where('zone_id', $request->zone);
+                            if (!empty(array_filter($zone_id))) {
+                                $q->whereIn('zone_id', $zone_id);
                             }
                         } elseif ($guard === 'zone') {
                             $zoneId = $request->filled('zone') ? $request->zone : $user->zone_id;
@@ -949,13 +1100,34 @@ class B2BReportController extends Controller
                         }
                     });
         
-                    // -------------------------------
                     // Vehicle type filter
-                    // -------------------------------
-                    if ($request->filled('vehicle_type')) {
-                        $query->whereHas('assignment.vehicle', function ($v) use ($request) {
-                            $v->where('vehicle_type', $request->vehicle_type);
+                    if (!empty(array_filter($vehicle_type))) {
+
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_type) {
+                                  $v->whereIn('vehicle_type', $vehicle_type);
+                              });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_make))) {
+                        $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($vehicle_make) {
+                                  $v->whereIn('make', $vehicle_make);
+                              });
+                    }
+        
+                    // Vehicle no filter
+                    if ($request->filled('vehicle_no')) {
+                        $vehicleNos = (array) $request->vehicle_no; // Ensure it's an array
+                    
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicleNos) {
+                            $v->whereIn('id', $vehicleNos);
                         });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_model))) {
+
+                    $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_model) {
+                              $v->whereIn('model', $vehicle_model);
+                          });
                     }
         
                     // -------------------------------
@@ -998,9 +1170,9 @@ class B2BReportController extends Controller
                     if ($from && $to) {
                         $query->whereBetween(DB::raw('DATE(created_at)'), [$from, $to]);
                     }
-                    if(!empty($request->status)){
-                        $query->where('status' , $request->status);
-                    }
+                    if(!empty(array_filter($status))){
+                          $query->whereIn('status' , $status);
+                        }
                     
                     // -------------------------------
                     // Search filter
@@ -1016,6 +1188,15 @@ class B2BReportController extends Controller
                                     $r->where('name', 'like', "%{$search}%")
                                         ->orWhere('mobile_no', 'like', "%{$search}%");
                                 })
+                                ->orWhereHas('assignment.vehicle.quality_check.vehicle_type_relation', function ($v) use ($search) {
+                                      $v->where('name', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('make', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('vehicle_model', 'like', "%{$search}%");
+                                  })
                                 ->orWhereHas('assignment.VehicleRequest.customerLogin.customer_relation', function ($c) use ($search) {
                                     $c->where('trade_name', 'like', "%{$search}%");
                                 })
@@ -1079,8 +1260,9 @@ class B2BReportController extends Controller
                             $data->assignment->VehicleRequest->accountAbilityRelation->name ?? '-',
                             $data->assignment->vehicle->permanent_reg_number ?? '-',
                             $data->assignment->vehicle->chassis_number ?? '-',
-                            $data->assignment->vehicle->vehicle_model_relation->make ?? '-',
-                            $data->assignment->vehicle->vehicle_type_relation->name ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->make ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_type_relation->name ?? '-',
                             $data->assignment->vehicle->quality_check->location_relation->city_name ?? '-',
                             $data->assignment->vehicle->quality_check->zone->name ?? '-',
                             $data->assignment->VehicleRequest->customerLogin->customer_relation->trade_name ?? '-',
@@ -1107,34 +1289,44 @@ class B2BReportController extends Controller
             $zones = Zones::where('city_id', $user->city_id)->where('status', 1)->get();
             $vehicle_types = VehicleType::where('is_active', 1)->get();
             $city_id = $user->city_id ?? null;
-        
+            
             $accountability_types = EvTblAccountabilityType::where('status', 1)
                     ->whereIn('id',$accountability_Types)
                     ->orderBy('id', 'desc')
                     ->get();
+            $vehicle_models = VehicleModelMaster::where('status', 1)->get();
+            $vehicle_makes = VehicleModelMaster::where('status', 1)->distinct()->pluck('make');        
                     
-                    
-            return view('b2b::reports.accident_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types'));
+            return view('b2b::reports.accident_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types','vehicle_models','vehicle_makes'));
             
         }
         
-        public function export_accident_report(Request $request){
-            
-            $date_range = $request->date_range ?? null;
-            $from_date = $request->from_date ?? null;
-            $to_date = $request->to_date ?? null;
-            $vehicle_type = $request->vehicle_type ?? null;
-            $zone = $request->zone ?? null;
-            $city = $request->city ?? null;
-            $vehicle_no = $request->vehicle_no ?? null;
-            $status = $request->status ?? null;
-            $accountability_type = $request->accountability_type ?? null;
-            
+       public function export_accident_report(Request $request)
+        {
+            if (!empty($request->status) && is_string($request->status)) {
+                        $status = explode(',', $request->status);
+                    } else {
+                        $status = (array) $request->status;
+                    }
+              
             return Excel::download(
-                new B2BClientAccidentReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $accountability_type),
+                new B2BClientAccidentReportExport(
+                    $request->date_range ?? null,
+                    $request->from_date ?? null,
+                    $request->to_date ?? null,
+                    $request->vehicle_type ?? [],
+                    $request->city ?? [],
+                    $request->zone ?? [],
+                    $request->vehicle_no ?? [],
+                    $status,
+                    $request->accountability_type ?? [],
+                    $request->vehicle_model ?? [],
+                    $request->vehicle_make ?? []
+                ),
                 'accident-report-' . date('d-m-Y') . '.xlsx'
             );
         }
+
         
         public function recovery_report(Request $request){
            
@@ -1169,11 +1361,18 @@ class B2BReportController extends Controller
                     $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
                         ->where('city_id', $user->city_id)
                         ->pluck('id');
-        
+                    
+                    $accountability_type = (array)$request->accountability_type ?? [];
+                    $zone_id = (array)$request->zone ?? [];
+                    $vehicle_type = (array)$request->vehicle_type ?? [];
+                    $vehicle_make = (array)$request->vehicle_make ?? [];
+                    $vehicle_model = (array)$request->vehicle_model ?? [];
+                    $status = (array)$request->status ?? [];
+                
                     $query = B2BRecoveryRequest::with([
                         'assignment.rider',
-                        'assignment.vehicle.vehicle_type_relation',
-                        'assignment.vehicle.vehicle_model_relation',
+                        'assignment.vehicle.quality_check.vehicle_type_relation',
+                        'assignment.vehicle.quality_check.vehicle_model_relation',
                         'assignment.vehicle.quality_check.customer_relation',
                         'assignment.vehicle.quality_check.location_relation',
                         'assignment.vehicle.quality_check.zone',
@@ -1186,19 +1385,19 @@ class B2BReportController extends Controller
                     // -------------------------------
                     // Core filters
                     // -------------------------------
-                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request) {
+                    $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds, $request,$accountability_type,$zone_id) {
                         if ($customerLoginIds->isNotEmpty()) {
                             $q->whereIn('created_by', $customerLoginIds);
                         }
                         
-                          if (!empty($request->accountability_type)) {
-                            $q->where('account_ability_type', $request->accountability_type);
+                           if (!empty(array_filter($accountability_type))) {
+                            $q->whereIn('account_ability_type', $accountability_type);
                         }
         
                         if ($guard === 'master') {
                             $q->where('city_id', $user->city_id);
-                            if ($request->filled('zone')) {
-                                $q->where('zone_id', $request->zone);
+                             if (!empty(array_filter($zone_id))) {
+                                $q->whereIn('zone_id', $zone_id);
                             }
                         } elseif ($guard === 'zone') {
                             $zoneId = $request->filled('zone') ? $request->zone : $user->zone_id;
@@ -1207,13 +1406,33 @@ class B2BReportController extends Controller
                         }
                     });
         
-                    // -------------------------------
-                    // Vehicle type filter
-                    // -------------------------------
-                    if ($request->filled('vehicle_type')) {
-                        $query->whereHas('assignment.vehicle', function ($v) use ($request) {
-                            $v->where('vehicle_type', $request->vehicle_type);
+                    if (!empty(array_filter($vehicle_type))) {
+
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_type) {
+                                  $v->whereIn('vehicle_type', $vehicle_type);
+                              });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_make))) {
+                        $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($vehicle_make) {
+                                  $v->whereIn('make', $vehicle_make);
+                              });
+                    }
+        
+                    // Vehicle no filter
+                    if ($request->filled('vehicle_no')) {
+                        $vehicleNos = (array) $request->vehicle_no; // Ensure it's an array
+                    
+                        $query->whereHas('assignment.vehicle', function ($v) use ($vehicleNos) {
+                            $v->whereIn('id', $vehicleNos);
                         });
+                    }
+                    
+                    if (!empty(array_filter($vehicle_model))) {
+
+                    $query->whereHas('assignment.vehicle', function ($v) use ($vehicle_model) {
+                              $v->whereIn('model', $vehicle_model);
+                          });
                     }
         
                     // -------------------------------
@@ -1258,9 +1477,9 @@ class B2BReportController extends Controller
                     }
                     
                             
-                    if (!empty($request->status)) {
-                        $query->where('status' , $request->status);
-                    }
+                    if(!empty(array_filter($status))){
+                          $query->whereIn('status' , $status);
+                        }
                     
         
                     // -------------------------------
@@ -1277,6 +1496,17 @@ class B2BReportController extends Controller
                                     $r->where('name', 'like', "%{$search}%")
                                         ->orWhere('mobile_no', 'like', "%{$search}%");
                                 })
+                                
+                                ->orWhereHas('assignment.vehicle.quality_check.vehicle_type_relation', function ($v) use ($search) {
+                                      $v->where('name', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('make', 'like', "%{$search}%");
+                                  })
+                                  ->orWhereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($v) use ($search) {
+                                      $v->where('vehicle_model', 'like', "%{$search}%");
+                                  })
+                                  
                                 ->orWhereHas('assignment.VehicleRequest.customerLogin.customer_relation', function ($c) use ($search) {
                                     $c->where('trade_name', 'like', "%{$search}%");
                                 })
@@ -1338,8 +1568,9 @@ class B2BReportController extends Controller
                             $data->assignment->VehicleRequest->accountAbilityRelation->name ?? '-',
                             $data->assignment->vehicle->permanent_reg_number ?? '-',
                             $data->assignment->vehicle->chassis_number ?? '-',
-                            $data->assignment->vehicle->vehicle_model_relation->make ?? '-',
-                            $data->assignment->vehicle->vehicle_type_relation->name ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_model_relation->make ?? '-',
+                            $data->assignment->vehicle->quality_check->vehicle_type_relation->name ?? '-',
                             $data->assignment->vehicle->quality_check->location_relation->city_name ?? '-',
                             $data->assignment->vehicle->quality_check->zone->name ?? '-',
                             $data->assignment->VehicleRequest->customerLogin->customer_relation->trade_name ?? '-',
@@ -1374,28 +1605,44 @@ class B2BReportController extends Controller
                     ->whereIn('id',$accountability_Types)
                     ->orderBy('id', 'desc')
                     ->get();
-        
-            return view('b2b::reports.recovery_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types'));
+            $vehicle_models = VehicleModelMaster::where('status', 1)->get();
+            $vehicle_makes = VehicleModelMaster::where('status', 1)->distinct()->pluck('make');
+            
+            return view('b2b::reports.recovery_report', compact('vehicle_types', 'zone_id', 'zones', 'city_id', 'guard' , 'accountability_types','vehicle_models','vehicle_makes'));
             
         }
         
         
-        public function export_recovery_report(Request $request){
-            
-            $date_range = $request->date_range ?? null;
-            $from_date = $request->from_date ?? null;
-            $to_date = $request->to_date ?? null;
-            $vehicle_type = $request->vehicle_type ?? null;
-            $zone = $request->zone ?? null;
-            $city = $request->city ?? null;
-            $vehicle_no = $request->vehicle_no ?? null;
-            $status = $request->status ?? null;
-            $accountability_type = $request->accountability_type ?? null;
-            
+        public function export_recovery_report(Request $request)
+        {
+            $date_range        = $request->date_range ?? null;
+            $from_date         = $request->from_date ?? null;
+            $to_date           = $request->to_date ?? null;
+            $vehicle_type      = $request->vehicle_type ?? [];
+            $zone              = $request->zone ?? [];
+            $city              = $request->city ?? [];
+            $vehicle_no        = $request->vehicle_no ?? [];
+            $status            = $request->status ?? [];
+            $accountability_type = $request->accountability_type ?? [];
+            $vehicle_model     = $request->vehicle_model ?? [];
+            $vehicle_make      = $request->vehicle_make ?? [];
+        
             return Excel::download(
-                new B2BRecoveryReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $accountability_type),
+                new B2BRecoveryReportExport(
+                    $date_range,
+                    $from_date,
+                    $to_date,
+                    $vehicle_type,
+                    $city,
+                    $zone,
+                    $vehicle_no,
+                    $status,
+                    $accountability_type,
+                    $vehicle_model,
+                    $vehicle_make
+                ),
                 'recovery-report-' . date('d-m-Y') . '.xlsx'
             );
-            
         }
+
 }

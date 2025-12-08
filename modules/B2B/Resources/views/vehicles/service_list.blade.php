@@ -173,6 +173,9 @@
                                 <th class="custom-dark">Ticket Id</th>
                                 <th class="custom-dark">Vehicle No</th>
                                 <th class="custom-dark">Chassis No</th>
+                                <th class="custom-dark">Vehicle Type</th>
+                                <th class="custom-dark">Vehicle Model</th>
+                                <th class="custom-dark">Vehicle Make</th>
                                 <th class="custom-dark">Rider Name</th>
                                 <th class="custom-dark">Contact Details</th>
                                 <!--<th class="custom-dark">Client</th>-->
@@ -271,7 +274,32 @@
                       </div>
                     </div>
                     
+                     <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Vehicle Type</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="vehicle_type" name="vehicle_type">
+                        </div>
+                      </div>
+                    </div>
                     
+                     <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Vehicle Model</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="vehicle_model" name="vehicle_model">
+                        </div>
+                      </div>
+                    </div>
+                    
+                     <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field4">Vehicle Make</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="vehicle_make" name="vehicle_make">
+                        </div>
+                      </div>
+                    </div>
                     
                     
                      <div class="col-md-3 col-12 mb-3">
@@ -433,7 +461,39 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
           </div>
           <div class="offcanvas-body">
-        
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <h6 class="custom-dark">Quick Date Filter</h6>
+               </div>
+               <div class="card-body">
+ 
+                     <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select name="datefilter" id="quick_date_filter" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3 date-container">
+                        <label class="form-label" for="FromDate">From Date</label>
+                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                    </div>
+                    
+                    <div class="mb-3 date-container">
+                        <label class="form-label" for="ToDate">To Date</label>
+                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                    </div>
+  
+               </div>
+            </div>
+            
             <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select Status</h6></div>
@@ -441,8 +501,16 @@
                <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="status">Status</label>
-                        <select name="status_value" id="status_value" class="form-control custom-select2-field">
+                       
+                        <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="status_value">Status</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="status_value_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="status_value" id="status_value" class="form-control custom-select2-field" multiple>
                             <option value="">Select</option>
                             <option value="unassigned">Unassigned</option>
                             <option value="inprogress">In Progress</option>
@@ -481,9 +549,16 @@
                <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="FromDate">Accountability Type</label>
-                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field">
-                            <option value="">Select Type</option>
+                        <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="v_type">Accountability Type</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="accountabilitytype_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="accountability_type" id="accountabilitytype" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select Type</option>-->
                             @if(isset($accountability_types))
                             @foreach($accountability_types as $type)
                             <option value="{{$type->id}}" >{{$type->name}}</option>
@@ -492,49 +567,104 @@
 
                         </select>
                     </div>
-               </div>
-            </div>
-            
-             @if($guard == 'master')
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Zone</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    @if($guard == 'master')
                     <div class="mb-3">
-                        <label class="form-label" for="zone_id">Zone</label>
-                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
-                            <option value="">Select Zone</option>
-                            @if(isset($cities))-->
+                       <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="zone_id">Zone</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="zone_id_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select Zone</option>-->
+                            @if(isset($zones))
                             @foreach($zones as $zone)
                             <option value="{{$zone->id}}" >{{$zone->name}}</option>
                             @endforeach
                             @endif
                         </select>
                     </div>
-               </div>
-            </div>
-            @endif
-             
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    @endif
+                    
                     <div class="mb-3">
-                        <label class="form-label" for="FromDate">From Date</label>
-                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                       <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_type">Vehicle Type</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_type_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_type" id="v_type" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_types))
+                                @foreach($vehicle_types as $val)
+                                <option value="{{$val->id}}" >{{$val->name}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+                    
+                     <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_model">Vehicle Model</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_model_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_model" id="v_model" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" >{{$val->vehicle_model}}</option>
+                                @endforeach
+                            @endif
+                        </select>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label" for="ToDate">To Date</label>
-                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                         <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_make">Vehicle Make</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_make_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_make" id="v_make" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_makes))
+                                @foreach($vehicle_makes as $val)
+                                <option value="{{$val}}" >{{$val}}</option>
+                                @endforeach
+                            @endif
+                        </select>
                     </div>
-  
                </div>
             </div>
+             
+           <!--<div class="card mb-3">-->
+           <!--    <div class="card-header p-2">-->
+           <!--        <div><h6 class="custom-dark">Date Between</h6></div>-->
+           <!--    </div>-->
+           <!--    <div class="card-body">-->
+ 
+           <!--         <div class="mb-3">-->
+           <!--             <label class="form-label" for="FromDate">From Date</label>-->
+           <!--             <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">-->
+           <!--         </div>-->
+                    
+           <!--         <div class="mb-3">-->
+           <!--             <label class="form-label" for="ToDate">To Date</label>-->
+           <!--             <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">-->
+           <!--         </div>-->
+  
+           <!--    </div>-->
+           <!-- </div>-->
          
             <div class="d-flex gap-2 mb-3">
                 <button class="btn btn-outline-secondary w-50" onclick="clearRiderFilter()">Clear All</button>
@@ -546,6 +676,65 @@
         
 @endsection
 @section('js')
+
+<script>
+    function initSelectAll(selector, checkboxSelector) {
+
+    // Select/Deselect all via checkbox
+    $(checkboxSelector).on('change', function () {
+        if (this.checked) {
+            let values = [];
+            $(selector + ' option').each(function () {
+                values.push($(this).val());
+            });
+            $(selector).val(values).trigger('change');
+        } else {
+            $(selector).val(null).trigger('change');
+        }
+    });
+
+    // Auto sync checkbox based on user actions
+    $(selector).on('change', function () {
+        let total = $(selector + ' option').length;
+        let selected = $(selector).val() ? $(selector).val().length : 0;
+
+        if (selected === total) {
+            $(checkboxSelector).prop('checked', true);
+        } else {
+            $(checkboxSelector).prop('checked', false);
+        }
+    });
+}
+
+$(document).ready(function () {
+
+    initSelectAll('#v_type', '#v_type_select_all');
+    initSelectAll('#v_model', '#v_model_select_all');
+    initSelectAll('#v_make', '#v_make_select_all');
+    initSelectAll('#accountabilitytype', '#accountabilitytype_select_all');
+    initSelectAll('#status_value', '#status_value_select_all');
+    initSelectAll('#zone_id', '#zone_id_select_all');
+
+});
+
+$(document).ready(function () {
+
+        function toggleDates() {
+            if ($('#quick_date_filter').val() === 'custom') {
+                $('.date-container').show();
+            } else {
+                $('.date-container').hide();
+            }
+        }
+
+        // On change
+        $('#quick_date_filter').on('change', toggleDates);
+
+        // On page load (for old values)
+        toggleDates();
+    });
+    
+</script>
 
 <script>
     
@@ -599,6 +788,9 @@ $(document).ready(function () {
                 d.from_date = $('#FromDate').val();
                 d.to_date = $('#ToDate').val();
                 d.accountability_type = $('#accountabilitytype').val();
+                d.vehicle_model = $('#v_model').val();
+                d.vehicle_type = $('#v_type').val();
+                d.vehicle_make = $('#v_make').val();
             },
             beforeSend: function () {
                 $('#serviceList tbody').html(`
@@ -638,7 +830,10 @@ $(document).ready(function () {
             { data: 12 },
             { data: 13 },
             { data: 14 },
-            { data: 15, className: 'text-center', orderable: false, searchable: false }
+            { data: 15 },
+            { data: 16 },
+            { data: 17 },
+            { data: 18, className: 'text-center', orderable: false, searchable: false }
         ],
         order: [[0, 'desc']],
         columnDefs: [
@@ -664,10 +859,13 @@ $(document).ready(function () {
     window.clearRiderFilter = function() {
         $('#FromDate').val('');
         $('#ToDate').val('');
-        $('#city_id').val('').trigger('change');
-        $('#zone_id').val('').trigger('change');
-        $('#accountabilitytype').val('').trigger('change');
-        $('#status_value').val('').trigger('change');
+        $('#city_id').val(null).trigger('change'); // 🔹 reset city + trigger change
+    $('#accountabilitytype').val(null).trigger('change');
+     $('#status_value').val(null).trigger('change');
+     $('#v_model').val(null).trigger('change');
+    $('#v_make').val(null).trigger('change');
+    $('#v_type').val(null).trigger('change');
+    $('#zone_id').val(null).trigger('change');
         
           const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
         if (bsOffcanvas) {
@@ -783,22 +981,42 @@ $(document).ready(function () {
     }
     
     const fromDate = document.getElementById('FromDate')?.value || '';
+    const datefilter   = document.getElementById('quick_date_filter').value;
     const toDate   = document.getElementById('ToDate')?.value || '';
-    const city   = document.getElementById('city_id')?.value || '';
-    const zone   = document.getElementById('zone_id')?.value || '';
-    const status   = document.getElementById('status_value')?.value || '';
-    const accountability_type   = document.getElementById('accountabilitytype')?.value || '';
-
+    const city_id   = document.getElementById('city_id')?.value || '';
+    const zone_id  = getMultiValues('#zone_id');
+    const status   = getMultiValues('#status_value');
+    const accountability_type   = getMultiValues('#accountabilitytype');
+    const vehicle_make   = getMultiValues('#v_make');
+    const vehicle_model = getMultiValues('#v_model');
+    const vehicle_type  = getMultiValues('#v_type');
+    
     // ✅ Build query params
     const params = new URLSearchParams();
  
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
-    if (zone) params.append('zone_id', zone);
-    if (city) params.append('city_id', city);
-    if (status) params.append('status', status);
-    if (accountability_type) params.append('accountability_type', accountability_type);
+    // if (zone_id) params.append('zone_id', zone_id);
+    if (city_id) params.append('city_id', city_id);
+    // if (status) params.append('status', status);
+    // if (vehicle_model) params.append('vehicle_model', vehicle_model);
+    // if (vehicle_make) params.append('vehicle_make', vehicle_make);
+    // if (vehicle_type) params.append('vehicle_type', vehicle_type);
+    if (datefilter) params.append('datefilter', datefilter);
+    // if (accountability_type) params.append('accountability_type', accountability_type);
     // append IDs
+    
+    // status
+        appendMultiSelect(params, 'status', status);
+        
+        // vehicle filters
+        appendMultiSelect(params, 'vehicle_model', vehicle_model);
+        appendMultiSelect(params, 'vehicle_make', vehicle_make);
+        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+        
+        // others
+        appendMultiSelect(params, 'accountability_type', accountability_type);
+        appendMultiSelect(params, 'zone_id', zone_id);
     selected.forEach(id => params.append('selected_ids[]', id));
 
     // append fields
@@ -807,8 +1025,16 @@ $(document).ready(function () {
     const url = `{{ route('b2b.service_export') }}?${params.toString()}`;
     window.location.href = url;
   });
-
-
+    
+    function appendMultiSelect(params, key, values) {
+            if (values && values.length > 0) {
+                values.forEach(v => params.append(key + '[]', v));
+            }
+        }
+    function getMultiValues(selector) {
+        return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                    .map(option => option.value);
+    }
 
 
 </script>

@@ -278,24 +278,26 @@
                     </div>
                     <div class="card-body">
         
-                        <!-- Vehicle Type -->
+                        <!-- Accountability Type -->
                         <div class="mb-3">
-                            <label class="form-label" for="vehicle_type">Vehicle Type</label>
-                            <select class="form-control custom-select2-field" id="vehicle_type" name="vehicle_type">
-                                <option value="">All</option>
-                                @if($vehicle_types)
-                                    @foreach($vehicle_types as $type)
-                                        <option value="{{ $type->id }}">{{ $type->name ?? '' }}</option>
+                            <label class="form-label" for="accountability_type">Accountability Type</label>
+                            <select class="form-control custom-select2-field" id="accountability_type" name="accountability_type" multiple>
+                                <option value="" disabled>Select</option>
+                                <option value="all">All</option>
+                                @if($accountability_types)
+                                    @foreach($accountability_types as $type)
+                                        <option value="{{ $type->id }}">{{ $type->name }}</option>
                                     @endforeach
                                 @endif
                             </select>
                         </div>
-        
+                        
                         <!-- City -->
                         <div class="mb-3">
                             <label class="form-label" for="city_id">City</label>
-                            <select class="form-control custom-select2-field" id="city_id" name="city_id" onchange="getZones(this.value)">
-                                <option value="">All</option>
+                            <select class="form-control custom-select2-field" id="city_id" name="city_id" onchange="getZones()" multiple>
+                                <option value="" disabled>Select</option>
+                            <option value="all">All</option>
                                 @if($cities)
                                     @foreach($cities as $city)
                                         <option value="{{ $city->id }}">{{ $city->city_name }}</option>
@@ -307,32 +309,60 @@
                         <!-- Zone -->
                         <div class="mb-3">
                             <label class="form-label" for="zone_id">Zone</label>
-                            <select class="form-control custom-select2-field" id="zone_id" name="zone_id">
-                                <option value="">Select a city first</option>
+                            <select class="form-control custom-select2-field" id="zone_id" name="zone_id" multiple>
+                                <option value="" disabled>Select a city first</option>
                             </select>
                         </div>
-        
-                        <!-- Customer -->
+                        
+                        <!-- Vehicle Type -->
                         <div class="mb-3">
-                            <label class="form-label" for="customer_id">Customer</label>
-                            <select class="form-control custom-select2-field" id="customer_id" name="customer_id">
-                                <option value="">All</option>
-                                @if($customers)
-                                    @foreach($customers as $customer)
-                                        <option value="{{ $customer->id }}">{{ $customer->trade_name }}</option>
+                            <label class="form-label" for="vehicle_type">Vehicle Type</label>
+                            <select class="form-control custom-select2-field" id="vehicle_type" name="vehicle_type" multiple>
+                                <option value="" disabled>Select</option>
+                            <option value="all">All</option>
+                                @if($vehicle_types)
+                                    @foreach($vehicle_types as $type)
+                                        <option value="{{ $type->id }}">{{ $type->name ?? '' }}</option>
                                     @endforeach
                                 @endif
                             </select>
                         </div>
-        
-                        <!-- Accountability Type -->
+                        
                         <div class="mb-3">
-                            <label class="form-label" for="accountability_type">Accountability Type</label>
-                            <select class="form-control custom-select2-field" id="accountability_type" name="accountability_type">
-                                <option value="">All</option>
-                                @if($accountability_types)
-                                    @foreach($accountability_types as $type)
-                                        <option value="{{ $type->id }}">{{ $type->name }}</option>
+                        <label class="form-label" for="v_model">Vehicle Model</label>
+                        <select name="v_model" id="v_model" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}">{{$val->vehicle_model}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+                    
+                     <div class="mb-3">
+                        <label class="form-label" for="v_make">Vehicle Make</label>
+                        <select name="v_make" id="v_make" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_makes))
+                                @foreach($vehicle_makes as $val)
+                                <option value="{{$val}}">{{$val}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+        
+                        <!-- Customer -->
+                        <div class="mb-3">
+                            <label class="form-label" for="customer_id">Customer</label>
+                            <select class="form-control custom-select2-field" id="customer_id" name="customer_id" multiple>
+                                <option value="" disabled>Select</option>
+                                <option value="all">All</option>
+                                @if($customers)
+                                    @foreach($customers as $customer)
+                                        <option value="{{ $customer->id }}">{{ $customer->trade_name }}</option>
                                     @endforeach
                                 @endif
                             </select>
@@ -349,8 +379,9 @@
                         <!-- Status -->
                         <div class="mb-3">
                             <label class="form-label" for="accident_status">Status</label>
-                            <select class="form-control custom-select2-field" id="accident_status" name="accident_status">
-                                <option value="">Select Status</option>
+                            <select class="form-control custom-select2-field" id="accident_status" name="accident_status" multiple>
+                                <option value="" disabled>Select</option>
+                                <option value="all">All</option>
                                 <option value="claimed_initiated">Claimed Initiated</option>
                                 <option value="insurer_visit_confirmed">Insurer Visit Confirmed</option>
                                 <option value="inspection_completed">Inspection Completed</option>
@@ -387,6 +418,7 @@
                         <th>Vehicle Number</th>
                         <th>Chassis Number</th>
                         <th>Vehicle Make</th>
+                        <th>Vehicle Model</th>
                         <th>Vehicle Type</th>
                         <th>City</th>
                         <th>Zone</th>
@@ -408,6 +440,102 @@
 
 
 @section('script_js')
+
+<script>
+function initSelectAll(selector) {
+    let internalChange = false;
+
+    // store previous selection when user interacts (before change fires)
+    $(document).on('mousedown touchstart', selector, function () {
+        // save previous selection as data on element
+        const prev = $(this).val() || [];
+        $(this).data('prevSelection', prev);
+    });
+
+    // For keyboard interactions (focus + key), also capture focus
+    $(document).on('focus', selector, function () {
+        const prev = $(this).val() || [];
+        $(this).data('prevSelection', prev);
+    });
+
+    $(selector).on('change', function () {
+        if (internalChange) return;
+
+        const $el = $(this);
+        let prev = $el.data('prevSelection') || [];
+        let current = $el.val() || [];
+
+        // normalize to strings (safety)
+        prev = prev.map(String);
+        current = current.map(String);
+
+        internalChange = true;
+
+        // CASE A: previously had "all" and now user added other values
+        // -> remove "all" and keep newly selected items
+        if (prev.includes('all') && current.includes('all') && current.length > 1) {
+            // user had all, then clicked another option: we keep the other options
+            const cleaned = current.filter(v => v !== 'all');
+            $el.val(cleaned).trigger('change.select2');
+            // update stored prev
+            $el.data('prevSelection', cleaned);
+            internalChange = false;
+            return;
+        }
+
+        // CASE B: user selected "all" after having other items -> keep only 'all'
+        if (!prev.includes('all') && current.includes('all')) {
+            // user selected "all" now, so keep only all
+            $el.val(['all']).trigger('change.select2');
+            $el.data('prevSelection', ['all']);
+            internalChange = false;
+            return;
+        }
+
+        // CASE C: user selected "all" + others in one action OR current has all+others
+        // -> prefer KEEPING only 'all'
+        if (current.includes('all') && current.length > 1) {
+            $el.val(['all']).trigger('change.select2');
+            $el.data('prevSelection', ['all']);
+            internalChange = false;
+            return;
+        }
+
+        // CASE D: user selected other items (no 'all') -> ensure 'all' removed (if present)
+        if (!current.includes('all')) {
+            const cleaned = current.filter(v => v !== 'all');
+            // if cleaned differs from current, set it (safety)
+            if (cleaned.length !== current.length) {
+                $el.val(cleaned).trigger('change.select2');
+                $el.data('prevSelection', cleaned);
+                internalChange = false;
+                return;
+            }
+        }
+
+        // default -> just store current as prev
+        $el.data('prevSelection', current);
+        internalChange = false;
+    });
+}
+
+
+
+
+$(document).ready(function () {
+    initSelectAll('#accident_status');
+    initSelectAll('#customer_id');
+    initSelectAll('#accountability_type');
+    initSelectAll('#v_make');
+    initSelectAll('#v_model');
+    initSelectAll('#vehicle_type');
+    initSelectAll('#zone_id');
+    initSelectAll('#city_id');
+});
+
+
+</script>
+
 <script>
     $(document).ready(function () {
         $('#filter-date-range').on('change', function() {
@@ -451,34 +579,45 @@
         }
 
     });
-            function getZones(CityID) {
-        let ZoneDropdown = $('#zone_id');
-    
-        ZoneDropdown.empty().append('<option value="">Loading...</option>');
-    
-        if (CityID) {
-            $.ajax({
-                url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
-                type: "GET",
-                success: function (response) {
-                    ZoneDropdown.empty().append('<option value="">Select Zone</option>');
-    
-                    if (response.data && response.data.length > 0) {
-                        $.each(response.data, function (key, zone) {
-                            ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
-                        });
-                    } else {
-                        ZoneDropdown.append('<option value="">No Zones available for this City</option>');
-                    }
-                },
-                error: function () {
-                    ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+          function getZones() {
+    let cityIds = $('#city_id').val();  
+    let ZoneDropdown = $('#zone_id');
+
+    ZoneDropdown.empty().append('<option value="">Loading...</option>');
+
+    if (cityIds && cityIds.length > 0) {
+
+        $.ajax({
+            url: "{{ route('global.get_multi_city_zones') }}",
+            type: "GET",
+            data: { city_id: cityIds },  // pass array
+            success: function (response) {
+
+                ZoneDropdown.empty()
+                    .append('<option value="" disabled>Select Zone</option>')
+                    .append('<option value="all">All</option>');
+
+                if (response.data && response.data.length > 0) {
+
+                    $.each(response.data, function (key, zone) {
+                        ZoneDropdown.append(
+                            `<option value="${zone.id}">${zone.name}</option>`
+                        );
+                    });
+
+                } else {
+                    ZoneDropdown.append('<option value="" disabled>No Zones available</option>');
                 }
-            });
-        } else {
-            ZoneDropdown.empty().append('<option value="">Select a city first</option>');
-        }
+            },
+            error: function () {
+                ZoneDropdown.empty().append('<option value="" disabled>Error loading zones</option>');
+            }
+        });
+
+    } else {
+        ZoneDropdown.empty().append('<option value="" disabled>Select a city first</option>');
     }
+}
     
     
     $(document).ready(function () {
@@ -499,6 +638,8 @@
                     d.zone = $('#zone_id').val();
                     d.city = $('#city_id').val();
                     d.vehicle_type = $('#vehicle_type').val();
+                    d.vehicle_model = $('#v_model').val();
+                    d.vehicle_make = $('#v_make').val();
                     d.vehicle_no = $('#vehicle_no').val();
                     d.status = $('#accident_status').val();
                     d.accountability_type = $('#accountability_type').val();
@@ -528,7 +669,8 @@
                 { data: 9 },
                 { data: 10 },
                 { data: 11 },
-                { data: 12, orderable: false, searchable: false }, // Status
+                { data: 12 },
+                { data: 13, orderable: false, searchable: false }, // Status
             ],
             lengthMenu: [[25, 50, 100, 250, -1], [25, 50, 100, 250, "All"]],
             scrollX: true,
@@ -574,8 +716,8 @@
             const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('AccidentReportRightAMV'));
             $('#filter-date-range').val('today').trigger('change');
             $('#from-date, #to-date').val('');
-            $('#zone_id, #city_id, #vehicle_type, #accident_status, #accountability_type, #customer_id')
-                .val('').trigger('change');
+            $('#zone_id, #city_id, #vehicle_type, #accident_status, #accountability_type, #customer_id,#v_model,#v_make')
+                .val([]).trigger('change');
             $('#vehicle_no').val([]).trigger('change');
             $('.custom-date').addClass('d-none');
             table.ajax.reload();
@@ -595,30 +737,50 @@
         const fromDate  = document.getElementById('from-date').value;
         const toDate    = document.getElementById('to-date').value;
         
-        const status    = document.getElementById('accident_status').value;
+        const status = getMultiValues('#accident_status'); 
+        const vehicle_make   = getMultiValues('#v_make');
+        const vehicle_model = getMultiValues('#v_model');
+        const vehicle_type  = getMultiValues('#vehicle_type');
+        const accountability_type = getMultiValues('#accountability_type');
+        const zone_id = getMultiValues('#zone_id');
+        const city_id = getMultiValues('#city_id');
+        const customer_id = getMultiValues('#customer_id');
+        // const status    = document.getElementById('accident_status').value;
         
-        const accountability_type    = document.getElementById('accountability_type').value;
-        const customer    = document.getElementById('customer_id').value;
+        // const accountability_type    = document.getElementById('accountability_type').value;
+        // const customer    = document.getElementById('customer_id').value;
     
         if (dateRange) params.append('date_range', dateRange);
         if (fromDate)  params.append('from_date', fromDate);
         if (toDate)    params.append('to_date', toDate);
-        if (status)    params.append('status', status);
-        if (accountability_type)    params.append('accountability_type', accountability_type);
-        if (customer)    params.append('customer', customer);
+        // if (status)    params.append('status', status);
+        // if (accountability_type)    params.append('accountability_type', accountability_type);
+        // if (customer)    params.append('customer', customer);
     
         // Vehicle type
-        const vehicleType = document.getElementById('vehicle_type').value;
-        if (vehicleType) params.append('vehicle_type', vehicleType);
+        // const vehicleType = document.getElementById('vehicle_type').value;
+        // if (vehicleType) params.append('vehicle_type', vehicleType);
     
         // Zone
-        const zone = document.getElementById('zone_id') ? document.getElementById('zone_id').value : '';
-        if (zone) params.append('zone', zone);
+        // const zone = document.getElementById('zone_id') ? document.getElementById('zone_id').value : '';
+        // if (zone) params.append('zone', zone);
     
         // City
-        const city = document.getElementById('city_id').value;
-        if (city) params.append('city', city);
-    
+        // const city = document.getElementById('city_id').value;
+        // if (city) params.append('city', city);
+        
+        appendMultiSelect(params, 'status', status);
+        
+        // vehicle filters
+        appendMultiSelect(params, 'vehicle_model', vehicle_model);
+        appendMultiSelect(params, 'vehicle_make', vehicle_make);
+        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+        
+        // others
+        appendMultiSelect(params, 'accountability_type', accountability_type);
+        appendMultiSelect(params, 'zone_id', zone_id);
+        appendMultiSelect(params, 'city_id', city_id);
+        appendMultiSelect(params, 'customer_id', customer_id);
         // Vehicle No
         const vehicleSelect = document.getElementById('vehicle_no');
         if (vehicleSelect) {
@@ -630,7 +792,17 @@
         const url = `{{ route('b2b.admin.report.export_accident_report') }}?${params.toString()}`;
         window.location.href = url;
     });
-
+    
+        function appendMultiSelect(params, key, values) {
+            if (values && values.length > 0) {
+                values.forEach(v => params.append(key + '[]', v));
+            }
+        }
+        function getMultiValues(selector) {
+            return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                        .map(option => option.value);
+        }
+        
     function AMVDashRightSideFilerOpen(){
         const bsOffcanvas = new bootstrap.Offcanvas('#AccidentReportRightAMV');
                 $('.custom-select2-field').select2({

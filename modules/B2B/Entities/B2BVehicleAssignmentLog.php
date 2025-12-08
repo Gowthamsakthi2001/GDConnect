@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Modules\B2B\Entities\B2BVehicleAssignment;//updated by Mugesh.B
 use Modules\Deliveryman\Entities\Deliveryman; //updated by logesh
 use App\Models\User; //updated by logesh
+use Modules\B2B\Entities\B2BRider;
 use Modules\MasterManagement\Entities\CustomerLogin;
 use Modules\B2B\Entities\B2BRecoveryRequest;
 
@@ -72,6 +73,37 @@ class B2BVehicleAssignmentLog extends Model
                 return User::find($this->action_by);
             
             case 'b2b-admin-dashboard':
+                return User::find($this->action_by);
+                
+            default:
+                return null;
+        }
+    }
+    
+      public function getUserAttribute() //updated by logesh
+    {
+    
+        switch ($this->type) {
+            case 'recovery-agent':
+                return Deliveryman::find($this->action_by);
+    
+            case 'b2b-web-dashboard':
+            
+                return CustomerLogin::find($this->action_by);
+            
+            case 'b2b-customer':
+                return CustomerLogin::find($this->action_by);
+                
+            case 'recovery-manager-dashboard':
+                return User::find($this->action_by);
+            
+            case 'b2b-admin-dashboard':
+                return User::find($this->action_by);
+            
+            case 'b2b-rider-app':
+                return B2BRider::find($this->action_by);
+                
+            case 'agent':
                 return User::find($this->action_by);
                 
             default:

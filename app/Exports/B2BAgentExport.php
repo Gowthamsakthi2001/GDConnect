@@ -16,15 +16,17 @@ class B2BAgentExport implements FromCollection, WithHeadings, WithMapping
     protected $zone;
     protected $selectedIds;
     protected $selectedFields;
+     protected $datefilter;
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [] , $datefilter)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
         $this->selectedIds    = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->city           = $city;
-        $this->zone           = $zone;
+        $this->city           = (array)$city;
+        $this->zone           = (array)$zone;
+        $this->datefilter           = $datefilter;
     }
 
     public function collection()
@@ -34,12 +36,43 @@ class B2BAgentExport implements FromCollection, WithHeadings, WithMapping
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
         } else {
-            if ($this->city) {
-                $query->where('city_id', $this->city);
+            if (!empty($this->city)) {
+                $query->whereIn('city_id', $this->city);
             }
 
-            if ($this->zone) {
-                $query->where('zone_id', $this->zone);
+            if (!empty($this->zone)) {
+                $query->whereIn('zone_id', $this->zone);
+            }
+            
+            if (!empty($this->datefilter )) {
+                switch ($this->datefilter ) {
+            
+                    case 'today':
+                        $query->whereDate('created_at', today());
+                        break;
+            
+                    case 'week':
+                        $query->whereBetween('created_at', [
+                            now()->startOfWeek(),
+                            now()->endOfWeek(),
+                        ]);
+                        break;
+                        
+                    case 'last_15_days':
+                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
+                              ->whereYear('created_at', now()->endOfDay());
+                        break;
+                        
+                    case 'month':
+                        $query->whereMonth('created_at', now()->month)
+                              ->whereYear('created_at', now()->year);
+                        break;
+            
+                    case 'year':
+                        $query->whereYear('created_at', now()->year);
+                        break;
+            
+                }
             }
 
             if ($this->from_date) {

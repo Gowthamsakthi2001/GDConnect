@@ -8,21 +8,24 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Modules\B2B\Entities\B2BRider;
 use Illuminate\Support\Facades\Auth;
 use Modules\MasterManagement\Entities\CustomerLogin;
+use Carbon\Carbon;
 class B2BRiderExport implements FromCollection, WithHeadings, WithMapping
 {
     protected $from_date;
     protected $to_date;
     protected $selectedIds;
     protected $selectedFields;
+    protected $zone = [];
+     protected $datefilter;
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $datefilter ,$zone = [])
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
         $this->selectedIds    = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->city           = $city;
-        $this->zone           = $zone;
+        $this->zone           = (array) $zone;
+        $this->datefilter           = $datefilter;
     }
 
     public function collection()
@@ -34,7 +37,7 @@ class B2BRiderExport implements FromCollection, WithHeadings, WithMapping
     $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
         ->where('city_id', $user->city_id)
         ->pluck('id');
-        $query = B2BRider::with('customerLogin','vehicleRequest');
+        $query = B2BRider::with('customerLogin','vehicleRequest','vehicleRequest.city','vehicleRequest.zone');
 
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
@@ -54,14 +57,38 @@ class B2BRiderExport implements FromCollection, WithHeadings, WithMapping
             }
             
             
-            if ($this->city) {
-                // Zone: filter by city + zone
-            $query->where('createdby_city', $this->city);
-            }
                     
             if ($this->zone) {
                 // Zone: filter by city + zone
-                $query->where('assign_zone_id', $this->zone);
+                $query->whereIn('assign_zone_id', $this->zone);
+            }
+            
+            if (!empty($this->datefilter)) {
+                switch ($this->datefilter) {
+                    case 'today':
+                        $this->from_date = Carbon::today()->toDateString();
+                        $this->to_date   = Carbon::today()->toDateString();
+                        break;
+            
+                    case 'week':
+                        $this->from_date = Carbon::now()->startOfWeek()->toDateString();
+                        $this->to_date   = Carbon::now()->endOfWeek()->toDateString();
+                        break;
+            
+                    case 'month':
+                        $this->from_date = Carbon::now()->startOfMonth()->toDateString();
+                        $this->to_date   = Carbon::now()->endOfMonth()->toDateString();
+                        break;
+            
+                    case 'year':
+                        $this->from_date = Carbon::now()->startOfYear()->toDateString();
+                        $this->to_date   = Carbon::now()->endOfYear()->toDateString();
+                        break;
+            
+                    case 'custom':
+                    default:
+                        break;
+                }
             }
                     
             if ($this->from_date) {
@@ -106,6 +133,15 @@ class B2BRiderExport implements FromCollection, WithHeadings, WithMapping
                 case 'llr_image':
                     $mapped[] = $row->llr_image ? asset('b2b/llr_images/' . $row->llr_image) : '-';
                     break;
+                
+                case 'city':
+                    $mapped[] = optional($row->vehicleRequest->last()?->city)->city_name ?? '-';
+                    break;
+                    
+                case 'zone':
+                   $mapped[] = optional($row->vehicleRequest->last()?->zone)->name ?? '-';
+                    break;
+                    
     
                 case 'created_at':
                     $mapped[] = $row->$key ? \Carbon\Carbon::parse($row->$key)->format('d M Y h:i A') : '-';
@@ -139,6 +175,8 @@ class B2BRiderExport implements FromCollection, WithHeadings, WithMapping
             'driving_license_number'=> 'Driving License Number',
             'llr_image'             => 'LLR Image',
             'llr_number'            => 'LLR Number',
+            'city'                  => 'City',
+            'zone'                  => 'Zone',
             'created_at'            => 'Created At',
         ];
     

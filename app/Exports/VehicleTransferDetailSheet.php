@@ -17,9 +17,10 @@ class VehicleTransferDetailSheet implements FromCollection, WithHeadings
     protected $selectedFields;
     protected $selectedIds;
     protected $chassis_number;
+    protected $customer_id;
 
 
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [], $selectedIds = [] , $chassis_number)
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [], $selectedIds = [] , $chassis_number,$customer_id)
     {
         $this->status = $status;
         $this->from_date = $from_date;
@@ -28,6 +29,7 @@ class VehicleTransferDetailSheet implements FromCollection, WithHeadings
         $this->selectedFields = array_filter($selectedFields);
         $this->selectedIds = array_filter($selectedIds) ?? [];
         $this->chassis_number = $chassis_number;
+        $this->customer_id = $customer_id;
     }
 
     public function collection(): Collection
@@ -67,7 +69,12 @@ class VehicleTransferDetailSheet implements FromCollection, WithHeadings
                 $query->whereHas('transfer_details', function ($q) {
                     $q->where('chassis_number', $this->chassis_number);
                 });
-                
+            
+              if (!empty($this->customer_id)) {
+                $query->whereHas('customerMaster', function ($q) {
+                    $q->where('id', $this->customer_id);
+                });
+            }  
             
                 // Load only the matching transfer_details
                 $query->with(['transfer_details' => function ($q) {

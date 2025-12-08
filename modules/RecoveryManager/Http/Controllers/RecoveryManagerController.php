@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Models\BusinessSetting;
 use Modules\B2B\Entities\B2BVehicleAssignmentLog;
 use Maatwebsite\Excel\Facades\Excel;
+use Modules\B2B\Entities\B2BServiceRequest;
 use App\Exports\B2BRecoveryAgentExport;
 use App\Exports\B2BRecoveryManagerRequestExport;
 use Modules\AssetMaster\Entities\AssetVehicleInventory;
@@ -1051,7 +1052,7 @@ class RecoveryManagerController extends Controller
     
         try {
         
-        $recovery = B2BRecoveryRequest::with('rider','assignment','recovery_agent')->find($request->request_id);
+        $recovery = B2BRecoveryRequest::find($request->request_id);
 
         if (!$recovery) {
             return response()->json(['success' => false, 'message' => 'Request not found.']);
@@ -1081,45 +1082,7 @@ class RecoveryManagerController extends Controller
         $recovery->city_manager_id = Auth::id() ?? null;
         $recovery->save(); 
 
-        if($request->update_status == 'closed'){
-          B2BVehicleAssignmentLog::create([
-            'assignment_id' => $recovery->assign_id,
-            'status'        => 'closed',
-            'remarks'       => 'Recovery request has been closed By Recovery Manager after completing all necessary actions.',
-            'action_by'     => Auth::id() ?? null,
-            'type'          => 'recovery-manager-dashboard',
-            'request_type'  => 'recovery_request',
-            'request_type_id'=>$recovery->id??null
-        ]); 
-        
-        RecoveryComment::create([
-            'req_id' => $recovery->id,
-            'status'        => 'closed',
-            'comments'       => $request->remarks,
-            'user_id'     => Auth::id() ?? null,
-            'user_type' => 'recovery-manager-dashboard',
-        ]);
-        
-        }
-        elseif($request->update_status == 'not_recovered'){
-          B2BVehicleAssignmentLog::create([
-            'assignment_id' => $recovery->assign_id,
-            'status'        => 'not_recovered',
-            'remarks'       => 'We could not recover the vehicle after all attempts. Case closed as not recovered.',
-            'action_by'     => Auth::id() ?? null,
-            'type'          => 'recovery-manager-dashboard',
-            'request_type'  => 'recovery_request',
-            'request_type_id'=>$recovery->id??null
-        ]); 
-        RecoveryComment::create([
-            'req_id' => $recovery->id,
-            'status'        => 'not_recovered',
-            'comments'       => $request->remarks,
-            'user_id'     => Auth::id() ?? null,
-            'user_type'  => 'recovery-manager-dashboard',
-        ]);
-        }
-        
+
         
            if($request->update_status == 'closed'){
                
@@ -1158,7 +1121,7 @@ class RecoveryManagerController extends Controller
                         'status' => 'updated',
                         'remarks' => $remarks,
                         'created_by' => Auth::id() ?? null,
-                        'type' => 'gdm-dashboard'
+                        'type' => 'recovery-manager-dashboard'
                     ]);
                     
                     
@@ -1166,18 +1129,60 @@ class RecoveryManagerController extends Controller
             
                         $ticket_id = CustomHandler::GenerateTicketId($vehicle->quality_check->location);
                            
-                            if ($ticket_id == "" || $ticket_id == null) {
+                        if ($ticket_id == "" || $ticket_id == null) {
                                 
-                                   Log::error('TICKET ID creation failed', [
-                                        'ticket_id' => $ticket_id
-                                    ]);
-
-                                return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
-                            }
+                            Log::error("TICKET ID creation failed", [
+                                'assign_id' => $recovery->assign_id,
+                                'vehicle' => $vehicle->permanent_reg_number ?? null,
+                                'location' => $vehicle->quality_check->location ?? null,
+                            ]);
+                        
+                            throw new \Exception("Ticket ID creation failed");
+                        }
                             
                          $customer = optional(optional($vehicle)->quality_check)->accountability_type == 2
                             ? optional(optional($vehicle)->quality_check)->customer_relation
                             : optional($vehicle)->customer_relation;
+                            
+                            
+                            
+                         $serviceDescription = "Recovered vehicle received from customer {$customer->trade_name}. "
+                            . "A full inspection and maintenance check is required after recovery.";
+
+                
+                            $service = B2BServiceRequest::create([
+                                'assign_id'       => $recovery->assign_id,
+                                'ticket_id'       =>$ticket_id ?? '',
+                                'vehicle_number'  => $recovery->assignment->vehicle->permanent_reg_number ?? '',
+                                'description'     => $serviceDescription,
+                                'address'         => '',
+                                'repair_type'     => 6,
+                                'city'            => $recovery->assignment->vehicle->quality_check->location ?? '',
+                                'zone_id'         =>   $recovery->assignment->vehicle->quality_check->zone_id ?? '',
+                                'gps_pin_address'   => '',
+                                'poc_name'          => $customer->trade_name ?? '',
+                                'poc_number'    => $customer->phone ?? '',
+                                'driver_name'   => $recovery->assignment->rider->name ?? '',
+                                'driver_number'   => $recovery->assignment->rider->mobile_no ?? '',
+                                'current_status'   => 'open',
+                                'latitude'               => '',
+                                'longitude'              => '',
+                                'status'          => 'unassigned',
+                                'created_by'      => Auth::id(),
+                                'type'            => 'recovery-manager-dashboard'
+                            ]);
+                            
+                            
+                            B2BVehicleAssignmentLog::create([
+                                'assignment_id' => $recovery->assign_id,
+                                'status'        => 'unassigned',
+                                'current_status' => 'open',
+                                'remarks'       => "Service request created accordingly for recovered vehicle {$recovery->assignment->vehicle->permanent_reg_number}.",
+                                'action_by'     => Auth::id(),
+                                'type'          => 'recovery-manager-dashboard',
+                                'request_type'  => 'service_request',
+                                'request_type_id' => $service->id
+                            ]);
             
                         
                             $ticket = VehicleTicket::create([
@@ -1198,7 +1203,7 @@ class RecoveryManagerController extends Controller
                             'driver_number'     =>  $recovery->assignment->rider->mobile_no ?? '',
                             'image'             => '',
                             'created_datetime'  => now(),                                                                                                          
-                            'created_by'        => $user->id,
+                            'created_by'        => Auth::id(),
                             'created_role'      => '',
                             'customer_id'             => '',
                             'web_portal_status' => 0,
@@ -1242,7 +1247,7 @@ class RecoveryManagerController extends Controller
                         
                         
                         $fieldProxyTicket = FieldProxyTicket::create(array_merge($ticketData, [
-                            'created_by' => $user->id,
+                            'created_by' => Auth::id(),
                             'type'       => 'recovery-manager-dashboard',
                         ]));
                         
@@ -1252,7 +1257,7 @@ class RecoveryManagerController extends Controller
                             'status'     => 'unassigned',  
                             "current_status" => 'open',
                             'remarks'    => 'Recovery request has been closed by the Recovery Manager. A service ticket has been generated for inspection and corrective action.',
-                            'created_by' => $user->id,
+                            'created_by' => Auth::id(),
                             'type'       => 'recovery-manager-dashboard',
                         ]);
                         
@@ -1316,6 +1321,44 @@ class RecoveryManagerController extends Controller
            }
            
         
+        if($request->update_status == 'closed'){
+                  B2BVehicleAssignmentLog::create([
+                    'assignment_id' => $recovery->assign_id,
+                    'status'        => 'closed',
+                    'remarks'       => 'Recovery request has been closed By Recovery Manager after completing all necessary actions.',
+                    'action_by'     => Auth::id() ?? null,
+                    'type'          => 'recovery-manager-dashboard',
+                    'request_type'  => 'recovery_request',
+                    'request_type_id'=>$recovery->id??null
+                ]); 
+                
+                RecoveryComment::create([
+                    'req_id' => $recovery->id,
+                    'status'        => 'closed',
+                    'comments'       => $request->remarks,
+                    'user_id'     => Auth::id() ?? null,
+                    'user_type' => 'recovery-manager-dashboard',
+                ]);
+                
+                }
+                elseif($request->update_status == 'not_recovered'){
+                  B2BVehicleAssignmentLog::create([
+                    'assignment_id' => $recovery->assign_id,
+                    'status'        => 'not_recovered',
+                    'remarks'       => 'We could not recover the vehicle after all attempts. Case closed as not recovered.',
+                    'action_by'     => Auth::id() ?? null,
+                    'type'          => 'recovery-manager-dashboard',
+                    'request_type'  => 'recovery_request',
+                    'request_type_id'=>$recovery->id??null
+                ]); 
+                RecoveryComment::create([
+                    'req_id' => $recovery->id,
+                    'status'        => 'not_recovered',
+                    'comments'       => $request->remarks,
+                    'user_id'     => Auth::id() ?? null,
+                    'user_type'  => 'recovery-manager-dashboard',
+                ]);
+                }
         
         
             $statusLabel = [

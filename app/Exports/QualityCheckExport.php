@@ -29,19 +29,40 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
     protected $zone;
     protected $customer;
     protected $accountability_type;
+    protected $vehicle_type;
+    protected $vehicle_model;
+    protected $vehicle_make;
     
-    public function __construct($status , $from_date , $to_date , $timeline, $selectedIds = [] , $selectedFields =[] ,$location , $zone , $customer , $accountability_type)
+    public function __construct($status , $from_date , $to_date , $timeline, $selectedIds = [] , $selectedFields =[] , $location = '[]', $zone = '[]',
+    $customer = '[]' , $accountability_type,$vehicle_type = '[]',$vehicle_model = '[]',$vehicle_make = '[]')
     {
+        $this->location     = is_array($location) ? $location : json_decode($location, true);
+        $this->zone         = is_array($zone) ? $zone : json_decode($zone, true);
+        $this->customer     = is_array($customer) ? $customer : json_decode($customer, true);
+        $this->vehicle_type = is_array($vehicle_type) ? $vehicle_type : json_decode($vehicle_type, true);
+        $this->vehicle_model= is_array($vehicle_model) ? $vehicle_model : json_decode($vehicle_model, true);
+        $this->vehicle_make = is_array($vehicle_make) ? $vehicle_make : json_decode($vehicle_make, true);
+    
         $this->status = $status;
         $this->from_date = $from_date;
         $this->to_date = $to_date;
-        $this->timeline = $timeline;
+        
+        if (!empty($timeline) && $timeline !== 'custom') {
+            $this->timeline = $timeline;
+        } else {
+            $this->timeline = '';
+        }
+
         $this->selectedIds = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->location = $location;
-        $this->zone = $zone;
-        $this->customer = $customer;
         $this->accountability_type = $accountability_type;
+        
+        $this->location     = $this->location ?? [];
+        $this->zone         = $this->zone ?? [];
+        $this->customer     = $this->customer ?? [];
+        $this->vehicle_type = $this->vehicle_type ?? [];
+        $this->vehicle_model= $this->vehicle_model ?? [];
+        $this->vehicle_make = $this->vehicle_make ?? [];
     }
 
     public function collection()
@@ -63,19 +84,30 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
         }
         
         if (!empty($this->location)) {
-            $query->where('location', $this->location);
+            $query->whereIn('location', $this->location);
         }
         
         if (!empty($this->zone)) {
-            $query->where('zone_id', $this->zone);
+            $query->whereIn('zone_id', $this->zone);
         }
         
         if (!empty($this->customer)) {
-            $query->where('customer_id', $this->customer);
+            $query->whereIn('customer_id', $this->customer);
         }
         
         if (!empty($this->accountability_type)) {
             $query->where('accountability_type', $this->accountability_type);
+        }
+        
+        if (!empty($this->vehicle_type)) {
+            $query->whereIn('vehicle_type', $this->vehicle_type);
+        }
+        
+        if (!empty($this->vehicle_model)) {
+            $query->whereIn('vehicle_model', $this->vehicle_model);
+        }
+        if (!empty($this->vehicle_make)) {
+            $query->whereIn('vehicle_model', $this->vehicle_make);
         }
         
           if ($this->timeline) {
@@ -89,7 +121,12 @@ class QualityCheckExport implements FromCollection, WithHeadings, WithMapping, W
                         now()->startOfWeek(), now()->endOfWeek()
                     ]);
                     break;
-    
+                case 'last_15_days':
+                        $query->whereBetween('created_at', [
+                            now()->subDays(14)->startOfDay(),
+                            now()->endOfDay()
+                        ]);
+                        break;
                 case 'this_month':
                     $query->whereBetween('created_at', [
                         now()->startOfMonth(), now()->endOfMonth()

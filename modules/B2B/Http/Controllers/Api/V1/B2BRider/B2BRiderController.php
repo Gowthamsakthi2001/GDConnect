@@ -31,6 +31,7 @@ use Modules\AssetMaster\Entities\AssetMasterVehicle;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Modules\Role\Entities\Role;
 
 use App\Helpers\CustomHandler;
 use App\Helpers\ServiceTicketHandler;
@@ -316,6 +317,228 @@ public function get_categories($id = null)
         'data' => $subcategories
     ]);
 }
+
+public function get_rider_logs(Request $request)
+{   
+    $rider = $request->user('rider'); 
+   
+    if (!$rider) {
+        return response()->json([
+            "status"  => false,
+            "message" => "Rider Not Found"
+        ], 404);
+    }
+
+    // Filters
+    $search  = $request->input('search');
+    $status  = $request->input('status'); // opened, closed, in_progress, running etc
+    $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+    // Load required relationships
+    $rider->load([
+        'vehicleRequest.assignment.vehicle:id,permanent_reg_number',
+        'vehicleRequest.assignment.logs'
+    ]);
+    
+    $roles = Role::all();
+    $finalLogs = [];
+    
+    foreach ($rider->vehicleRequest as $req) {
+        
+        // SEARCH CHECK
+        if ($search) {
+            $searchLower = strtolower($search);
+
+            if (!str_contains(strtolower($req->req_id), $searchLower) &&
+                !str_contains(strtolower($req->assignment->vehicle->permanent_reg_number ?? ''), $searchLower)
+            ) {
+                continue;
+            }
+        }
+        
+        $vehicleNumber = $req->assignment->vehicle->permanent_reg_number ?? null;
+        $assignmentId  = $req->assignment->id ?? null;
+        if (!$req->assignment || !$req->assignment->logs) continue;
+
+        $logs = [];
+        $grouped = $req->assignment->logs->groupBy('request_type');
+
+        foreach ($grouped as $type => $items) {
+           
+            foreach ($items as $log) {
+
+                // STATUS FILTER
+                if ($status && $log->status != $status) {
+                    continue;
+                }
+
+                $userInfo = $this->getLogUserInfo($log, $roles);
+
+                // SERVICE REQUEST
+                if ($type == 'service_request') {
+
+                    if ($log->status == 'unassigned') {
+                        $logs[] = [
+                            'date' => $log->created_at->format('d M Y, h:i A'),
+                            'timestamp' => $log->created_at,
+                            'message' => "Service request created for vehicle {$vehicleNumber}",
+                            'updated_by_name' => $userInfo['name'],
+                            'updated_by_role' => $userInfo["role"]
+                        ];
+                    }
+
+                    if ($log->status == 'in_progress') {
+                        $first = $items->where('status','in_progress')->sortBy('created_at')->first();
+                        if ($log->id == $first->id) {
+                            $logs[] = [
+                                'date' => $log->created_at->format('d M Y, h:i A'),
+                                'timestamp' => $log->created_at,
+                                'message' => "Service request in progress for vehicle {$vehicleNumber}",
+                                'updated_by_name' => $userInfo['name'],
+                                'updated_by_role' => $userInfo["role"]
+                            ];
+                        }
+                    }
+
+                    if ($log->status == 'closed') {
+                        $logs[] = [
+                            'date' => $log->created_at->format('d M Y, h:i A'),
+                            'timestamp' => $log->created_at,
+                            'message' => "Service request closed for vehicle {$vehicleNumber}",
+                            'updated_by_name' => $userInfo['name'],
+                            'updated_by_role' => $userInfo["role"]
+                        ];
+                    }
+                }
+
+                // RETURN REQUEST
+                elseif ($type == 'return_request') {
+
+                    if ($log->status == 'opened') {
+                        $msg = "Return process started for vehicle {$vehicleNumber}.";
+                    } elseif ($log->status == 'closed') {
+                        $msg = "Vehicle {$vehicleNumber} was returned.";
+                    } else {
+                        continue;
+                    }
+
+                    $logs[] = [
+                        'date' => $log->created_at->format('d M Y, h:i A'),
+                        'timestamp' => $log->created_at,
+                        'message' => $msg,
+                        'updated_by_name' => $userInfo['name'],
+                        'updated_by_role' => $userInfo["role"]
+                    ];
+                }
+
+                // RECOVERY REQUEST
+                elseif ($type == 'recovery_request') {
+
+                    if ($log->status == 'opened') {
+                        $logs[] = [
+                            'date' => $log->created_at->format('d M Y, h:i A'),
+                            'timestamp' => $log->created_at,
+                            'message' => "Recovery request opened for vehicle {$vehicleNumber}",
+                            'updated_by_name' => $userInfo['name'],
+                            'updated_by_role' => $userInfo["role"]
+                        ];
+                    }
+
+                    if ($log->status == 'in_progress') {
+                        $first = $items->where('status','in_progress')->sortBy('created_at')->first();
+                        if ($log->id == $first->id) {
+                            $logs[] = [
+                                'date' => $log->created_at->format('d M Y, h:i A'),
+                                'timestamp' => $log->created_at,
+                                'message' => "Recovery request in progress for vehicle {$vehicleNumber}",
+                                'updated_by_name' => $userInfo['name'],
+                                'updated_by_role' => $userInfo["role"]
+                            ];
+                        }
+                    }
+
+                    if ($log->status == 'closed') {
+                        $logs[] = [
+                            'date' => $log->created_at->format('d M Y, h:i A'),
+                            'timestamp' => $log->created_at,
+                            'message' => "Recovery request closed for vehicle {$vehicleNumber}",
+                            'updated_by_name' => $userInfo['name'],
+                            'updated_by_role' => $userInfo["role"]
+                        ];
+                    }
+                }
+
+                // RUNNING STATE
+                elseif ($type == null && $log->status == 'running') {
+                    $logs[] = [
+                        'date' => $log->created_at->format('d M Y, h:i A'),
+                        'timestamp' => $log->created_at,
+                        'message' => "You were assigned vehicle {$vehicleNumber}.",
+                        'updated_by_name' => $userInfo['name'],
+                        'updated_by_role' => $userInfo["role"]
+                    ];
+                }
+            }
+        }
+
+        // SORT LOGS ASC/DESC
+        $sortedLogs = collect($logs)->sortBy('timestamp', SORT_REGULAR, $sortDir === 'desc')->values();
+
+        $finalLogs[] = [
+            'req_id'         => $req->req_id,
+            'vehicle_number' => $vehicleNumber,
+            'assignment_id'  => $assignmentId,
+            'logs'           => $sortedLogs
+        ];
+    }
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Rider logs fetched successfully',
+        'data' => $finalLogs
+    ]);
+}
+
+
+
+// -------------------
+// Role function
+// -------------------
+private function getLogUserInfo($log, $roles)
+{
+    $user = $log->user;
+   
+    if (!$user) {
+        return ['name' => null, 'role' => 'Unknown'];
+    }
+
+    if ($user instanceof \Modules\B2B\Entities\B2BRider) {
+        return ['name' => $user->name, 'role' => 'You'];
+    }
+
+    if ($user instanceof \Modules\Deliveryman\Entities\Deliveryman) {
+        return ['name' => $user->first_name . $user->last_name, 'role' => 'Recovery Agent'];
+    }
+
+    if ($user instanceof \Modules\MasterManagement\Entities\CustomerLogin) {
+        $relation = $user->customer_relation()->first();
+        return [
+            'name' => $relation->trade_name ?? 'Customer',
+            'role' => 'Customer'
+        ];
+    }
+
+    if ($user instanceof \App\Models\User) {
+        $role = $roles->where('id', $user->role)->first();
+        return [
+            'name' => $user->name,
+            'role' => $role->name ?? 'User'
+        ];
+    }
+
+    return ['name' => null, 'role' => 'Unknown'];
+}
+
 
 
     public function store_ticket(Request $request)

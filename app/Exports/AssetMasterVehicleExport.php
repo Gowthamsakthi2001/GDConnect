@@ -20,9 +20,21 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
     protected $zone;
     protected $customer;
     protected $accountability_type;
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$city  , $zone , $customer , $accountability_type)
+    protected $vehicle_type;
+    protected $vehicle_model;
+    protected $vehicle_make;
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = '[]' , $selectedIds = '[]' ,$city = '[]', $zone = '[]',
+    $customer = '[]' , $accountability_type,$vehicle_type = '[]',$vehicle_model = '[]',$vehicle_make = '[]')
     {
         // dd($status,$from_date,$to_date,$timeline,$selectedFields,$selectedIds);
+        
+        $this->city     = is_array($city) ? $city : json_decode($city, true);
+        $this->zone         = is_array($zone) ? $zone : json_decode($zone, true);
+        $this->customer     = is_array($customer) ? $customer : json_decode($customer, true);
+        $this->vehicle_type = is_array($vehicle_type) ? $vehicle_type : json_decode($vehicle_type, true);
+        $this->vehicle_model= is_array($vehicle_model) ? $vehicle_model : json_decode($vehicle_model, true);
+        $this->vehicle_make = is_array($vehicle_make) ? $vehicle_make : json_decode($vehicle_make, true);
+        $this->accountability_type = $accountability_type;
         $this->status = $status;
         $this->from_date = $from_date;
         $this->to_date = $to_date;
@@ -30,10 +42,18 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
         $this->selectedFields = array_filter($selectedFields); // removes null/empty
         $this->selectedIds = array_filter($selectedIds) ?? []; // removes null/empty
         
-         $this->city = $city;
-         $this->zone = $zone;
-         $this->customer = $customer;
-         $this->accountability_type = $accountability_type;
+        if (!empty($timeline) && $timeline !== 'custom') {
+            $this->timeline = $timeline;
+        } else {
+            $this->timeline = '';
+        }
+        
+        $this->city     = $this->city ?? [];
+        $this->zone         = $this->zone ?? [];
+        $this->customer     = $this->customer ?? [];
+        $this->vehicle_type = $this->vehicle_type ?? [];
+        $this->vehicle_model= $this->vehicle_model ?? [];
+        $this->vehicle_make = $this->vehicle_make ?? [];
         
         
     }
@@ -41,7 +61,7 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
 
     public function collection()
     {
-       $query = AssetMasterVehicle::with('vehicle_type_relation' , 'quality_check' , 'quality_check.zone','quality_check.accountability_type_relation','vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' , 'customer_relation' ,'color_relation');
+       $query = AssetMasterVehicle::with('vehicle_type_relation' , 'quality_check' ,'quality_check.customer_relation' ,'quality_check.zone','quality_check.accountability_type_relation','vehicle_model_relation' ,'location_relation' ,'hypothecation_relation' ,'financing_type_relation' ,'asset_ownership_relation' ,'insurer_name_relation' ,'insurer_type_relation' ,'registration_type_relation' ,'telematics_oem_relation' ,'inventory_location_relation' , 'customer_relation' ,'color_relation' , 'leasing_partner_relation');
 
 
         if (!empty($this->selectedIds)) {
@@ -57,13 +77,13 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
             
         if (!empty($this->city)) {
             $query->whereHas('quality_check', function ($q) {
-                $q->where('location', $this->city);
+                $q->whereIn('location', $this->city);
             });
         }
         
          if (!empty($this->zone)) {
             $query->whereHas('quality_check', function ($q) {
-                $q->where('zone_id', $this->zone);
+                $q->whereIn('zone_id', $this->zone);
             });
         }
         
@@ -84,15 +104,24 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
             // Customer accountability
             $customer = $this->customer;
             $query->whereHas('quality_check', function ($q) use ($customer) {
-                $q->where('customer_id', $customer);
+                $q->whereIn('customer_id', $customer);
             });
         }
 
         if (!empty($this->customer) && $this->accountability_type == 1) { 
             // Client accountability
-            $query->where('client', $this->customer);
+            $query->whereIn('client', $this->customer);
         }
         
+        if (!empty($this->vehicle_type) ) { 
+            // Client accountability
+            $query->whereIn('vehicle_type', $this->vehicle_type);
+        }
+        
+        if (!empty($this->vehicle_model) ) { 
+            // Client accountability
+            $query->whereIn('model', $this->vehicle_model);
+        }
         
         if ($this->timeline) {
             switch ($this->timeline) {
@@ -105,7 +134,12 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
                         now()->startOfWeek(), now()->endOfWeek()
                     ]);
                     break;
-
+                case 'last_15_days':
+                        $query->whereBetween('created_at', [
+                            now()->subDays(14)->startOfDay(),
+                            now()->endOfDay()
+                        ]);
+                        break;
                 case 'this_month':
                     $query->whereBetween('created_at', [
                         now()->startOfMonth(), now()->endOfMonth()
@@ -160,8 +194,10 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
                     $mapped[] = $row->vehicle_model_relation->variant ?? '-';
                     break;
                 case 'client':
-                    // $mapped[] = $row->client ?? '-';
-                    $mapped[] = optional($row->customer_relation)->name ?? $row->client ?? '' ;
+                    $mapped[] = 
+                        ($row->quality_check->accountability_type ?? null) == 2
+                            ? ($row->quality_check->customer_relation->name ?? '-')
+                            : ($row->customer_relation->name ?? '-');
                     break;
                 case 'color':
                     $mapped[] = $row->color_relation->name ?? '-';
@@ -174,6 +210,9 @@ class AssetMasterVehicleExport implements FromCollection, WithHeadings, WithMapp
                     break;
                 case 'gd_hub_id_existing':
                     $mapped[] = $row->gd_hub_id ?? '-';
+                break;
+                case 'leasing_partner':
+                    $mapped[] = $row->leasing_partner_relation->name ?? '-';
                 break;
                 case 'city':
                     $mapped[] = $row->quality_check->location_relation->city_name ?? '-';

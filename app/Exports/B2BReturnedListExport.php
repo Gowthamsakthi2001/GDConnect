@@ -13,23 +13,37 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
 {
     protected $from_date;
     protected $to_date;
+    protected $datefilter;
     protected $selectedIds;
     protected $selectedFields;
-    protected $city;
-    protected $zone;
-    protected $accountability_type;
+    protected $city = [];
+    protected $zone = [];
+    protected $accountability_type = [];
+    protected $status = [];
+    protected $vehicle_model = [];
+    protected $vehicle_make = [];
+    protected $vehicle_type = [];
+    
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null , $accountability_type = null)
+    public function __construct($from_date, $to_date,$datefilter, $selectedIds = [], $selectedFields = [], $city = [], $zone = [] , $accountability_type = [],$status = [],$vehicle_model =[],$vehicle_type=[],$vehicle_make =[])
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
+        $this->datefilter        = $datefilter;
         $this->selectedIds    = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->city           = $city;
-        $this->zone           = $zone;
-        $this->accountability_type           = $accountability_type;
+        $this->city           = (array)$city;
+        $this->zone           = (array)$zone;
+        $this->accountability_type           = (array)$accountability_type;
+        $this->status           = (array)$status;
+        $this->vehicle_model           = (array)$vehicle_model;
+        $this->vehicle_type           = (array)$vehicle_type;
+        $this->vehicle_make           = (array)$vehicle_make;
+   
+ 
     }
-
+    
+    
     public function collection()
     {
         $guard = Auth::guard('master')->check() ? 'master' : 'zone';
@@ -57,16 +71,16 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
                     
                         // Apply guard-specific filters
                         if ($guard === 'master') {
-                            $q->where('city_id', $user->city_id);
+                            $q->whereIn('city_id', [$user->city_id]);
                         }
                     
                         if ($guard === 'zone') {
-                            $q->where('city_id', $user->city_id)
-                              ->where('zone_id', $user->zone_id);
+                            $q->whereIn('city_id', [$user->city_id])
+                              ->whereIn('zone_id', $user->zone_id);
                         }
                         
-                        if ($this->accountability_type) {
-                            $q->where('account_ability_type', $this->accountability_type);
+                        if (!empty(array_filter($this->accountability_type))) {
+                            $q->whereIn('account_ability_type', $this->accountability_type);
                         }
                     
                     });
@@ -74,13 +88,13 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
         } else {
-            if ($this->city) {
+            if (!empty(array_filter($this->city))) {
                 $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->where('city_id', $this->city);
+                    $q->where('city_id', [$this->city]);
                 });
             }
 
-            if ($this->zone) {
+            if (!empty(array_filter($this->zone))) {
                 $query->whereHas('assignment.VehicleRequest', function ($q) {
                     $q->where('zone_id', $this->zone);
                 });
@@ -93,6 +107,62 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
             if ($this->to_date) {
                 $query->whereDate('created_at', '<=', $this->to_date);
             }
+            
+            if (!empty(array_filter($this->vehicle_model))) {
+                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
+                    $q->whereIn('vehicle_model', $this->vehicle_model);
+                });
+            }
+
+            if (!empty(array_filter($this->vehicle_type))) {
+                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
+                    $q->whereIn('vehicle_type', $this->vehicle_type);
+                });
+            }
+
+            if (!empty(array_filter($this->vehicle_make))) {
+                $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($q) {
+                    $q->whereIn('make', $this->vehicle_make);
+                });
+            }
+            
+            if (!empty($this->datefilter)) {
+                switch ($this->datefilter) {
+                    case 'today':
+                        $from = Carbon::today()->toDateString();
+                        $to   = Carbon::today()->toDateString();
+                        break;
+                    
+                    case 'week':
+                        $from = Carbon::now()->startOfWeek()->toDateString();
+                        $to   = Carbon::now()->endOfWeek()->toDateString();
+                        break;
+                            
+                    case 'last_15_days':
+                        $from = Carbon::now()->subDays(14)->startOfDay()->toDateString(); // 15 days including today
+                        $to   = Carbon::now()->endOfDay()->toDateString();
+                        break;
+                    case 'month':
+                        $from = Carbon::now()->startOfMonth()->toDateString();
+                        $to   = Carbon::now()->endOfMonth()->toDateString();
+                        break;
+                    
+                    case 'year':
+                        $from = Carbon::now()->startOfYear()->toDateString();
+                        $to   = Carbon::now()->endOfYear()->toDateString();
+                        break;
+                    
+                    case 'custom':
+                        default:
+                        break;
+                        }
+                
+                if(!empty($from) && !empty($to)){
+                    $query->whereBetween('created_at', [$from, $to]);
+
+                }
+                      
+                    }
         }
 
         return $query->orderBy('id', 'desc')->get();
@@ -124,7 +194,19 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
                 case 'chassis_number':
                     $mapped[] = $row->assignment->vehicle->chassis_number ?? '-';
                     break;
-
+                
+                case 'vehicle_type':
+                    $mapped[] = $row->assignment->vehicle->quality_check->vehicle_type_relation->name ?? '-';
+                    break;
+                    
+                case 'vehicle_model':
+                    $mapped[] = $row->assignment->vehicle->quality_check->vehicle_model_relation->vehicle_model ?? '-';
+                    break;
+                    
+                case 'vehicle_make':
+                    $mapped[] = $row->assignment->vehicle->quality_check->vehicle_model_relation->make ?? '-';
+                    break;
+                    
                 case 'mobile_no':
                     $mapped[] = $row->assignment->rider->mobile_no ?? '-';
                     break;
@@ -235,6 +317,9 @@ class B2BReturnedListExport implements FromCollection, WithHeadings, WithMapping
             'req_id'        => 'Request ID',
             'vehicle_no'    => 'Vehicle Number',
             'chassis_number'=> 'Chassis Number',
+            'vehicle_model' => 'Vehicle Model',
+            'vehicle_make'  => 'Vehicle Make',
+            'vehicle_type'  => 'Vehicle Type',
             'rider_name'    => 'Rider Name',
             'mobile_no'     => 'Mobile No',
             'city'          => 'City',

@@ -524,6 +524,25 @@
                       </div>
                     </div>
                     
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field9">City</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="city" name="city">
+                        </div>
+                      </div>
+                    </div>
+                    
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field11">Zone</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="zone" name="zone">
+                        </div>
+                      </div>
+                    </div>
+                    
                     <!--<div class="col-md-3 col-12 mb-3">-->
                     <!--  <div class="d-flex justify-content-between align-items-center">-->
                     <!--    <label class="form-check-label mb-0" for="field12">Status</label>-->
@@ -564,14 +583,25 @@
           <div class="offcanvas-body">
         
            
-
-            
-           <div class="card mb-3">
+             <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
+                   <h6 class="custom-dark">Quick Date Filter</h6>
                </div>
                <div class="card-body">
  
+                     <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select id="quick_date_filter" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
                     <div class="mb-3">
                         <label class="form-label" for="FromDate">From Date</label>
                         <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
@@ -581,6 +611,35 @@
                         <label class="form-label" for="ToDate">To Date</label>
                         <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
                     </div>
+  
+               </div>
+            </div>
+            
+           <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Zone</h6></div>
+               </div>
+               <div class="card-body">
+                      @if($guard == 'master')
+                    <div class="mb-3">
+                       <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="zone_id">Zone</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="zone_id_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select Zone</option>-->
+                            @if(isset($zones))
+                            @foreach($zones as $zone)
+                            <option value="{{$zone->id}}" >{{$zone->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    @endif
   
                </div>
             </div>
@@ -618,6 +677,40 @@
 
 @section('js')
 
+<script>
+    function initSelectAll(selector, checkboxSelector) {
+
+    // Select/Deselect all via checkbox
+    $(checkboxSelector).on('change', function () {
+        if (this.checked) {
+            let values = [];
+            $(selector + ' option').each(function () {
+                values.push($(this).val());
+            });
+            $(selector).val(values).trigger('change');
+        } else {
+            $(selector).val(null).trigger('change');
+        }
+    });
+
+    // Auto sync checkbox based on user actions
+    $(selector).on('change', function () {
+        let total = $(selector + ' option').length;
+        let selected = $(selector).val() ? $(selector).val().length : 0;
+
+        if (selected === total) {
+            $(checkboxSelector).prop('checked', true);
+        } else {
+            $(checkboxSelector).prop('checked', false);
+        }
+    });
+}
+
+$(document).ready(function () {
+    initSelectAll('#zone_id', '#zone_id_select_all');
+
+});
+</script>
 
 <script>
     
@@ -736,6 +829,9 @@ function clearRiderFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
     $('input[name="status_value"][value="all"]').prop('checked', true);
+    $('#quick_date_filter').val('').trigger('change');
+     $('#zone_id').val('').trigger('change');
+    toggleDateFields();
     table.ajax.reload();
     
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
@@ -743,7 +839,29 @@ function clearRiderFilter() {
         bsOffcanvas.hide();
     }
 }
+    
+    // -------------------------------
+    // SHOW/HIDE DATE FIELDS
+    // -------------------------------
+    function toggleDateFields() {
+        let value = $("#quick_date_filter").val();
 
+        if (value === "custom") {
+            $("#FromDate").closest(".mb-3").show();
+            $("#ToDate").closest(".mb-3").show();
+        } else {
+            $("#FromDate").closest(".mb-3").hide();
+            $("#ToDate").closest(".mb-3").hide();
+            $("#FromDate").val("");
+            $("#ToDate").val("");
+        }
+    }
+
+    toggleDateFields();
+
+    $("#quick_date_filter").on("change", function () {
+        toggleDateFields();
+    });
   
   
  $(document).ready(function () {
@@ -760,6 +878,8 @@ function clearRiderFilter() {
              data: function (d) {
             d.from_date = $('#FromDate').val();
             d.to_date = $('#ToDate').val();
+            d.zone_id = $('#zone_id').val();
+            d.datefilter = $('#quick_date_filter').val();
             },
         
             beforeSend: function () {
@@ -843,12 +963,16 @@ function clearRiderFilter() {
    
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
+    const datefilter   = document.getElementById('quick_date_filter').value;
+    const zone_id = getMultiValues('#zone_id');
 
     // ✅ Build query params
     const params = new URLSearchParams();
  
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
+    if (datefilter) params.append('datefilter', datefilter);
+    if (zone_id) params.append('zone', zone_id);
 
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
@@ -860,6 +984,11 @@ function clearRiderFilter() {
     const url = `{{ route('b2b.rider_export') }}?${params.toString()}`;
     window.location.href = url;
   });
+    
+    function getMultiValues(selector) {
+    return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                .map(option => option.value);
+    }
 
 document.addEventListener('DOMContentLoaded', function () {
     var vehicleModal = document.getElementById('vehicleRequestModal');

@@ -20,8 +20,9 @@ class VehicleTransferExport implements WithMultipleSheets
     protected $selectedFields;
     protected $selectedIds;
     protected $chassis_number;
+     protected $customer_id;
 
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$chassis_number)
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [] , $selectedIds = [] ,$chassis_number,$customer_id)
     {
         //   dd($status,$from_date,$to_date,$timeline,$selectedFields,$selectedIds);
         $this->status = $status;
@@ -31,20 +32,21 @@ class VehicleTransferExport implements WithMultipleSheets
         $this->selectedFields = array_filter($selectedFields); 
         $this->selectedIds = array_filter($selectedIds) ?? []; 
         $this->chassis_number = $chassis_number;
+        $this->customer_id = $customer_id;
     }
 
    public function sheets(): array
     {
         $sheets = [];
     
-        $sheets[] = new VehicleTransferSheet($this->status, $this->from_date,$this->to_date, $this->timeline,$this->selectedFields,$this->selectedIds ,$this->chassis_number);
+        $sheets[] = new VehicleTransferSheet($this->status, $this->from_date,$this->to_date, $this->timeline,$this->selectedFields,$this->selectedIds ,$this->chassis_number,$this->customer_id);
     
         if (in_array('vehicle_transfer_detail_view', $this->selectedFields)) {
-            $sheets[] = new VehicleTransferDetailSheet($this->status, $this->from_date, $this->to_date, $this->timeline, $this->selectedFields, $this->selectedIds , $this->chassis_number);
+            $sheets[] = new VehicleTransferDetailSheet($this->status, $this->from_date, $this->to_date, $this->timeline, $this->selectedFields, $this->selectedIds , $this->chassis_number,$this->customer_id);
         }
     
         if (in_array('vehicle_transfer_logs', $this->selectedFields)) {
-            $sheets[] = new VehicleTransferLogExport( $this->status, $this->from_date, $this->to_date, $this->timeline, $this->selectedFields,$this->selectedIds , $this->chassis_number );
+            $sheets[] = new VehicleTransferLogExport( $this->status, $this->from_date, $this->to_date, $this->timeline, $this->selectedFields,$this->selectedIds , $this->chassis_number ,$this->customer_id);
         }
     
         return $sheets;

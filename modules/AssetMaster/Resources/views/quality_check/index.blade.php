@@ -338,7 +338,36 @@
                 <button class="btn btn-outline-secondary w-50" onclick="clearQualityCheckFilter()">Clear All</button>
                 <button class="btn btn-success w-50" onclick="applyQualityCheckFilter()">Apply</button>
             </div>
-         
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Time Line</h6></div>
+               </div>
+               <div class="card-body">
+                     <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select id="quick_date_filter" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="today">Today</option>
+                            <option value="this_week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="this_month">This Month</option>
+                            <option value="this_year">This Year</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">From Date</label>
+                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="ToDate">To Date</label>
+                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                    </div>
+               </div>
+            </div>
+            
            <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select Status</h6></div>
@@ -383,64 +412,83 @@
            
             <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select City</h6></div>
+                   <div><h6 class="custom-dark">Select Option</h6></div>
                </div>
                <div class="card-body">
- 
                     <div class="mb-3">
-                        <label class="form-label" for="location_id">City</label>
-                        <select name="location_id" id="location_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
-                            <option value="">Select</option>
+                        <label class="form-label" for="v_type">Vehicle Type</label>
+                        <select name="v_type[]" id="v_type" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Type</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_types))
+                                @foreach($vehicle_types as $val)
+                                <option value="{{$val->id}}" {{ $vehicle_type == $val->id ? 'selected' : '' }}>{{$val->name}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+                    
+                     <div class="mb-3">
+                        <label class="form-label" for="v_model">Vehicle Model</label>
+                        <select name="v_model[]" id="v_model" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Model</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" {{ $vehicle_model == $val->id ? 'selected' : '' }}>{{$val->vehicle_model}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="v_make">Vehicle Make</label>
+                        <select name="v_make[]" id="v_make" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Make</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" {{ $vehicle_model == $val->id ? 'selected' : '' }}>{{$val->make}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="location_id">Select City</label>
+                        <select name="location_id[]" id="location_id" class="form-control custom-select2-field" onchange="getMultiZones()" multiple>
+                            <option value="" disabled>Select City</option>
+                            <option value="all">All</option>
                             @if(isset($location_data))
-                            @foreach($location_data as $l)
-                            <option value="{{$l->id}}" {{ $location == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
-                            @endforeach
+                                @foreach($location_data as $l)
+                                <option value="{{$l->id}}" {{ $location == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
+                                @endforeach
                             @endif
 
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            
-            
-                        <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Zone</h6></div>
-               </div>
-               <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="zone_id">Zone</label>
-                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
-                            <option value="">Select a city first</option>
+                        <label class="form-label" for="zone_id">Select Zone</label>
+                        <select name="zone_id[]" id="zone_id" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select a city first</option>
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
-               </div>
-               <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="accountability_type_id">Accountability Type</label>
+                        <label class="form-label" for="accountability_type_id">Select Accountability Type</label>
                         <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">
                             <option value="">All</option>
                             @if(isset($accountablity_types))
-                            @foreach($accountablity_types as $type)
-                            <option value="{{$type->id}}" >{{$type->name ?? ''}}</option>
-                            @endforeach
+                                @foreach($accountablity_types as $type)
+                                <option value="{{$type->id}}" >{{$type->name ?? ''}}</option>
+                                @endforeach
                             @endif
                         </select>
                     </div>
-               </div>
+                </div>
+               
             </div>
-            
-            
+    
             <div class="card mb-3 d-none" id="CustomerSection">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select Customer</h6></div>
@@ -448,9 +496,10 @@
                <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="accountability_type_id">Customer</label>
-                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
-                            <option value="">Select</option>
+                        <label class="form-label" for="customer_id">Customer</label>
+                        <select name="customer_id[]" id="customer_id" class="form-control custom-select2-field" multiple>
+                             <option value="" disabled>Select Customer</option>
+                            <option value="all">All</option>
                             @if(isset($customers))
                             @foreach($customers as $customer)
                             <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
@@ -458,59 +507,6 @@
                             @endif
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Time Line</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="today" {{ request('timeline') == 'today' ? 'checked' : '' }} name="STtimeLine" id="timeLine1">
-                      <label class="form-check-label" for="timeLine1">
-                        Today
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="this_week" {{ request('timeline') == 'this_week' ? 'checked' : '' }} name="STtimeLine" id="timeLine2">
-                      <label class="form-check-label" for="timeLine2">
-                       This Week
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="this_month" {{ request('timeline') == 'this_month' ? 'checked' : '' }} name="STtimeLine" id="timeLine3">
-                      <label class="form-check-label" for="timeLine3">
-                       This Month
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="this_year" {{ request('timeline') == 'this_year' ? 'checked' : '' }} name="STtimeLine" id="timeLine4">
-                      <label class="form-check-label" for="timeLine4">
-                       This Year
-                      </label>
-                    </div>
-               </div>
-            </div>
-            
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">From Date</label>
-                        <input type="date" name="from_date" id="FromDate" class="form-control" value="{{$from_date}}" max="{{date('Y-m-d')}}">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label" for="ToDate">To Date</label>
-                        <input type="date" name="to_date" id="ToDate" class="form-control" value="{{$to_date}}" max="{{date('Y-m-d')}}">
-                    </div>
-  
                </div>
             </div>
          
@@ -529,91 +525,43 @@
 
 @section('script_js')
 
-
 <script>
-    
-    
-       
-//     function applyQualityCheckFilter() {
-//         const selectedStatus = document.querySelector('input[name="status"]:checked');
-//         const status = selectedStatus ? selectedStatus.value : 'all';
-//          const selectedTimeline = document.querySelector('input[name="STtimeLine"]:checked');
-//          const timeline = selectedTimeline ? selectedTimeline.value : '';
-//         const from_date = document.getElementById('FromDate').value;
-//         const to_date = document.getElementById('ToDate').value;
-        
-//         if(from_date != "" || to_date != ""){
-//             if(to_date == "" || from_date == ""){
-//                 toastr.error("From Date and To Date is must be required");
-//                 return;
-//             }
-            
-//         }
-//         const location = document.getElementById('location_id').value;
-        
-    
-//         const url = new URL(window.location.href);
-//         url.searchParams.set('status', status);
-//          url.searchParams.set('location', location);
-//         // url.searchParams.set('from_date', from_date);
-//         // url.searchParams.set('to_date', to_date);
-        
-//     if (from_date && to_date) {
-//         // Use from_date and to_date, remove timeline
-//         url.searchParams.set('from_date', from_date);
-//         url.searchParams.set('to_date', to_date);
-//         url.searchParams.delete('timeline');
-//     } else if (timeline) {
-//         // Use timeline, remove from_date and to_date
-//         url.searchParams.set('timeline', timeline);
-//         url.searchParams.delete('from_date');
-//         url.searchParams.delete('to_date');
-//     }
+function toggleDateFields() {
+    let value = $("#quick_date_filter").val();
 
-    
-//         window.location.href = url.toString();
-//     }
+    if (value === "custom") {
+        $("#FromDate").closest(".mb-3").show();
+        $("#ToDate").closest(".mb-3").show();
+    } else {
+        $("#FromDate").closest(".mb-3").hide();
+        $("#ToDate").closest(".mb-3").hide();
+        $("#FromDate").val("");
+        $("#ToDate").val("");
+    }
+}
 
+toggleDateFields();
 
-    
-//     function clearQualityCheckFilter() {
-//         const url = new URL(window.location.href);
-//         url.searchParams.delete('status');
-//         url.searchParams.delete('from_date');
-//         url.searchParams.delete('to_date');
-//         url.searchParams.delete('timeline');
-//          url.searchParams.delete('location');
-//         window.location.href = url.toString();
-//     }
-    
-    
-    
-    
-//   $(document).ready(function () {
-//     $('#CSelectAllBtn').on('change', function () {
-//       $('.sr_checkbox').prop('checked', this.checked);
-//     });
-
-//     $('.sr_checkbox').on('change', function () {
-//       if (!this.checked) {
-//         $('#CSelectAllBtn').prop('checked', false);
-//       } else if ($('.sr_checkbox:checked').length === $('.sr_checkbox').length) {
-//         $('#CSelectAllBtn').prop('checked', true);
-//       }
-//     });
-//   });
-</script>
-
-<script>
+$("#quick_date_filter").on("change", function () {
+    toggleDateFields();
+});
 function applyQualityCheckFilter() {
     // Get filter values
-    const status = $('input[name="status"]:checked').val();
-    const timeline = $('input[name="STtimeLine"]:checked').val();
-    const from_date = $('#FromDate').val();
-    const to_date = $('#ToDate').val();
-    const location = $('#location_id').val();
+    var timeline = $("#quick_date_filter").val();
+    var from_date = $("#FromDate").val();
+    var to_date = $("#ToDate").val();
 
-    // Validate date range if either date is provided
+    if (timeline === "custom") {
+        timeline = '';
+    } else {
+        fromDate = '';
+        toDate = '';
+    }
+    const status = $('input[name="status"]:checked').val();
+    const location = $('#location_id').val();
+    const vehicle_type = $('#v_type').val();
+    const vehicle_model = $('#v_model').val();
+    const vehicle_make = $('#v_make').val();
     if (from_date || to_date) {
         if (!from_date || !to_date) {
             toastr.error("Both From Date and To Date are required when filtering by date");
@@ -634,12 +582,14 @@ function applyQualityCheckFilter() {
 function clearQualityCheckFilter() {
     // Reset all filter inputs
     $('input[name="status"][value="all"]').prop('checked', true);
-    $('input[name="STtimeLine"]').prop('checked', false);
-    $('#FromDate').val('');
-    $('#ToDate').val('');
-    $('#location_id').val('').trigger('change');
-        $('#zone_id').val('').trigger('change');
-    $('#customer_id').val('').trigger('change');
+    $("#quick_date_filter").val('').trigger('change');
+    toggleDateFields();
+    $('#location_id').val([]).trigger('change');
+        $('#zone_id').val([]).trigger('change');
+    $('#customer_id').val([]).trigger('change');
+    $('#v_type').val([]).trigger('change');
+    $('#v_model').val([]).trigger('change');
+    $('#v_make').val([]).trigger('change');
     $('#accountability_type_id').val('').trigger('change');
     // Reload DataTable with cleared filters
     $('#QualityCheckTable_List').DataTable().ajax.reload();
@@ -650,7 +600,104 @@ function clearQualityCheckFilter() {
         bsOffcanvas.hide();
     }
 }
-
+function initSelectAll(selector) {
+          let internalChange = false;
+          $(document).on("mousedown touchstart", selector, function () {
+            const prev = $(this).val() || [];
+            $(this).data("prevSelection", prev);
+          });
+          $(document).on("focus", selector, function () {
+            const prev = $(this).val() || [];
+            $(this).data("prevSelection", prev);
+          });
+          $(selector).on("change", function () {
+            if (internalChange) return;
+            const $el = $(this);
+            let prev = $el.data("prevSelection") || [];
+            let current = $el.val() || [];
+            prev = prev.map(String);
+            current = current.map(String);
+            internalChange = true;
+            if (prev.includes("all") && current.includes("all") && current.length > 1) {
+              const cleaned = current.filter((v) => v !== "all");
+              $el.val(cleaned).trigger("change.select2");
+              $el.data("prevSelection", cleaned);
+              internalChange = false;
+              return;
+            }
+            if (!prev.includes("all") && current.includes("all")) {
+              $el.val(["all"]).trigger("change.select2");
+              $el.data("prevSelection", ["all"]);
+              internalChange = false;
+              return;
+            }
+            if (current.includes("all") && current.length > 1) {
+              $el.val(["all"]).trigger("change.select2");
+              $el.data("prevSelection", ["all"]);
+              internalChange = false;
+              return;
+            }
+            if (!current.includes("all")) {
+              const cleaned = current.filter((v) => v !== "all");
+              if (cleaned.length !== current.length) {
+                $el.val(cleaned).trigger("change.select2");
+                $el.data("prevSelection", cleaned);
+                internalChange = false;
+                return;
+              }
+            }
+            $el.data("prevSelection", current);
+            internalChange = false;
+          });
+    }
+$(document).ready(function () {
+  initSelectAll("#v_type");
+  initSelectAll("#v_model");
+  initSelectAll("#v_make");
+  initSelectAll("#v_model");
+  initSelectAll("#v_make");
+  initSelectAll("#location_id");
+  initSelectAll("#zone_id");
+  initSelectAll("#customer_id");
+});
+function getMultiZones() {
+      let cityIds = $("#location_id").val();
+      console.log(cityIds);
+      let ZoneDropdown = $("#zone_id");
+      ZoneDropdown.empty().append('<option value="">Loading...</option>');
+      if (cityIds && cityIds.length > 0) {
+        $.ajax({
+          url: "{{ route('global.get_multi_city_zones') }}",
+          type: "GET",
+          data: { city_id: cityIds }, // pass array
+          success: function (response) {
+            ZoneDropdown.empty()
+              .append('<option value="" disabled>Select Zone</option>')
+              .append('<option value="all">All</option>');
+            if (response.data && response.data.length > 0) {
+              $.each(response.data, function (key, zone) {
+                ZoneDropdown.append(
+                  `<option value="${zone.id}">${zone.name}</option>`
+                );
+              });
+            } else {
+              ZoneDropdown.append(
+                '<option value="" disabled>No Zones available</option>'
+              );
+            }
+          },
+          error: function () {
+            ZoneDropdown.empty().append(
+              '<option value="" disabled>Error loading zones</option>'
+            );
+          },
+        });
+      } else {
+        ZoneDropdown.empty().append(
+          '<option value="" disabled>Select a city first</option>'
+        );
+      }
+    }
 $(document).ready(function () {
     // Show loading overlay initially
     $('#loadingOverlay').show();
@@ -666,12 +713,15 @@ $(document).ready(function () {
             data: function (d) {
                 // Add filter parameters to the AJAX request
                 d.status = $('input[name="status"]:checked').val();
-                d.from_date = $('#FromDate').val();
-                d.to_date = $('#ToDate').val();
-                d.timeline = $('input[name="STtimeLine"]:checked').val();
-                d.location = $('#location_id').val();
-                                d.zone = $('#zone_id').val();
-                d.customer = $('#customer_id').val();
+                d.from_date = $('#FromDate').val() || '';
+                d.to_date   = $('#ToDate').val() || '';
+                d.timeline  = $('#quick_date_filter').val() || ''; 
+                d.location = $('#location_id').val() || [];
+                d.zone = $('#zone_id').val() || [];
+                d.customer = $('#customer_id').val() || [];
+                d.vehicle_type = $('#v_type').val() || [];
+                d.vehicle_model = $('#v_model').val() || [];
+                d.vehicle_make = $('#v_make').val() || [];
                 d.accountability_type = $('#accountability_type_id').val();
             },
             beforeSend: function() {
@@ -834,117 +884,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
     
-    //     $(document).ready(function () {
-    //   $('#QualityCheckTable_List').DataTable({
-    //         // dom: 'Blfrtip',
-    //         // dom: 'frtip',
-    //         // buttons: ['excel', 'pdf', 'print'],
-    //         // order: [[0, 'desc']],
-    //         columnDefs: [
-    //             { orderable: false, targets: '_all' }
-    //         ],
-    //         lengthMenu: [ [10, 25, 50, 100, 250, -1], [10, 25, 50, 100, 250, "All"] ],
-    //         responsive: false,
-    //         scrollX: true,
-    //     });
-    // });
-    
-    
-//   $(document).ready(function () {
-//     $('#loadingOverlay').show();
-
-//     // Start timer for minimum display time
-//     var loadingTimer = setTimeout(function() {
-//         $('#loadingOverlay').fadeOut();
-//     }, 1000);
-
-//     var table = $('#QualityCheckTable_List').DataTable({
-//         pageLength: 15,
-//         pagingType: "simple", // Only prev/next
-//         processing: true,
-//         serverSide: true,
-//         ajax: {
-//             url: "{{ route('admin.asset_management.quality_check.list') }}",
-//             type: 'GET',
-//             data: function (d) {
-//                 d.status = $('input[name="status"]:checked').val();
-//                 d.from_date = $('#FromDate').val();
-//                 d.to_date = $('#ToDate').val();
-//                 d.timeline = $('input[name="STtimeLine"]:checked').val();
-//                 d.location = $('#location_id').val();
-//             },
-//             error: function(xhr) {
-//                 console.error('AJAX Error:', xhr.responseText);
-//                 if (xhr.responseJSON && xhr.responseJSON.error) {
-//                     toastr.error(xhr.responseJSON.error);
-//                 } else {
-//                     toastr.error('Failed to load data. Please try again.');
-//                 }
-//             }
-//         },
-//         columns: [
-//             { data: 'checkbox', name: 'checkbox', orderable: false, searchable: false, className: 'text-center' },
-//             { data: 'id', name: 'id', className: 'text-center' },
-//             { data: 'vehicle_type', name: 'vehicle_type', className: 'text-center' },
-//             { data: 'vehicle_model', name: 'vehicle_model', className: 'text-center' },
-//             { data: 'location', name: 'location', className: 'text-center' },
-//             { data: 'chassis_number', name: 'chassis_number', className: 'text-center' },
-//             { data: 'battery_number', name: 'battery_number', className: 'text-center' },
-//             { data: 'telematics_number', name: 'telematics_number', className: 'text-center' },
-//             { data: 'motor_number', name: 'motor_number', className: 'text-center' },
-//             { data: 'status', name: 'status', orderable: false, searchable: false, className: 'text-center' },
-//             { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
-//         ],
-//         lengthMenu: [[15, 25, 50, 100, 250, -1], [15, 25, 50, 100, 250, "All"]],
-//         pageLength: 15,
-//         responsive: false,
-//         scrollX: true,
-//         dom: '<"top"lf>rt<"bottom"ip>',
-//         initComplete: function() {
-//             $('#QualityCheckTable_List').on('change', '.sr_checkbox', function() {
-//                 if (!this.checked) {
-//                     $('#CSelectAllBtn').prop('checked', false);
-//                 } else {
-//                     var allChecked = $('.sr_checkbox:checked').length === $('.sr_checkbox').length;
-//                     $('#CSelectAllBtn').prop('checked', allChecked);
-//                 }
-//             });
-
-//             $('#CSelectAllBtn').on('change', function() {
-//                 $('.sr_checkbox').prop('checked', this.checked);
-//             });
-//         }
-//     });
-
-//     // 🔹 Add instant search with debounce
-//     let searchDelay;
-//     $('#QualityCheckTable_List_filter input')
-//         .unbind()
-//         .bind('keyup', function () {
-//             clearTimeout(searchDelay);
-//             let searchTerm = this.value;
-//             searchDelay = setTimeout(function () {
-//                 table.search(searchTerm).draw();
-//             }, 400); // 0.4 sec delay
-//         });
-
-//     // When filters change, reload the table
-//     $('input[name="status"], #FromDate, #ToDate, input[name="STtimeLine"], #location_id').on('change', function() {
-//         table.ajax.reload();
-//     });
-
-//     // Error handling for DataTables
-//     $.fn.dataTable.ext.errMode = 'none';
-//     $('#QualityCheckTable_List').on('error.dt', function(e, settings, techNote, message) {
-//         console.error('DataTables Error:', message);
-//         toastr.error('DataTables error occurred. Please try again.');
-//     });
-// });
-
-
-
-    
-    
     function SelectExportFields(){
         $("#export_select_fields_modal").modal('show');
     }
@@ -997,30 +936,40 @@ document.addEventListener('DOMContentLoaded', function () {
       selected.push(cb.value);
     });
 
-    // ✅ Validate: At least one field must be selected
     if (selectedFields.length === 0) {
         toastr.error("Please select at least one export field.");
         return;
     }
-    // console.log(selectedFields);
+    function cleanArray(val) {
+        if (!Array.isArray(val)) return [];
+        return val.filter(v => v !== 'all');
+    }
+    var from_date = $('#FromDate').val() || '';
+    var to_date   = $('#ToDate').val() || '';
+    var timeline  = $('#quick_date_filter').val() || '';
     
-    
-
+    if (timeline === 'custom') {
+        timeline = '';
+    }
 
     const params = new URLSearchParams();
     params.append('status', $('#status').val() || '');
-   params.append('from_date', $('#from_date').val() || '');
-    params.append('to_date', $('#to_date').val() || '');
-   params.append('timeline', $('#STtimeLine').val() || '');
+    params.append('from_date', from_date);
+    params.append('to_date', to_date);
+    params.append('timeline', timeline);
     
-        params.append('location', $('#location_id').val() || '');
-    params.append('zone', $('#zone_id').val() || '');
+    params.append('location', JSON.stringify(cleanArray($('#location_id').val() || [])));
+    params.append('zone', JSON.stringify(cleanArray($('#zone_id').val() || [])));
+    params.append('vehicle_type', JSON.stringify(cleanArray($('#v_type').val() || [])));
+    params.append('vehicle_model', JSON.stringify(cleanArray($('#v_model').val() || [])));
+    params.append('vehicle_make', JSON.stringify(cleanArray($('#v_make').val() || [])));
+    params.append('customer', JSON.stringify(cleanArray($('#customer_id').val() || [])));
     params.append('accountability_type', $('#accountability_type_id').val() || '');
-    params.append('customer', $('#customer_id').val() || '');
-         if (selected.length > 0) {
+
+    if (selected.length > 0) {
       params.append('selected_ids', JSON.stringify(selected));
     }
-        if (selectedFields.length > 0) {
+    if (selectedFields.length > 0) {
       params.append('fields', JSON.stringify(selectedFields));
     }
 
@@ -1165,7 +1114,7 @@ function getZones(CityID) {
             $('#CustomerSection').removeClass('d-none'); // Show section
         } else {
             $('#CustomerSection').addClass('d-none'); // Hide section
-            $('#customer_id').val('').trigger('change');
+            $('#customer_id').val([]).trigger('change');
         }
     }
     // Run on page load in case a value is pre-selected

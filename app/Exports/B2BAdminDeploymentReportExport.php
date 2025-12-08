@@ -14,27 +14,31 @@ class B2BAdminDeploymentReportExport implements FromCollection, WithHeadings, Wi
     protected $date_range;
     protected $from_date;
     protected $to_date;
-    protected $vehicle_type;
-    protected $city;
-    protected $zone;
+    protected $vehicle_type=[];
+    protected $vehicle_model=[];
+    protected $vehicle_make=[];
+    protected $city=[];
+    protected $zone=[];
     protected $vehicle_no;
-    protected $status;
-    protected $customer;
-    protected $accountability_type;
+    protected $status=[];
+    protected $customer_id=[];
+    protected $accountability_type=[];
     protected $sl = 0;
 
-    public function __construct($date_range, $from_date, $to_date, $vehicle_type, $city, $zone, $vehicle_no =[], $status, $customer ,$accountability_type)
+    public function __construct($date_range, $from_date, $to_date, $vehicle_type=[],$vehicle_model=[],$vehicle_make=[], $city=[], $zone=[], $vehicle_no =[], $status=[], $customer_id=[] ,$accountability_type=[])
     {
         $this->date_range   = $date_range;
         $this->from_date    = $from_date;
         $this->to_date      = $to_date;
-        $this->vehicle_type = $vehicle_type;
-        $this->city         = $city;
-        $this->zone         = $zone;
+        $this->vehicle_type = (array)$vehicle_type;
+        $this->vehicle_model = (array)$vehicle_model;
+        $this->vehicle_make = (array)$vehicle_make;
+        $this->city         = (array)$city;
+        $this->zone         = (array)$zone;
         $this->vehicle_no   = $vehicle_no;
-        $this->status   = $status;
-        $this->customer   = $customer;
-        $this->accountability_type   = $accountability_type;
+        $this->status   = (array)$status;
+        $this->customer_id   = (array)$customer_id;
+        $this->accountability_type   = (array)$accountability_type;
         
     }
 
@@ -56,29 +60,36 @@ class B2BAdminDeploymentReportExport implements FromCollection, WithHeadings, Wi
 
 
         $query->whereHas('VehicleRequest', function ($q) {
-            if (!empty($this->accountability_type)) {
-                $q->where('account_ability_type', $this->accountability_type);
+            if (!empty($this->accountability_type) && !in_array('all',$this->accountability_type)) {
+                $q->whereIn('account_ability_type', $this->accountability_type);
             }
-            if (!empty($this->city)) {
-                $q->where('city_id', $this->city);
+            if (!empty($this->city) && !in_array('all',$this->city)) {
+                $q->whereIn('city_id', $this->city);
             }
-            if (!empty($this->zone)) {
-                $q->where('zone_id', $this->zone);
+            if (!empty($this->zone) && !in_array('all',$this->zone)) {
+                $q->whereIn('zone_id', $this->zone);
             }
         });
 
         // Filter by Customer
         $query->whereHas('VehicleRequest.customerLogin.customer_relation', function ($q) {
-            if (!empty($this->customer)) {
-                $q->where('id', $this->customer);
+            if (!empty($this->customer_id) && !in_array('all',$this->customer_id)) {
+                $q->whereIn('id', $this->customer_id);
             }
         });
 
 
-        if ($this->vehicle_type) {
-            $query->whereHas('vehicle', fn($q) => $q->where('vehicle_type', $this->vehicle_type));
+        if (!empty($this->vehicle_type) && !in_array('all',$this->vehicle_type)) {
+            $query->whereHas('vehicle.quality_check', fn($q) => $q->whereIn('vehicle_type', $this->vehicle_type));
         }
-
+        
+        if (!empty($this->vehicle_model) && !in_array('all',$this->vehicle_model)) {
+            $query->whereHas('vehicle.quality_check', fn($q) => $q->whereIn('vehicle_model', $this->vehicle_model));
+        }
+        
+        if (!empty($this->vehicle_make) && !in_array('all',$this->vehicle_make)) {
+            $query->whereHas('vehicle.quality_check.vehicle_model_relation', fn($q) => $q->whereIn('make', $this->vehicle_make));
+        }
 
         if ($this->vehicle_no) {
             $vehicleNos = (array) $this->vehicle_no; // Ensure it's an array
@@ -117,8 +128,8 @@ class B2BAdminDeploymentReportExport implements FromCollection, WithHeadings, Wi
                   ->whereDate('created_at', '<=', $to);
         }
         
-        if ($this->status) {
-            $query->where('status', $this->status);
+        if (!empty($this->status) && !in_array('all',$this->status)) {
+            $query->whereIn('status', $this->status);
         }
 
         // $query->whereNotIn('status', ['returned']);
@@ -179,6 +190,7 @@ class B2BAdminDeploymentReportExport implements FromCollection, WithHeadings, Wi
             $row->vehicle->chassis_number ?? '-',
             $row->vehicle->vehicle_id ?? '-',
             $row->vehicle->vehicle_model_relation->make ?? '-',
+            $row->vehicle->vehicle_model_relation->vehicle_model ?? '-',
             $row->vehicle->vehicle_type_relation->name ?? '-',
             $battery_type ,
             $row->vehicle->quality_check->location_relation->city_name ?? '-',
@@ -214,6 +226,7 @@ class B2BAdminDeploymentReportExport implements FromCollection, WithHeadings, Wi
             'Chassis Number',
             'Vehicle ID' ,
             'Vehicle Make' ,
+            'Vehicle Model' ,
             'Vehicle Type' ,
             'Battery Type' ,
             'City' ,

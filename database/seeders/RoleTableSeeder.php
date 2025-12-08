@@ -164,6 +164,7 @@ class RoleTableSeeder extends Seeder
                 'customer_type_master',
                 'recovery_reason',
                 'recovery_updates_master',
+                'leasing_partner_master',
             ],
             'Zones' => [
                 'zone',

@@ -30,4 +30,36 @@ class GetZoneController extends Controller
             'data' => $zones
         ]);
     }
+    
+public function getMultiCityZones(Request $request)
+{
+    $cityIds = $request->city_id;
+
+    // When "all" → return all zones
+    if ($cityIds === "all" || (is_array($cityIds) && in_array("all", $cityIds))) {
+        $zones = Zones::where('status', 1)->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $zones
+        ]);
+    }
+
+    // Convert to array if single
+    if (!is_array($cityIds)) {
+        $cityIds = [$cityIds];
+    }
+
+    $zones = Zones::whereIn('city_id', $cityIds)
+                  ->where('status', 1)
+                  ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $zones
+    ]);
+}
+
+
+
 }

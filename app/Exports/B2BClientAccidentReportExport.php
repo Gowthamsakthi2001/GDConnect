@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -16,25 +15,50 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
     protected $date_range;
     protected $from_date;
     protected $to_date;
-    protected $vehicle_type;
-    protected $city;
-    protected $zone;
-    protected $vehicle_no;
-    protected $status;
-    protected $accountability_type;
+
+    protected $vehicle_type = [];
+    protected $city = [];
+    protected $zone = [];
+    protected $vehicle_no = [];
+    protected $status = [];
+    protected $accountability_type = [];
+    protected $vehicle_model = [];
+    protected $vehicle_make = [];
+
     protected $sl = 0;
 
-    public function __construct($date_range, $from_date, $to_date, $vehicle_type, $city, $zone, $vehicle_no = [] , $status , $accountability_type)
-    {
+    public function __construct(
+        $date_range,
+        $from_date,
+        $to_date,
+        $vehicle_type = [],
+        $city = [],
+        $zone = [],
+        $vehicle_no = [],
+        $status = [],
+        $accountability_type = [],
+        $vehicle_model = [],
+        $vehicle_make = []
+    ) {
         $this->date_range   = $date_range;
         $this->from_date    = $from_date;
         $this->to_date      = $to_date;
-        $this->vehicle_type = $vehicle_type;
-        $this->city         = $city;
-        $this->zone         = $zone;
-        $this->vehicle_no   = $vehicle_no;
-        $this->status       = $status;
-        $this->accountability_type       = $accountability_type;
+
+        $this->vehicle_type = (array) $vehicle_type;
+        $this->city         = (array) $city;
+        $this->zone         = (array) $zone;
+        $this->vehicle_no   = (array) $vehicle_no;
+        $this->vehicle_model = (array) $vehicle_model;
+        $this->vehicle_make  = (array) $vehicle_make;
+        $this->accountability_type = (array) $accountability_type;
+        
+        // Status safe handling
+        if (!empty($status) && is_string($status[0])) {
+            $this->status = explode(',', $status[0]);
+        } else {
+            $this->status = (array) $status;
+        }
+ 
     }
 
     public function collection()
@@ -59,44 +83,61 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
             'assignment.VehicleRequest.accountAbilityRelation'
         ]);
 
-        // Core filters
+        // VEHICLE REQUEST FILTER
         $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+
             if ($customerLoginIds->isNotEmpty()) {
                 $q->whereIn('created_by', $customerLoginIds);
             }
 
-            if (!empty($this->accountability_type)) {
-                    $q->where('account_ability_type', $this->accountability_type);
-                }
-                        
+            if (!empty(array_filter($this->accountability_type))) {
+                $q->whereIn('account_ability_type', $this->accountability_type);
+            }
+
             if ($guard === 'master') {
                 $q->where('city_id', $user->city_id);
-                if (!empty($this->zone)) {
-                    $q->where('zone_id', $this->zone);
+
+                if (!empty(array_filter($this->zone))) {
+                    $q->whereIn('zone_id', $this->zone);
                 }
+
             } elseif ($guard === 'zone') {
-                $zoneId = !empty($this->zone) ? $this->zone : $user->zone_id;
+                $zoneId = !empty($this->zone) ? $this->zone : [$user->zone_id];
+
                 $q->where('city_id', $user->city_id)
-                  ->where('zone_id', $zoneId);
+                  ->whereIn('zone_id', $zoneId);
             }
         });
 
-        // Vehicle type filter
-        if (!empty($this->vehicle_type)) {
-            $query->whereHas('assignment.vehicle', function ($v) {
-                $v->where('vehicle_type', $this->vehicle_type);
+        // VEHICLE MODEL FILTER
+        if (!empty(array_filter($this->vehicle_model))) {
+            $query->whereHas('assignment.vehicle', function ($q) {
+                $q->whereIn('model', $this->vehicle_model);
             });
         }
 
-        // Vehicle number filter (multi-select)
-        if (!empty($this->vehicle_no)) {
-            $vehicleNos = (array)$this->vehicle_no;
-            $query->whereHas('assignment.vehicle', function ($v) use ($vehicleNos) {
-                $v->whereIn('id', $vehicleNos);
+        // VEHICLE TYPE FILTER
+        if (!empty(array_filter($this->vehicle_type))) {
+            $query->whereHas('assignment.vehicle', function ($q) {
+                $q->whereIn('vehicle_type', $this->vehicle_type);
             });
         }
 
-        // Date range filter
+        // VEHICLE MAKE FILTER
+        if (!empty(array_filter($this->vehicle_make))) {
+            $query->whereHas('assignment.vehicle.vehicle_model_relation', function ($q) {
+                $q->whereIn('make', $this->vehicle_make);
+            });
+        }
+
+        // VEHICLE NO FILTER
+        if (!empty(array_filter($this->vehicle_no))) {
+            $query->whereHas('assignment.vehicle', function ($q) {
+                $q->whereIn('id', $this->vehicle_no);
+            });
+        }
+
+        // DATE RANGE FILTER
         $from = $this->from_date;
         $to   = $this->to_date;
 
@@ -113,7 +154,7 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
                 $to   = now()->toDateString();
                 break;
             case 'custom':
-                // already passed via constructor
+                // already set
                 break;
             default:
                 $from = $to = now()->toDateString();
@@ -123,9 +164,10 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
         if ($from && $to) {
             $query->whereBetween(DB::raw('DATE(created_at)'), [$from, $to]);
         }
-        
-        if(!empty($request->status)){
-            $query->where('status' , $request->status);
+
+        // STATUS FILTER
+        if (!empty(array_filter($this->status))) {
+            $query->whereIn('status', $this->status);
         }
 
         return $query->orderByDesc('id')->get();
@@ -136,42 +178,43 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
         $this->sl++;
 
         $statusTextMap = [
-            'claimed_initiated' => 'Claimed Initiated',
-            'insurer_visit_confirmed' => 'Insurer Visit Confirmed',
-            'inspection_completed' => 'Inspection Completed',
-            'approval_pending' => 'Approval Pending',
-            'repair_started' => 'Repair Started',
-            'repair_completed' => 'Repair Completed',
-            'invoice_submitted' => 'Invoice Submitted',
-            'payment_approved' => 'Payment Approved',
-            'claim_closed' => 'Claim Closed (Settled)',
+            'claimed_initiated'         => 'Claimed Initiated',
+            'insurer_visit_confirmed'   => 'Insurer Visit Confirmed',
+            'inspection_completed'      => 'Inspection Completed',
+            'approval_pending'          => 'Approval Pending',
+            'repair_started'            => 'Repair Started',
+            'repair_completed'          => 'Repair Completed',
+            'invoice_submitted'         => 'Invoice Submitted',
+            'payment_approved'          => 'Payment Approved',
+            'claim_closed'              => 'Claim Closed (Settled)',
         ];
-        
-        $status = '-';
-        if (!empty($row->status)) {
-            $status = $statusTextMap[$row->status] ?? ucfirst(str_replace('_', ' ', $row->status));
-        }
-        $createdAt = $row->created_at ? Carbon::parse($row->created_at)->format('d M Y h:i A') : '-';
 
+        $status = $statusTextMap[$row->status] ?? ($row->status ? ucfirst(str_replace('_', ' ', $row->status)) : '-');
+
+        $createdAt = $row->created_at
+            ? Carbon::parse($row->created_at)->format('d M Y h:i A')
+            : '-';
+
+        // ATTACHMENTS
         $accidentAttachments = '-';
         if (!empty($row->accident_attachments)) {
-            $attachments = json_decode($row->accident_attachments, true);
-            if (is_array($attachments) && count($attachments)) {
-                $urls = array_map(fn($file) => asset('public/b2b/accident_reports/attachments/'.$file), $attachments);
-                $accidentAttachments = implode(', ', $urls);
+            $files = json_decode($row->accident_attachments, true);
+            if (is_array($files) && count($files)) {
+                $accidentAttachments = implode(', ', array_map(function ($file) {
+                    return asset('public/b2b/accident_reports/attachments/' . $file);
+                }, $files));
             }
         }
-    
-    
+
+        // POLICE REPORT
         $policeReport = '-';
         if (!empty($row->police_report)) {
             $report = json_decode($row->police_report, true);
-            if (isset($report['name'])) {
-                $policeReport = asset('public/b2b/accident_reports/police_reports/'.$report['name']);
+            if (!empty($report['name'])) {
+                $policeReport = asset('public/b2b/accident_reports/police_reports/' . $report['name']);
             }
         }
-    
-    
+
         return [
             $this->sl,
             $row->assignment->VehicleRequest->req_id ?? '-',
@@ -179,6 +222,7 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
             $row->assignment->vehicle->permanent_reg_number ?? '-',
             $row->assignment->vehicle->chassis_number ?? '-',
             $row->assignment->vehicle->vehicle_id ?? '-',
+            $row->assignment->vehicle->vehicle_model_relation->vehicle_model ?? '-',
             $row->assignment->vehicle->vehicle_model_relation->make ?? '-',
             $row->assignment->vehicle->vehicle_type_relation->name ?? '-',
             $row->assignment->vehicle->quality_check->location_relation->city_name ?? '-',
@@ -194,12 +238,11 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
             $row->third_party_injury_description ?? '-',
             $accidentAttachments,
             $policeReport,
-            $createdAt ,
+            $createdAt,
             $status
         ];
     }
-    
-    
+
     public function headings(): array
     {
         return [
@@ -209,6 +252,7 @@ class B2BClientAccidentReportExport implements FromCollection, WithHeadings, Wit
             'Vehicle Number',
             'Chassis Number',
             'Vehicle ID',
+            'Vehicle Model',
             'Vehicle Make',
             'Vehicle Type',
             'City',

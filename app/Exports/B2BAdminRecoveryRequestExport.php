@@ -14,23 +14,31 @@ class B2BAdminRecoveryRequestExport implements FromCollection, WithHeadings, Wit
     protected $to_date;
     protected $selectedIds;
     protected $selectedFields;
-    protected $city;
-    protected $zone;
-    protected $status;
-    protected $accountability_type; //updated by logesh
-    protected $customer_id; //updated by logesh
+    protected $city=[];
+    protected $zone=[];
+    protected $accountability_type=[]; //updated by logesh
+    protected $customer_id=[]; //updated by logesh
+    protected $status=[]; //updated by logesh
+    protected $vehicle_type=[]; //updated by logesh
+    protected $vehicle_model=[]; //updated by logesh
+    protected $vehicle_make=[]; //updated by logesh
+    protected $date_filter; //updated by Mugesh
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null,$status=null,$accountability_type = null,$customer_id=null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [],$status=[],$accountability_type = [],$customer_id=[] , $vehicle_type=[] , $vehicle_model=[],$vehicle_make=[], $date_filter)
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
         $this->selectedIds    = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->city           = $city;
-        $this->zone           = $zone;
-        $this->status           = $status;
-        $this->accountability_type = $accountability_type; //updated by logesh
-        $this->customer_id = $customer_id; //updated by logesh
+        $this->city           = (array)$city;
+        $this->zone           = (array)$zone;
+        $this->accountability_type = (array)$accountability_type; //updated by logesh
+        $this->customer_id =(array) $customer_id; //updated by logesh
+        $this->status = (array)$status; //updated by logesh
+        $this->vehicle_type =(array) $vehicle_type; //updated by logesh
+        $this->vehicle_model = (array)$vehicle_model; //updated by logesh
+        $this->vehicle_make =(array) $vehicle_make; //updated by logesh
+        $this->date_filter = $date_filter; //updated by Mugesh
     }
 
     public function collection()
@@ -39,24 +47,74 @@ class B2BAdminRecoveryRequestExport implements FromCollection, WithHeadings, Wit
             'assignment.VehicleRequest.city',
             'assignment.VehicleRequest.zone',
             'assignment.vehicle',
+            'assignment.vehicle.quality_check',
             'assignment.rider.customerlogin.customer_relation'
         ]);
 
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
         } else {
-            if ($this->city) {
+            if (!empty($this->city) && !in_array('all',$this->city)) {
                 $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->where('city_id', $this->city);
+                    $q->whereIn('city_id', $this->city);
                 });
             }
 
-            if ($this->zone) {
+            if (!empty($this->zone) && !in_array('all',$this->zone)) {
                 $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->where('zone_id', $this->zone);
+                    $q->whereIn('zone_id', $this->zone);
                 });
             }
-
+            
+            if (!empty($this->vehicle_model) && !in_array('all',$this->vehicle_model)) {
+                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
+                    $q->whereIn('vehicle_model', $this->vehicle_model);
+                });
+            }
+            
+            if (!empty($this->vehicle_type) && !in_array('all',$this->vehicle_type)) {
+                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
+                    $q->whereIn('vehicle_type', $this->vehicle_type);
+                });
+            }
+            
+            if (!empty($this->vehicle_make) && !in_array('all',$this->vehicle_make)) {
+                $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($q) {
+                    $q->whereIn('make', $this->vehicle_make);
+                });
+            }
+            
+            
+            if (!empty($this->date_filter)) {
+                switch ($this->date_filter) {
+            
+                    case 'today':
+                        $query->whereDate('created_at', today());
+                        break;
+            
+                    case 'week':
+                        $query->whereBetween('created_at', [
+                            now()->startOfWeek(),
+                            now()->endOfWeek(),
+                        ]);
+                        break;
+                    case 'last_15_days':
+                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
+                              ->whereYear('created_at', now()->endOfDay());
+                        break;
+                    case 'month':
+                        $query->whereMonth('created_at', now()->month)
+                              ->whereYear('created_at', now()->year);
+                        break;
+            
+                    case 'year':
+                        $query->whereYear('created_at', now()->year);
+                        break;
+            
+                    // custom handled outside
+                }
+            }
+            
             if ($this->from_date) {
                 $query->whereDate('created_at', '>=', $this->from_date);
             }
@@ -65,19 +123,19 @@ class B2BAdminRecoveryRequestExport implements FromCollection, WithHeadings, Wit
                 $query->whereDate('created_at', '<=', $this->to_date);
             }
             
-            if ($this->status) {
-                $query->where('status', $this->status);
+            if (!empty($this->status) && !in_array('all',$this->status)) {
+                $query->whereIn('status', $this->status);
             }
             //updated by logesh
-            if ($this->accountability_type) {
+            if (!empty($this->accountability_type) && !in_array('all',$this->accountability_type)) {
                 $query->wherehas('assignment.VehicleRequest', function ($p) {
-                     $p->where('account_ability_type', $this->accountability_type);
+                     $p->whereIn('account_ability_type', $this->accountability_type);
                 });
             }
             //updated by logesh
-            if ($this->customer_id) {
+            if (!empty($this->customer_id) && !in_array('all',$this->customer_id)) {
                 $query->wherehas('assignment.VehicleRequest.rider.customerLogin.customer_relation', function ($p) {
-                     $p->where('id', $this->customer_id);
+                     $p->whereIn('id', $this->customer_id);
                 });
             }
         }
@@ -121,7 +179,19 @@ class B2BAdminRecoveryRequestExport implements FromCollection, WithHeadings, Wit
                 case 'chassis_number':
                     $mapped[] = $row->assignment->vehicle->chassis_number ?? '-';
                     break;
-
+                
+                case 'vehicle_type':
+                    $mapped[] = $row->assignment->vehicle->vehicle_type_relation->name?? '-';
+                    break;
+                    
+                case 'vehicle_model':
+                    $mapped[] = $row->assignment->vehicle->vehicle_model_relation->vehicle_model?? '-';
+                    break;
+                    
+                case 'vehicle_make':
+                    $mapped[] = $row->assignment->vehicle->vehicle_model_relation->make?? '-';
+                    break;
+                    
                 case 'mobile_no':
                     $mapped[] = $row->assignment->rider->mobile_no ?? '-';
                     break;
@@ -230,6 +300,9 @@ class B2BAdminRecoveryRequestExport implements FromCollection, WithHeadings, Wit
             'accountability_type'    => 'Accountablity Type', //updated by logesh
             'vehicle_no'    => 'Vehicle Number',
             'chassis_number'=> 'Chassis Number',
+            'vehicle_type'    => 'Vehicle Type',
+            'vehicle_model'    => 'Vehicle Model',
+            'vehicle_make'    => 'Vehicle Make',
             'rider_name'    => 'Rider Name',
             'mobile_no'     => 'Mobile No',
             'city'          => 'City',
