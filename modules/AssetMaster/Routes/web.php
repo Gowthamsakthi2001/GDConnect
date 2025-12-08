@@ -136,7 +136,6 @@ Route::prefix('admin/Green-Drive-Ev/asset-master/vehicle-management') //updated 
         Route::get('/dashboard', 'asset_manage_dashboard')->name('dashboard');
     });
     
-    
 Route::prefix('admin/asset-management/') //updated by Gowtham.s
 ->as('admin.asset_management.asset_master.')
 ->controller(AssetMasterController::class)
@@ -146,6 +145,7 @@ Route::prefix('admin/asset-management/') //updated by Gowtham.s
     Route::get('/inventory-summary-filter', 'inventory_summary_filter')->name('inventory_summary.filter');
     Route::get('/get-customer-name', 'get_customer_name')->name('inventory_summary.get_name');
     Route::get('/dashboard-overall-data', 'get_dashboard_overall_data')->name('dashboard.get_overall_data');
+    Route::get('/citywize-fetch-data', 'fetch_city_wise_data')->name('dashboard.fetch_city_wise_data');
 });
     
 Route::prefix('admin/asset-management/asset-master') //updated by Gowtham.s
@@ -194,6 +194,10 @@ Route::prefix('admin/asset-management/asset-master')
         Route::post('/export/inventory-detail', 'export_inventory_detail')->name('export.inventory_detail');
         Route::get('/inventory-edit/{id}', 'edit')->name('inventory.edit');
         Route::post('/inventory-update', 'update')->name('inventory.update');
+        Route::get('/inventory/bulk-upload-form', 'inventory_bulk_upload_form')->name('inventory.view.bulk_upload');
+        Route::post('/inventory/bulk-upload-data', 'bulk_upload_data')->name('inventory.bulk_upload_data');
+        Route::get('/download/import-error-file/{filename}', 'downloadErrorFile')->name('inventory.import.error.file');
+        
     });
 
 
@@ -217,7 +221,8 @@ Route::prefix('admin/asset-management/quality-check') //updated by Mugesh.B
     Route::get('/export-quality-check', 'export_quality_check')->name('export_quality_check');
     Route::get('Quality-check-excel-download', 'Quality_Check_Excel_download')->name('Excel_download');
     Route::get('quality-check-import-verify', 'quality_check_import_verify')->name('quality_check_import_verify');
-        Route::post('/delete', 'destroy')->name('destroy');
+    Route::post('/delete', 'destroy')->name('destroy');
+    Route::get('/bypass', 'qc_bulk_pass');
 });
 
 
@@ -301,6 +306,7 @@ Route::prefix('admin/asset-management/qc-check-list') //updated by Gowtham.s
      Route::post('/create', 'create')->name('create');
     Route::post('/update-status', 'update_status')->name('status_update');
     Route::get('/export', 'export_qc_check_lists')->name('export');
+    
 });
 
 

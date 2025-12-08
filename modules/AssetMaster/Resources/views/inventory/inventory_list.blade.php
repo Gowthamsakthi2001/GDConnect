@@ -95,8 +95,11 @@
                         <div class="col-md-6 d-flex gap-2 align-items-center justify-content-end">
                            
                             <div class="text-center d-flex gap-2">
+                                <a href="{{route('admin.asset_management.asset_master.inventory.view.bulk_upload')}}" class="m-2 bg-white p-2 px-3 border-gray text-dark">
+                                    <i class="bi bi-upload fs-17 me-1"></i> Bulk Upload
+                                </a>
                                  <div class="m-2 bg-white p-2 px-3 border-gray">
-                                     
+                                    
                                     <button type="button" id="exportBtn" class="bg-white text-dark border-0">
                                           <i class="bi bi-download fs-17 me-1"></i> Export
                                     </button>
@@ -381,6 +384,16 @@
                         </div>
                       </div>
                     </div>
+                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="leasing_partner">Leasing Partner</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input get-export-label" type="checkbox" id="leasing_partner" value="leasing_partner">
+                        </div>
+                      </div>
+                    </div>
+                    
                     
                     <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -940,6 +953,63 @@
                 <button class="btn btn-success w-50" onclick="applyInventoryFilter()">Apply</button>
             </div>
          
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select Time Line</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <!--<div class="form-check mb-3">-->
+                    <!--  <input class="form-check-input select_time_line" type="radio" value="today" {{ request('timeline') == 'today' ? 'checked' : '' }} name="STtimeLine" id="timeLine1">-->
+                    <!--  <label class="form-check-label" for="timeLine1">-->
+                    <!--    Today-->
+                    <!--  </label>-->
+                    <!--</div>-->
+                    <!--<div class="form-check mb-3">-->
+                    <!--  <input class="form-check-input select_time_line" type="radio" value="this_week" {{ request('timeline') == 'this_week' ? 'checked' : '' }} name="STtimeLine" id="timeLine2">-->
+                    <!--  <label class="form-check-label" for="timeLine2">-->
+                    <!--   This Week-->
+                    <!--  </label>-->
+                    <!--</div>-->
+                    <!--<div class="form-check mb-3">-->
+                    <!--  <input class="form-check-input select_time_line" type="radio" value="this_month" {{ request('timeline') == 'this_month' ? 'checked' : '' }} name="STtimeLine" id="timeLine3">-->
+                    <!--  <label class="form-check-label" for="timeLine3">-->
+                    <!--   This Month-->
+                    <!--  </label>-->
+                    <!--</div>-->
+                    <!--<div class="form-check mb-3">-->
+                    <!--  <input class="form-check-input select_time_line" type="radio" value="this_year" {{ request('timeline') == 'this_year' ? 'checked' : '' }} name="STtimeLine" id="timeLine4">-->
+                    <!--  <label class="form-check-label" for="timeLine4">-->
+                    <!--   This Year-->
+                    <!--  </label>-->
+                    <!--</div>-->
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select id="quick_date_filter" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="today">Today</option>
+                            <option value="this_week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="this_month">This Month</option>
+                            <option value="this_year">This Year</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">From Date</label>
+                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="ToDate">To Date</label>
+                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                    </div>
+                    
+               </div>
+            </div>
+            
            <div class="card mb-3">
                <div class="card-header p-2">
                    <div><h6 class="custom-dark">Select Status</h6></div>
@@ -969,9 +1039,9 @@
 
                      <div class="mb-3">
                         <label class="form-label" for="status">Select Status</label>
-                        <select name="status" id="status" class="form-control custom-select2-field">
-                            <option value="all" {{ request('status', 'all') == 'all' ? 'selected' : '' }}>All</option>
-                    
+                        <select name="status[]" id="status" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Status</option>
+                            <option value="all">All</option>
                             @if(isset($inventory_locations))
                                 @foreach($inventory_locations as $data)
                                     <option value="{{ $data->id }}" {{ request('status') == $data->id ? 'selected' : '' }}>
@@ -988,14 +1058,14 @@
            </div>
             <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select City</h6></div>
+                   <div><h6 class="custom-dark">Select Options</h6></div>
                </div>
                <div class="card-body">
- 
                     <div class="mb-3">
-                        <label class="form-label" for="FromDate">City</label>
-                        <select name="city_id" id="city_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
-                            <option value="">Select</option>
+                        <label class="form-label" for="city_id">City</label>
+                        <select name="city_id[]" id="city_id" class="form-control custom-select2-field" onchange="getMultiZones()" multiple>
+                            <option value="" disabled>Select City</option>
+                            <option value="all">All</option>
                             @if(isset($locations))
                             @foreach($locations as $l)
                             <option value="{{$l->id}}" {{ $city == $l->id ? 'selected' : '' }}>{{$l->city_name}}</option>
@@ -1004,32 +1074,53 @@
 
                         </select>
                     </div>
-               </div>
-            </div>
-
-
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Zone</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="zone_id">Zone</label>
-                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
-                            <option value="">Select a city first</option>
+                    
+                   <div class="mb-3">
+                        <label class="form-label" for="zone_id">Select Zone</label>
+                        <select name="zone_id[]" id="zone_id" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select a city first</option>
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    <div class="mb-3">
+                        <label class="form-label" for="v_type">Vehicle Type</label>
+                        <select name="v_type[]" id="v_type" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Type</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_types))
+                                @foreach($vehicle_types as $val)
+                                <option value="{{$val->id}}" {{ $vehicle_type == $val->id ? 'selected' : '' }}>{{$val->name}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+                    
+                     <div class="mb-3">
+                        <label class="form-label" for="v_model">Vehicle Model</label>
+                        <select name="v_model[]" id="v_model" class="form-control custom-select2-field" multiple>
+                             <option value="" disabled>Select Model</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" {{ $vehicle_model == $val->id ? 'selected' : '' }}>{{$val->vehicle_model}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                     <div class="mb-3">
+                        <label class="form-label" for="v_make">Vehicle Make</label>
+                        <select name="v_make[]" id="v_make" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Make</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" {{ $vehicle_model == $val->id ? 'selected' : '' }}>{{$val->make}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div> 
+                    
+                    
+                    
                     <div class="mb-3">
                         <label class="form-label" for="accountability_type_id">Accountability Type</label>
                         <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">
@@ -1042,20 +1133,12 @@
 
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Customer</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    
                     <div class="mb-3">
-                        <label class="form-label" for="accountability_type_id">Customer</label>
-                        <select name="customer_id" id="customer_id" class="form-control custom-select2-field">
-                            <option value="">Select</option>
+                        <label class="form-label" for="customer_id">Customer</label>
+                        <select name="customer_id[]" id="customer_id" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Customer</option>
+                            <option value="all">All</option>
                             @if(isset($customers))
                             @foreach($customers as $customer)
                             <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>
@@ -1063,58 +1146,87 @@
                             @endif
                         </select>
                     </div>
-               </div>
-            </div>
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Time Line</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="today" {{ request('timeline') == 'today' ? 'checked' : '' }} name="STtimeLine" id="timeLine1">
-                      <label class="form-check-label" for="timeLine1">
-                        Today
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="this_week" {{ request('timeline') == 'this_week' ? 'checked' : '' }} name="STtimeLine" id="timeLine2">
-                      <label class="form-check-label" for="timeLine2">
-                       This Week
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="this_month" {{ request('timeline') == 'this_month' ? 'checked' : '' }} name="STtimeLine" id="timeLine3">
-                      <label class="form-check-label" for="timeLine3">
-                       This Month
-                      </label>
-                    </div>
-                    <div class="form-check mb-3">
-                      <input class="form-check-input select_time_line" type="radio" value="this_year" {{ request('timeline') == 'this_year' ? 'checked' : '' }} name="STtimeLine" id="timeLine4">
-                      <label class="form-check-label" for="timeLine4">
-                       This Year
-                      </label>
-                    </div>
-               </div>
-            </div>
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">From Date</label>
-                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{$from_date}}">
-                    </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label" for="ToDate">To Date</label>
-                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{$to_date}}">
-                    </div>
-  
                </div>
             </div>
+
+
+            <!--<div class="card mb-3">-->
+            <!--   <div class="card-header p-2">-->
+            <!--       <div><h6 class="custom-dark">Select Zone</h6></div>-->
+            <!--   </div>-->
+            <!--   <div class="card-body">-->
+ 
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="zone_id">Zone</label>-->
+            <!--            <select name="zone_id" id="zone_id" class="form-control custom-select2-field">-->
+            <!--                <option value="">Select a city first</option>-->
+            <!--            </select>-->
+            <!--        </div>-->
+            <!--   </div>-->
+            <!--</div>-->
+            
+            
+            <!--<div class="card mb-3">-->
+            <!--   <div class="card-header p-2">-->
+            <!--       <div><h6 class="custom-dark">Select Accountability Type</h6></div>-->
+            <!--   </div>-->
+            <!--   <div class="card-body">-->
+ 
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="accountability_type_id">Accountability Type</label>-->
+            <!--            <select name="accountability_type_id" id="accountability_type_id" class="form-control custom-select2-field">-->
+            <!--                <option value="">Select</option>-->
+            <!--                @if(isset($accountablity_types))-->
+            <!--                @foreach($accountablity_types as $type)-->
+            <!--                <option value="{{$type->id}}" {{ $accountability_type == $type->id ? 'selected' : '' }}>{{$type->name ?? ''}}</option>-->
+            <!--                @endforeach-->
+            <!--                @endif-->
+
+            <!--            </select>-->
+            <!--        </div>-->
+            <!--   </div>-->
+            <!--</div>-->
+            
+            
+            <!--<div class="card mb-3">-->
+            <!--   <div class="card-header p-2">-->
+            <!--       <div><h6 class="custom-dark">Select Customer</h6></div>-->
+            <!--   </div>-->
+            <!--   <div class="card-body">-->
+ 
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="accountability_type_id">Customer</label>-->
+            <!--            <select name="customer_id" id="customer_id" class="form-control custom-select2-field">-->
+            <!--                <option value="">Select</option>-->
+            <!--                @if(isset($customers))-->
+            <!--                @foreach($customers as $customer)-->
+            <!--                <option value="{{$customer->id}}" {{ $customer_id == $customer->id ? 'selected' : '' }}>{{$customer->trade_name ?? ''}}</option>-->
+            <!--                @endforeach-->
+            <!--                @endif-->
+            <!--            </select>-->
+            <!--        </div>-->
+            <!--   </div>-->
+            <!--</div>-->
+
+           <!--<div class="card mb-3">-->
+           <!--    <div class="card-header p-2">-->
+           <!--        <div><h6 class="custom-dark">Date Between</h6></div>-->
+           <!--    </div>-->
+           <!--    <div class="card-body">-->
+ 
+           <!--         <div class="mb-3">-->
+           <!--             <label class="form-label" for="FromDate">From Date</label>-->
+           <!--             <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{$from_date}}">-->
+           <!--         </div>-->
+                    
+           <!--         <div class="mb-3">-->
+           <!--             <label class="form-label" for="ToDate">To Date</label>-->
+           <!--             <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{$to_date}}">-->
+           <!--         </div>-->
+  
+           <!--    </div>-->
+           <!-- </div>-->
          
             <div class="d-flex gap-2 mb-3">
                 <button class="btn btn-outline-secondary w-50" onclick="clearInventoryFilter()">Clear All</button>
@@ -1130,6 +1242,127 @@
 
 <script>
     
+function toggleDateFields() {
+    let value = $("#quick_date_filter").val();
+
+    if (value === "custom") {
+        $("#FromDate").closest(".mb-3").show();
+        $("#ToDate").closest(".mb-3").show();
+    } else {
+        $("#FromDate").closest(".mb-3").hide();
+        $("#ToDate").closest(".mb-3").hide();
+        $("#FromDate").val("");
+        $("#ToDate").val("");
+    }
+}
+
+toggleDateFields();
+
+$("#quick_date_filter").on("change", function () {
+    toggleDateFields();
+});
+
+function initSelectAll(selector) {
+          let internalChange = false;
+          $(document).on("mousedown touchstart", selector, function () {
+            const prev = $(this).val() || [];
+            $(this).data("prevSelection", prev);
+          });
+          $(document).on("focus", selector, function () {
+            const prev = $(this).val() || [];
+            $(this).data("prevSelection", prev);
+          });
+          $(selector).on("change", function () {
+            if (internalChange) return;
+            const $el = $(this);
+            let prev = $el.data("prevSelection") || [];
+            let current = $el.val() || [];
+            prev = prev.map(String);
+            current = current.map(String);
+            internalChange = true;
+            if (prev.includes("all") && current.includes("all") && current.length > 1) {
+              const cleaned = current.filter((v) => v !== "all");
+              $el.val(cleaned).trigger("change.select2");
+              $el.data("prevSelection", cleaned);
+              internalChange = false;
+              return;
+            }
+            if (!prev.includes("all") && current.includes("all")) {
+              $el.val(["all"]).trigger("change.select2");
+              $el.data("prevSelection", ["all"]);
+              internalChange = false;
+              return;
+            }
+            if (current.includes("all") && current.length > 1) {
+              $el.val(["all"]).trigger("change.select2");
+              $el.data("prevSelection", ["all"]);
+              internalChange = false;
+              return;
+            }
+            if (!current.includes("all")) {
+              const cleaned = current.filter((v) => v !== "all");
+              if (cleaned.length !== current.length) {
+                $el.val(cleaned).trigger("change.select2");
+                $el.data("prevSelection", cleaned);
+                internalChange = false;
+                return;
+              }
+            }
+            $el.data("prevSelection", current);
+            internalChange = false;
+          });
+    }
+$(document).ready(function () {
+    
+  initSelectAll("#status");
+  initSelectAll("#v_type");
+  initSelectAll("#v_model");
+  initSelectAll("#v_make");
+  initSelectAll("#v_model");
+  initSelectAll("#v_make");
+  initSelectAll("#city_id");
+  initSelectAll("#zone_id");
+  initSelectAll("#customer_id");
+});
+function getMultiZones() {
+      let cityIds = $("#city_id").val();
+      console.log(cityIds);
+      let ZoneDropdown = $("#zone_id");
+      ZoneDropdown.empty().append('<option value="">Loading...</option>');
+      if (cityIds && cityIds.length > 0) {
+        $.ajax({
+          url: "{{ route('global.get_multi_city_zones') }}",
+          type: "GET",
+          data: { city_id: cityIds }, // pass array
+          success: function (response) {
+            ZoneDropdown.empty()
+              .append('<option value="" disabled>Select Zone</option>')
+              .append('<option value="all">All</option>');
+            if (response.data && response.data.length > 0) {
+              $.each(response.data, function (key, zone) {
+                ZoneDropdown.append(
+                  `<option value="${zone.id}">${zone.name}</option>`
+                );
+              });
+            } else {
+              ZoneDropdown.append(
+                '<option value="" disabled>No Zones available</option>'
+              );
+            }
+          },
+          error: function () {
+            ZoneDropdown.empty().append(
+              '<option value="" disabled>Error loading zones</option>'
+            );
+          },
+        });
+      } else {
+        ZoneDropdown.empty().append(
+          '<option value="" disabled>Select a city first</option>'
+        );
+      }
+    }
+
 $(document).ready(function () {
     
     $('#loadingOverlay').show();
@@ -1143,13 +1376,15 @@ $(document).ready(function () {
                 type: "GET",
                 data: function (d) {
                     // Pass filter data to the server
-                    d.status = $('#status').val();
-                    d.city = $('#city_id').val();
+                    d.status = $('#status').val() || [];
+                    d.city = $('#city_id').val() || [];
                     d.from_date = $('#FromDate').val();
                     d.to_date = $('#ToDate').val();
-                    d.timeline = $('input[name="STtimeLine"]:checked').val();
-                    d.zone = $('#zone_id').val();
-                    d.customer = $('#customer_id').val();
+                    d.timeline  = $('#quick_date_filter').val() || ''; 
+                    d.vehicle_type = $('#v_type').val() || [];
+                    d.vehicle_model = $('#v_model').val() || [];
+                    d.zone = $('#zone_id').val() || [];
+                    d.customer = $('#customer_id').val() || [];
                     d.accountability_type = $('#accountability_type_id').val();
                 },
                  beforeSend: function() {
@@ -1276,11 +1511,21 @@ $(document).ready(function () {
 function applyInventoryFilter() {
     // Get filter values
     const status = $('input[name="status"]:checked').val();
-    const timeline = $('input[name="STtimeLine"]:checked').val();
-    const from_date = $('#FromDate').val();
-    const to_date = $('#ToDate').val();
+    var timeline = $("#quick_date_filter").val();
+    var from_date = $("#FromDate").val();
+    var to_date = $("#ToDate").val();
+
+    if (timeline === "custom") {
+        timeline = '';
+    } else {
+        fromDate = '';
+        toDate = '';
+    }
+    const vehicle_type = $('#v_type').val();
+    const vehicle_model = $('#v_model').val();
+    const vehicle_make = $('#v_make').val();
     const customer_id = $('#customer_id').val();
-    const city = $('#city_id').val(); // Changed from location_id to city_id
+    const city = $('#city_id').val(); 
 
     // Validate date range if either date is provided
     if (from_date || to_date) {
@@ -1299,17 +1544,18 @@ function applyInventoryFilter() {
         bsOffcanvas.hide();
     }
 }
-
 function clearInventoryFilter() {
     // Reset all filter inputs
-    $('input[name="status"][value="all"]').prop('checked', true);
-    $('input[name="STtimeLine"]').prop('checked', false);
-    $('#FromDate').val('');
-    $('#customer_id').val('');
-    $('#ToDate').val('');
-     $('#city_id').val('').trigger('change');
+    $('#status').val([]).trigger('change');
+    $("#quick_date_filter").val('').trigger('change');
+    toggleDateFields();
+    $('#customer_id').val([]).trigger('change');
+    $('#city_id').val([]).trigger('change');
+    $('#v_model').val([]).trigger('change');
+    $('#v_make').val([]).trigger('change');
+    $('#v_type').val([]).trigger('change');
     $('#accountability_type_id').val('').trigger('change');
-    $('#zone_id').val('').trigger('change');
+    $('#zone_id').val([]).trigger('change');
     // Reload DataTable with cleared filters
     $('#InventoryTable_List').DataTable().ajax.reload();
     
@@ -1320,66 +1566,6 @@ function clearInventoryFilter() {
     }
 }
 
-
-    
-    
-    
-    
-    
-    // function applyInventoryFilter() {
-    //     const selectedStatus = document.querySelector('input[name="status"]:checked');
-    //     const status = document.getElementById('status').value;
-    //      const selectedTimeline = document.querySelector('input[name="STtimeLine"]:checked');
-    //      const timeline = selectedTimeline ? selectedTimeline.value : '';
-    //     const from_date = document.getElementById('FromDate').value;
-    //     const to_date = document.getElementById('ToDate').value;
-    //     const city = document.getElementById('city_id').value;
-        
-    //     if(from_date != "" || to_date != ""){
-    //         if(to_date == "" || from_date == ""){
-    //             toastr.error("From Date and To Date is must be required");
-    //             return;
-    //         }
-            
-    //     }
-        
-    
-    //     const url = new URL(window.location.href);
-    //     url.searchParams.set('status', status);
-    //      url.searchParams.set('city', city);
-    //     // url.searchParams.set('from_date', from_date);
-    //     // url.searchParams.set('to_date', to_date);
-        
-    // if (from_date && to_date) {
-    //     // Use from_date and to_date, remove timeline
-    //     url.searchParams.set('from_date', from_date);
-    //     url.searchParams.set('to_date', to_date);
-    //     url.searchParams.delete('timeline');
-    // } else if (timeline) {
-    //     // Use timeline, remove from_date and to_date
-    //     url.searchParams.set('timeline', timeline);
-    //     url.searchParams.delete('from_date');
-    //     url.searchParams.delete('to_date');
-    // }
-
-    
-    //     window.location.href = url.toString();
-    // }
-
-
-    
-     
-    // function clearInventoryFilter() {
-    //     const url = new URL(window.location.href);
-    //     url.searchParams.delete('status');
-    //     url.searchParams.delete('from_date');
-    //     url.searchParams.delete('to_date');
-    //     url.searchParams.delete('timeline');
-    //      url.searchParams.delete('city');
-    //     window.location.href = url.toString();
-    // }
-    
-    
     
       $(document).ready(function () {
         $('#CSelectAllBtn').on('change', function () {
@@ -1486,15 +1672,27 @@ function clearInventoryFilter() {
             get_ids.push($(this).val());
         });
 
-        var status = document.getElementById('status').value;
+        var status = JSON.stringify(cleanArray($('#status').val() || []));
         var selectedTimeline = document.querySelector('input[name="STtimeLine"]:checked');
-        var timeline = selectedTimeline ? selectedTimeline.value : '';
-        var from_date = document.getElementById('FromDate').value;
-        var to_date = document.getElementById('ToDate').value;
-        var city = document.getElementById('city_id').value;
+        function cleanArray(val) {
+        if (!Array.isArray(val)) return [];
+            return val.filter(v => v !== 'all');
+        }
+        var from_date = $('#FromDate').val() || '';
+        var to_date   = $('#ToDate').val() || '';
+        var timeline  = $('#quick_date_filter').val() || '';
         
-        const zone = document.getElementById('zone_id').value;
-        const customer = document.getElementById('customer_id').value;
+        if (timeline === 'custom') {
+            timeline = '';
+        }
+        
+        var city = JSON.stringify(cleanArray($('#city_id').val() || []));
+        var vehicle_model = JSON.stringify(cleanArray($('#v_model').val() || []));
+        var vehicle_make = JSON.stringify(cleanArray($('#v_make').val() || []));
+        var vehicle_type = JSON.stringify(cleanArray($('#v_type').val() || []));
+        
+        const zone = JSON.stringify(cleanArray($('#zone_id').val() || []));
+        const customer = JSON.stringify(cleanArray($('#customer_id').val() || []));
         const accountability_type = document.getElementById('accountability_type_id').value;
     
         $.ajax({
@@ -1511,6 +1709,8 @@ function clearInventoryFilter() {
                 city: city,
                 customer: customer ,
                 zone : zone ,
+                vehicle_type:vehicle_type,
+                vehicle_model:vehicle_model,
                 accountability_type : accountability_type
                 
             },

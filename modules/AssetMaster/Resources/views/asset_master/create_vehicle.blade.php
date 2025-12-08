@@ -261,6 +261,22 @@
                             </div>
                         </div>
                         
+                        
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label class="input-label mb-2 ms-1" for="leasing_partner">Leasing Partner</label>
+                                <select class="form-select custom-select2-field form-control-sm" name="leasing_partner" id="leasing_partner">
+                                    <option value="">Select</option>
+                                    @if(isset($leasing_partners))
+                                       @foreach($leasing_partners as $val)
+                                          <option value="{{$val->id}}">{{$val->name}}</option>
+                                       @endforeach
+                                    @endif
+                                </select>
+                                
+                            </div>
+                        </div>
+                        
                         <div class="col-md-12 mb-3">
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="master_lease_agreement">Master Lease Agreement</label>

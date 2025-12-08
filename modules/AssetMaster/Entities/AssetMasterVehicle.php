@@ -13,6 +13,7 @@ use Modules\AssetMaster\Entities\LocationMaster;
 use Modules\MasterManagement\Entities\HypothecationMaster;
 use Modules\MasterManagement\Entities\InsurerNameMaster;
 use Modules\MasterManagement\Entities\InsuranceTypeMaster;
+use Modules\MasterManagement\Entities\LeasingPartnerMaster;
 use Modules\MasterManagement\Entities\RegistrationTypeMaster;
 use Modules\MasterManagement\Entities\TelemetricOEMMaster;
 use Modules\MasterManagement\Entities\InventoryLocationMaster;
@@ -55,6 +56,7 @@ class AssetMasterVehicle extends Model
         'financing_type',
         'asset_ownership',
         'master_lease_agreement',
+        'leasing_partner',
         'lease_start_date',
         'lease_end_date',
         'vehicle_delivery_date',
@@ -151,6 +153,11 @@ class AssetMasterVehicle extends Model
     public function financing_type_relation()
     {
         return $this->belongsTo(FinancingTypeMaster::class, 'financing_type' , 'id');
+    }
+    
+        public function leasing_partner_relation()
+    {
+        return $this->belongsTo(LeasingPartnerMaster::class, 'leasing_partner' , 'id');
     }
     
         public function asset_ownership_relation()

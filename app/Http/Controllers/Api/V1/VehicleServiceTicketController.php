@@ -31,6 +31,7 @@ class VehicleServiceTicketController extends Controller
         $validator = Validator::make($request->all(), [
             // 'ticket_id'        => 'required|unique:vehicle_service_tickets,ticket_id',
             'vehicle_no'       => 'required|string|max:100|regex:/^[A-Z0-9\- ]+$/i',
+            'chassis_number'       => 'required|string|max:100',
             'city_id'          => 'required|integer|exists:ev_tbl_city,id',
             'area_id'          => 'required|integer|exists:zones,id',
             'vehicle_type'     => 'required|string|max:50',
@@ -109,7 +110,7 @@ class VehicleServiceTicketController extends Controller
                  $imageUrl = asset('EV/images/vehicle_ticket_images/' . $imagePath);
             }
             
-           $vehicle = AssetMasterVehicle::where('permanent_reg_number', $request->vehicle_no)
+           $vehicle = AssetMasterVehicle::where('chassis_number', $request->chassis_number)
                 ->first();
         
             // Store record
@@ -285,20 +286,26 @@ class VehicleServiceTicketController extends Controller
     }
     
     public function get_rider_tickets(Request $request,$dm_id){
+        
         $rider = Deliveryman::where('id', $dm_id)->where('delete_status',0)->first();
         if(!$rider){
             return response()->json(['success' => false,'message' => 'rider not found'], 404);
         }
-        // $get_dm_tickets = VehicleTicket::where("dm_id", $dm_id)
-        // ->where("ticket_status", 0)
-        // ->select([
-        //     'id', 'ticket_id', 'vehicle_no', 'city_id', 'area_id', 'vehicle_type',
-        //     'poc_name', 'poc_contact_no', 'issue_remarks', 'repair_type', 'address',
-        //     'lat', 'long', 'image', 'created_datetime', 'dm_id', 'platform','created_at', 'updated_at'
-        // ])
-        // ->get();
-        $get_dm_tickets = VehicleTicket::where("dm_id", $dm_id)
+        $status = $request->status;
+        
+        
+        $get_dm_tickets = VehicleTicket::with('field_proxy_relation')->where("dm_id", $dm_id)
         ->where("ticket_status", 0)
+        ->when($status == 'opened', function ($query) {
+            $query->whereHas('field_proxy_relation', function ($q) {
+                $q->where('current_status', '!=', 'closed');
+            });
+        })
+        ->when($status == 'closed', function ($query) {
+            $query->whereHas('field_proxy_relation', function ($q) {
+                $q->where('current_status', '=', 'closed');
+            });
+        })
         ->select([
             'id', 'ticket_id', 'vehicle_no', 'city_id', 'area_id', 'vehicle_type',
             'poc_name', 'poc_contact_no', 'issue_remarks', 'repair_type', 'address',

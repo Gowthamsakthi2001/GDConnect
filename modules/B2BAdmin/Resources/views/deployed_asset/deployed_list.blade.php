@@ -286,6 +286,24 @@
                           </div>
                         </div>
                         
+                        <!--<div class="col-md-3 col-12 mb-3">-->
+                        <!--  <div class="d-flex justify-content-between align-items-center">-->
+                        <!--    <label class="form-check-label mb-0" for="field9">Vehicle Model</label>-->
+                        <!--    <div class="form-check form-switch m-0">-->
+                        <!--      <input class="form-check-input export-field-checkbox" type="checkbox" id="vehicle_model" name="vehicle_model">-->
+                        <!--    </div>-->
+                        <!--  </div>-->
+                        <!--</div>-->
+                        
+                        <!--<div class="col-md-3 col-12 mb-3">-->
+                        <!--  <div class="d-flex justify-content-between align-items-center">-->
+                        <!--    <label class="form-check-label mb-0" for="field9">Vehicle Make</label>-->
+                        <!--    <div class="form-check form-switch m-0">-->
+                        <!--      <input class="form-check-input export-field-checkbox" type="checkbox" id="vehicle_make" name="vehicle_make">-->
+                        <!--    </div>-->
+                        <!--  </div>-->
+                        <!--</div>-->
+                        
                         
                         <div class="col-md-3 col-12 mb-3">
                           <div class="d-flex justify-content-between align-items-center">
@@ -348,113 +366,31 @@
         
         <div class="offcanvas offcanvas-end" tabindex="-1" id="offcanvasRightHR01" aria-labelledby="offcanvasRightHR01Label">
           <div class="offcanvas-header">
-            <h5 class="custom-dark" id="offcanvasRightHR01Label">Rider List</h5>
+            <h5 class="custom-dark" id="offcanvasRightHR01Label">Deployment List</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
           </div>
           <div class="offcanvas-body">
         
-            <!--updated by logesh-->
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">Accountability Type</label>
-                        <select name="accountability_type" id="accountability_type_1" class="form-control custom-select2-field">
-                            <option value="">Select Type</option>
-                            @if(isset($accountability_types))
-                            @foreach($accountability_types as $type)
-                            <option value="{{$type->id}}" >{{$type->name}}</option>
-                            @endforeach
-                            @endif
-                        </select>
-                    </div>
-               </div>
-            </div>
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Customer</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">Customer</label>
-                        <select name="customer_master" id="customer_master" class="form-control custom-select2-field">
-                            <option value="">Select Customer</option>
-                            @if(isset($customers))
-                            @foreach($customers as $customer)
-                            <option value="{{$customer->id}}" >{{$customer->trade_name}}</option>
-                            @endforeach
-                            @endif
-                        </select>
-                    </div>
-               </div>
-            </div>
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select City</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">City</label>
-                        <select name="city_id" id="city_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
-                            <option value="">Select City</option>
-                            @if(isset($cities))
-                            @foreach($cities as $city)
-                            <option value="{{$city->id}}" >{{$city->city_name}}</option>
-                            @endforeach
-                            @endif
-
-                        </select>
-                    </div>
-               </div>
-            </div>
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Zone</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="zone_id">Zone</label>
-                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field">
-                            <option value="">Select Zone</option>
-
-                        </select>
-                    </div>
-               </div>
-            </div>
-            
             
              <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Status</h6></div>
+                   <h6 class="custom-dark">Quick Date Filter</h6>
                </div>
                <div class="card-body">
  
-                    <div class="mb-3">
-                        <label class="form-label" for="zone_id">Status</label>
-                        <select name="status_value" id="status_value" class="form-control custom-select2-field">
+                     <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select id="quick_date_filter" class="form-control custom-select2-field">
                             <option value="">Select</option>
-                            <option value="pending">Opened</option>
-                            <option value="completed">Closed</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom</option>
                         </select>
                     </div>
-               </div>
-            </div>
-            
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    
                     <div class="mb-3">
                         <label class="form-label" for="FromDate">From Date</label>
                         <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
@@ -467,6 +403,92 @@
   
                </div>
             </div>
+            
+            
+            <div class="card mb-3">
+               <div class="card-header p-2">
+                   <div><h6 class="custom-dark">Select City</h6></div>
+               </div>
+               <div class="card-body">
+ 
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">City</label>
+                        <select name="city_id" id="city_id" class="form-control custom-select2-field" onchange="getZones()" multiple>
+                            <option value="" disabled>Select City</option>
+                            <option value="all">All</option>
+                            @if(isset($cities))
+                            @foreach($cities as $city)
+                            <option value="{{$city->id}}" >{{$city->city_name}}</option>
+                            @endforeach
+                            @endif
+
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="zone_id">Zone</label>
+                        <select name="zone_id" id="zone_id" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select a city first</option>
+
+                        </select>
+                    </div>
+                    
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="vehicle_type">Vehicle Type</label>
+                        <select name="vehicle_type_id" id="vehicle_type_id" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Type</option>
+                            <option value="all">All</option>
+                            @if(isset($vehicle_types))
+                            @foreach($vehicle_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Accountability Type</label>
+                        <select name="accountability_type" id="accountability_type_1" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Type</option>
+                            <option value="all">All</option>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="FromDate">Customer</label>
+                        <select name="customer_master" id="customer_master" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select Customer</option>
+                            <option value="all">All</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" >{{$customer->trade_name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="zone_id">Status</label>
+                        <select name="status_value" id="status_value" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select</option>
+                            <option value="all">All</option>
+                            <option value="pending">Opened</option>
+                            <option value="completed">Closed</option>
+                        </select>
+                    </div>
+               </div>
+            </div>
+            
+   
+        
          
             <div class="d-flex gap-2 mb-3">
                 <button class="btn btn-outline-secondary w-50" onclick="clearRequestFilter()">Clear All</button>
@@ -592,11 +614,14 @@ function applyRequestFilter() {
 function clearRequestFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
-     $('#city_id').val('').trigger('change'); // 🔹 reset city + trigger change
-     $('#status_value').val('').trigger('change');
-    $('#zone_id').html('<option value="">Select Zone</option>').trigger('change'); // 🔹 reset zones + trigger change
-    $('#accountability_type_1').val('').trigger('change');
-     $('#customer_master').val('').trigger('change');
+    $('#city_id').val([]).trigger('change'); // 🔹 reset city + trigger change
+    $('#status_value').val([]).trigger('change');
+    $('#zone_id').val([]).trigger('change'); // 🔹 reset zones + trigger change
+    $('#accountability_type_1').val([]).trigger('change');
+    $('#customer_master').val([]).trigger('change');
+    $('#quick_date_filter').val([]).trigger('change');
+    $('#vehicle_type_id').val([]).trigger('change');
+    toggleDateFields();
     table.ajax.reload();
     
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
@@ -604,7 +629,30 @@ function clearRequestFilter() {
         bsOffcanvas.hide();
     }
 }
+        // -------------------------------
+    // SHOW/HIDE DATE FIELDS
+    // -------------------------------
+    function toggleDateFields() {
+        let value = $("#quick_date_filter").val();
 
+        if (value === "custom") {
+            $("#FromDate").closest(".mb-3").show();
+            $("#ToDate").closest(".mb-3").show();
+        } else {
+            $("#FromDate").closest(".mb-3").hide();
+            $("#ToDate").closest(".mb-3").hide();
+            $("#FromDate").val("");
+            $("#ToDate").val("");
+        }
+    }
+
+    toggleDateFields();
+
+    $("#quick_date_filter").on("change", function () {
+        toggleDateFields();
+    });
+    
+    
   
     $(document).ready(function () {
         // $('#loadingOverlay').show();
@@ -625,6 +673,8 @@ function clearRequestFilter() {
                 d.to_date = $('#ToDate').val();
                 d.accountability_type = $('#accountability_type_1').val(); //updated by logesh
                 d.customer_id = $('#customer_master').val(); //updated by logesh
+                d.date_filter = $('#quick_date_filter').val();
+                d.vehicle_type = $('#vehicle_type_id').val();
                 },
             
                 beforeSend: function () {
@@ -725,22 +775,42 @@ function clearRequestFilter() {
    
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
-    const status   = document.getElementById('status_value').value;
-    const city   = document.getElementById('city_id').value;
-    const zone   = document.getElementById('zone_id').value;
-    const customer_id = document.getElementById('customer_master').value;
-    const accountability_type   = document.getElementById('accountability_type_1').value;
-    
+    // const status   = document.getElementById('status_value').value;
+    // const city   = document.getElementById('city_id').value;
+    // const zone   = document.getElementById('zone_id').value;
+    // const customer_id = document.getElementById('customer_master').value;
+    // const accountability_type   = document.getElementById('accountability_type_1').value;
+    // const vehicle_type   = document.getElementById('vehicle_type_id').value;
+    const datefilter   = document.getElementById('quick_date_filter').value || '';
+    const status = getMultiValues('#status_value');
+
+    const vehicle_type  = getMultiValues('#vehicle_type_id');
+    const accountability_type = getMultiValues('#accountability_type_1');
+    const zone = getMultiValues('#zone_id');
+    const city = getMultiValues('#city_id');
+    const customer_id = getMultiValues('#customer_master');
     const params = new URLSearchParams();
  
     if (fromDate) params.append('from_date', fromDate);
+    // if (vehicle_type) params.append('vehicle_type', vehicle_type);
+    if (datefilter) params.append('datefilter', datefilter);
     if (toDate) params.append('to_date', toDate);
-    if (status) params.append('status', status);
-    if (city) params.append('city', city);
-    if (zone) params.append('zone', zone);
-    if (customer_id) params.append('customer_id', customer_id);
-    if (accountability_type) params.append('accountability_type', accountability_type);
-
+    // if (status) params.append('status', status);
+    // if (city) params.append('city', city);
+    // if (zone) params.append('zone', zone);
+    // if (customer_id) params.append('customer_id', customer_id);
+    // if (accountability_type) params.append('accountability_type', accountability_type);
+    
+    appendMultiSelect(params, 'status', status);
+    
+        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+        
+        // others
+        appendMultiSelect(params, 'accountability_type', accountability_type);
+        appendMultiSelect(params, 'zone', zone);
+        appendMultiSelect(params, 'city', city);
+        appendMultiSelect(params, 'customer_id', customer_id);
+        
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
 
@@ -751,39 +821,156 @@ function clearRequestFilter() {
     const url = `{{ route('b2b.admin.deployment_request.export') }}?${params.toString()}`;
     window.location.href = url;
   });
+    
+        function appendMultiSelect(params, key, values) {
+            if (values && values.length > 0) {
+                values.forEach(v => params.append(key + '[]', v));
+            }
+        }
+        function getMultiValues(selector) {
+            return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                        .map(option => option.value);
+        }
+        
+
+</script>
+
+<script>
+function initSelectAll(selector) {
+    let internalChange = false;
+
+    // store previous selection when user interacts (before change fires)
+    $(document).on('mousedown touchstart', selector, function () {
+        // save previous selection as data on element
+        const prev = $(this).val() || [];
+        $(this).data('prevSelection', prev);
+    });
+
+    // For keyboard interactions (focus + key), also capture focus
+    $(document).on('focus', selector, function () {
+        const prev = $(this).val() || [];
+        $(this).data('prevSelection', prev);
+    });
+
+    $(selector).on('change', function () {
+        if (internalChange) return;
+
+        const $el = $(this);
+        let prev = $el.data('prevSelection') || [];
+        let current = $el.val() || [];
+
+        // normalize to strings (safety)
+        prev = prev.map(String);
+        current = current.map(String);
+
+        internalChange = true;
+
+        // CASE A: previously had "all" and now user added other values
+        // -> remove "all" and keep newly selected items
+        if (prev.includes('all') && current.includes('all') && current.length > 1) {
+            // user had all, then clicked another option: we keep the other options
+            const cleaned = current.filter(v => v !== 'all');
+            $el.val(cleaned).trigger('change.select2');
+            // update stored prev
+            $el.data('prevSelection', cleaned);
+            internalChange = false;
+            return;
+        }
+
+        // CASE B: user selected "all" after having other items -> keep only 'all'
+        if (!prev.includes('all') && current.includes('all')) {
+            // user selected "all" now, so keep only all
+            $el.val(['all']).trigger('change.select2');
+            $el.data('prevSelection', ['all']);
+            internalChange = false;
+            return;
+        }
+
+        // CASE C: user selected "all" + others in one action OR current has all+others
+        // -> prefer KEEPING only 'all'
+        if (current.includes('all') && current.length > 1) {
+            $el.val(['all']).trigger('change.select2');
+            $el.data('prevSelection', ['all']);
+            internalChange = false;
+            return;
+        }
+
+        // CASE D: user selected other items (no 'all') -> ensure 'all' removed (if present)
+        if (!current.includes('all')) {
+            const cleaned = current.filter(v => v !== 'all');
+            // if cleaned differs from current, set it (safety)
+            if (cleaned.length !== current.length) {
+                $el.val(cleaned).trigger('change.select2');
+                $el.data('prevSelection', cleaned);
+                internalChange = false;
+                return;
+            }
+        }
+
+        // default -> just store current as prev
+        $el.data('prevSelection', current);
+        internalChange = false;
+    });
+}
 
 
 
-function getZones(CityID) {
+
+$(document).ready(function () {
+    initSelectAll('#status_value');
+    initSelectAll('#customer_master');
+    initSelectAll('#accountability_type_1');
+    
+    initSelectAll('#vehicle_type_id');
+    initSelectAll('#zone_id');
+    initSelectAll('#city_id');
+});
+
+
+</script>
+
+
+<script>
+function getZones() {
+    let cityIds = $('#city_id').val();  
     let ZoneDropdown = $('#zone_id');
 
     ZoneDropdown.empty().append('<option value="">Loading...</option>');
 
-    if (CityID) {
+    if (cityIds && cityIds.length > 0) {
+
         $.ajax({
-            url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
+            url: "{{ route('global.get_multi_city_zones') }}",
             type: "GET",
+            data: { city_id: cityIds },  // pass array
             success: function (response) {
-                ZoneDropdown.empty().append('<option value="">Select Zone</option>');
+
+                ZoneDropdown.empty()
+                    .append('<option value="" disabled>Select Zone</option>')
+                    .append('<option value="all">All</option>');
 
                 if (response.data && response.data.length > 0) {
+
                     $.each(response.data, function (key, zone) {
-                        ZoneDropdown.append('<option value="' + zone.id + '">' + zone.name + '</option>');
+                        ZoneDropdown.append(
+                            `<option value="${zone.id}">${zone.name}</option>`
+                        );
                     });
+
                 } else {
-                    ZoneDropdown.append('<option value="">No Zones available for this City</option>');
+                    ZoneDropdown.append('<option value="" disabled>No Zones available</option>');
                 }
             },
             error: function () {
-                ZoneDropdown.empty().append('<option value="">Error loading zones</option>');
+                ZoneDropdown.empty().append('<option value="" disabled>Error loading zones</option>');
             }
         });
+
     } else {
-        ZoneDropdown.empty().append('<option value="">Select a city first</option>');
+        ZoneDropdown.empty().append('<option value="" disabled>Select a city first</option>');
     }
 }
 </script>
-
 
 
 @endsection

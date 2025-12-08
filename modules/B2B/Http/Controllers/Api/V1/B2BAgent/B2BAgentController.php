@@ -264,164 +264,304 @@ class B2BAgentController extends Controller
     }
 }
     
-    // public function assign_vehicle(Request $request)
-    // {
-    //     Log::info('Vehicle Assign Function Start'. now());
-    //     try {
+    public function assign_vehicle(Request $request)
+    {
+        Log::info('Vehicle Assign Function Start'. now());
+        try {
            
            
-    //         $user = $request->user('agent');
-    //         // Find Rider
-    //         $rider = B2BRider::with('customerLogin')->find($request->rider_id);
-    //         if (!$rider) {
-    //             return response()->json([
-    //                 'status'  => false,
-    //                 'message' => "Rider not found for the given ID: " . $request->rider_id,
-    //             ], 404);
-    //         }
+            $user = $request->user('agent');
+            // Find Rider
+            $rider = B2BRider::with('customerLogin')->find($request->rider_id);
+            if (!$rider) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => "Rider not found for the given ID: " . $request->rider_id,
+                ], 404);
+            }
             
-    //         DB::beginTransaction();
+            DB::beginTransaction();
 
-    //         $assign_vehicle_check = B2BVehicleAssignment::where('req_id',$request->request_id)->where('rider_id',$request->rider_id)->first();
-    //         if($assign_vehicle_check){
-    //              return response()->json([
-    //                 'status'  => false,
-    //                 'message' => 'Already Vehicle has been Assigned',
-    //             ]);   
-    //         }
-    //         // Assuming you have an AssignVehicle model/table
+            $assign_vehicle_check = B2BVehicleAssignment::where('req_id',$request->request_id)->where('rider_id',$request->rider_id)->first();
+            if($assign_vehicle_check){
+                 return response()->json([
+                    'status'  => false,
+                    'message' => 'Already Vehicle has been Assigned',
+                ]);   
+            }
+            // Assuming you have an AssignVehicle model/table
 
-    //         $tempAssignment = B2BTempVehicleAssignment::where('rider_id', $request->rider_id)
-    //                                     ->where('req_id',$request->request_id)
-    //                                     ->first();
+            $tempAssignment = B2BTempVehicleAssignment::where('rider_id', $request->rider_id)
+                                        ->where('req_id',$request->request_id)
+                                        ->first();
 
-    //         if (!$tempAssignment) {
-    //             return response()->json([
-    //                 'status'  => false,
-    //                 'message' => 'No temporary vehicle assignment found for this rider and request.',
-    //             ], 404);
-    //         }
+            if (!$tempAssignment) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'No temporary vehicle assignment found for this rider and request.',
+                ], 404);
+            }
 
-    //         $assignVehicle = new B2BVehicleAssignment();
-    //         $assignVehicle->rider_id   = $request->rider_id;
-    //         $assignVehicle->req_id = $request->request_id;
-    //         $assignVehicle->kilometer_value =  0;
-    //         $assignVehicle->odometer_value  = $tempAssignment->odometer_value ?? 0;
-    //         $assignVehicle->handover_type  = 'vehicle';
-    //         $assignVehicle->status  = 'running';
-    //         $assignVehicle->assigned_agent_id  = $user->id;
-    //         $assignVehicle->asset_vehicle_id  = $tempAssignment->asset_vehicle_id ?? null;
-    //         $assignVehicle->odometer_image  = $tempAssignment->odometer_image ?? null;
-    //         $assignVehicle->vehicle_front  = $tempAssignment->vehicle_front ?? null;
-    //         $assignVehicle->vehicle_back  = $tempAssignment->vehicle_back ?? null;
-    //         $assignVehicle->vehicle_top  = $tempAssignment->vehicle_top ?? null;
-    //         $assignVehicle->vehicle_bottom  = null;
-    //         $assignVehicle->vehicle_left  = $tempAssignment->vehicle_left ?? null;
-    //         $assignVehicle->vehicle_right  = $tempAssignment->vehicle_right ?? null;
-    //         $assignVehicle->vehicle_battery  = $tempAssignment->vehicle_battery ?? null;
-    //         $assignVehicle->vehicle_charger  = $tempAssignment->vehicle_charger ?? null;
+            $assignVehicle = new B2BVehicleAssignment();
+            $assignVehicle->rider_id   = $request->rider_id;
+            $assignVehicle->req_id = $request->request_id;
+            $assignVehicle->kilometer_value =  0;
+            $assignVehicle->odometer_value  = $tempAssignment->odometer_value ?? 0;
+            $assignVehicle->handover_type  = 'vehicle';
+            $assignVehicle->status  = 'running';
+            $assignVehicle->assigned_agent_id  = $user->id;
+            $assignVehicle->asset_vehicle_id  = $tempAssignment->asset_vehicle_id ?? null;
+            $assignVehicle->odometer_image  = $tempAssignment->odometer_image ?? null;
+            $assignVehicle->vehicle_front  = $tempAssignment->vehicle_front ?? null;
+            $assignVehicle->vehicle_back  = $tempAssignment->vehicle_back ?? null;
+            $assignVehicle->vehicle_top  = $tempAssignment->vehicle_top ?? null;
+            $assignVehicle->vehicle_bottom  = null;
+            $assignVehicle->vehicle_left  = $tempAssignment->vehicle_left ?? null;
+            $assignVehicle->vehicle_right  = $tempAssignment->vehicle_right ?? null;
+            $assignVehicle->vehicle_battery  = $tempAssignment->vehicle_battery ?? null;
+            $assignVehicle->vehicle_charger  = $tempAssignment->vehicle_charger ?? null;
 
-    //         $assignVehicle->save();
+            $assignVehicle->save();
 
-    //         $tempAssignment->delete();
+            $tempAssignment->delete();
 
-    //         $vehicle_number = AssetMasterVehicle::select('permanent_reg_number')->where('id',$assignVehicle->asset_vehicle_id)->first();
-    //         B2BVehicleAssignmentLog::create([
-    //             'assignment_id' => $assignVehicle->id,
-    //             'status'        => 'running',
-    //             'remarks'       => "Vehicle {$vehicle_number->permanent_reg_number} assigned to rider {$rider->name} successfully",
-    //             'action_by'     => $user->id ?? null,
-    //             'type'          => 'agent',
-    //         ]);
+            $vehicle_number = AssetMasterVehicle::select('permanent_reg_number')->where('id',$assignVehicle->asset_vehicle_id)->first();
+            B2BVehicleAssignmentLog::create([
+                'assignment_id' => $assignVehicle->id,
+                'status'        => 'running',
+                'remarks'       => "Vehicle {$vehicle_number->permanent_reg_number} assigned to rider {$rider->name} successfully",
+                'action_by'     => $user->id ?? null,
+                'type'          => 'agent',
+            ]);
             
             
-    //         $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignVehicle->asset_vehicle_id)->first();
+            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignVehicle->asset_vehicle_id)->first();
 
-    //         // Store current (old) location before update
-    //         $from_location_source = $inventory ? $inventory->transfer_status : null; 
+            // Store current (old) location before update
+            $from_location_source = $inventory ? $inventory->transfer_status : null; 
             
-    //         AssetVehicleInventory::where('asset_vehicle_id', $assignVehicle->asset_vehicle_id)
-    //                     ->update(['transfer_status' => 1]);
+            AssetVehicleInventory::where('asset_vehicle_id', $assignVehicle->asset_vehicle_id)
+                        ->update(['transfer_status' => 1]);
                 
-    //         $vehicle = AssetMasterVehicle::where('id',$assignVehicle->asset_vehicle_id)->first();
+            $vehicle = AssetMasterVehicle::where('id',$assignVehicle->asset_vehicle_id)->first();
                 
-    //         $customer_name = $rider->customerLogin->customer_relation->trade_name ?? 'Customer';
+            $customer_name = $rider->customerLogin->customer_relation->trade_name ?? 'Customer';
                 
-    //         $customer_id = $rider->customerLogin->customer_relation->id ?? null;
+            $customer_id = $rider->customerLogin->customer_relation->id ?? null;
             
-    //         // $vehicle->update(['client' => $customer_id]);
+            // $vehicle->update(['client' => $customer_id]);
             
-    //         $vehicle->update([
-    //         'client'                => $customer_id,
-    //         'vehicle_delivery_date' => Carbon::now()->format('Y-m-d'), 
-    //         ]);
+            $vehicle->update([
+            'client'                => $customer_id,
+            'vehicle_delivery_date' => Carbon::now()->format('Y-m-d'), 
+            ]);
         
         
             
-    //         $remarks = "Vehicle has been successfully assigned to {$customer_name}; inventory status updated accordingly.";
+            $remarks = "Vehicle has been successfully assigned to {$customer_name}; inventory status updated accordingly.";
             
-    //         // Log this inventory action
-    //         VehicleTransferChassisLog::create([
-    //                 'chassis_number' => $vehicle->chassis_number,
-    //                 'from_location_source' => $from_location_source,
-    //                 'to_location_destination' => 1,
-    //                 'vehicle_id'     => $vehicle->id,
-    //                 'status'         => 'updated',
-    //                 'remarks'        => $remarks,
-    //                 'created_by'     => $user->id,
-    //                 'type'           => 'b2b-agent-app'
-    //             ]);
+            // Log this inventory action
+            VehicleTransferChassisLog::create([
+                    'chassis_number' => $vehicle->chassis_number,
+                    'from_location_source' => $from_location_source,
+                    'to_location_destination' => 1,
+                    'vehicle_id'     => $vehicle->id,
+                    'status'         => 'updated',
+                    'remarks'        => $remarks,
+                    'created_by'     => $user->id,
+                    'type'           => 'b2b-agent-app'
+                ]);
                 
                 
-    //         $vehicle_request = B2BVehicleRequests::where('req_id',$request->request_id)->first();
-    //         if ($vehicle_request) {
-    //                 $vehicle_request->is_active = 1;
-    //                 $vehicle_request->status = "completed";
-    //                 $vehicle_request->closed_by = $user->id;
-    //                 $vehicle_request->completed_at = now();
-    //                 $vehicle_request->save();
-    //             }
+            $vehicle_request = B2BVehicleRequests::where('req_id',$request->request_id)->first();
+            if ($vehicle_request) {
+                    $vehicle_request->is_active = 1;
+                    $vehicle_request->status = "completed";
+                    $vehicle_request->closed_by = $user->id;
+                    $vehicle_request->completed_at = now();
+                    $vehicle_request->save();
+                }
                 
-    //         $vehicle_no = $vehicle_number->permanent_reg_number; //updated by Gowtham
-    //         $rider_name = $rider->name ?? 'Rider';
+            $vehicle_no = $vehicle_number->permanent_reg_number; //updated by Gowtham
+            $rider_name = $rider->name ?? 'Rider';
             
-    //         // $this->pushRiderVehicleStatusNotification($rider, $request->request_id,$vehicle_no,'rider_vehicle_assign_notify');
-    //         // $this->pushAgentVehicleStatusNotification($user,$request->request_id,$vehicle_no,'agent_vehicle_assign_notify',$rider_name);
-    //         // $this->AutoSendAssignVehicleEmail($user, $request->request_id, $request->rider_id, $request->asset_vehicle_id, 'agent_vehicle_assign_email_notify');
-    //         // $this->AutoSendAssignVehicleWhatsApp($user,$request->request_id,$request->rider_id,$request->asset_vehicle_id,'agent_vehicle_assign_notify');
+            // $this->pushRiderVehicleStatusNotification($rider, $request->request_id,$vehicle_no,'rider_vehicle_assign_notify');
+            // $this->pushAgentVehicleStatusNotification($user,$request->request_id,$vehicle_no,'agent_vehicle_assign_notify',$rider_name);
+            // $this->AutoSendAssignVehicleEmail($user, $request->request_id, $request->rider_id, $request->asset_vehicle_id, 'agent_vehicle_assign_email_notify');
+            // $this->AutoSendAssignVehicleWhatsApp($user,$request->request_id,$request->rider_id,$request->asset_vehicle_id,'agent_vehicle_assign_notify');
             
-    //         dispatch(new SendVehicleAllNotificationsJob(
-    //             $rider,
-    //             $user,
-    //             $request->request_id,
-    //             $vehicle_no,
-    //             $rider_name,
-    //             $request->rider_id,
-    //             $assignVehicle->asset_vehicle_id
-    //         ));
+            dispatch(new SendVehicleAllNotificationsJob(
+                $rider,
+                $user,
+                $request->request_id,
+                $vehicle_no,
+                $rider_name,
+                $request->rider_id,
+                $assignVehicle->asset_vehicle_id
+            ));
             
-    //         DB::commit();
+            DB::commit();
 
-    //         return response()->json([
-    //             'status'  => true,
-    //             'message' => 'Vehicle assigned successfully',
-    //             'data'    => $assignVehicle
-    //         ], 200);
+            return response()->json([
+                'status'  => true,
+                'message' => 'Vehicle assigned successfully',
+                'data'    => $assignVehicle
+            ], 200);
     
-    //     } catch (\Exception $e) {
-    //         Log::error("Assign Vehicle Failed: ".$e->getMessage(), [
-    //             'trace' => $e->getTraceAsString(),
-    //         ]);
-    //         DB::rollBack();
+        } catch (\Exception $e) {
+            Log::error("Assign Vehicle Failed: ".$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            DB::rollBack();
 
-    //         return response()->json([
-    //             'status'  => false,
-    //             'message' => 'Vehicle Assign Failed',
-    //             'error'   => $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
+            return response()->json([
+                'status'  => false,
+                'message' => 'Vehicle Assign Failed',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
     
+     public function get_vehicle_data(Request $request)
+{
+    // Validate basic rider
+    $rider = B2BRider::find($request->rider_id);
+
+    if (!$rider) {
+        return response()->json([
+            'status'  => false,
+            'message' => "Rider not found for ID: " . $request->rider_id,
+            'data'    => [],
+        ], 404);
+    }
+
+    // Check if assignment exists
+    $assignVehicle = B2BTempVehicleAssignment::where('req_id', $request->request_id)
+        ->where('rider_id', $request->rider_id)
+        ->first();
+
+    if (!$assignVehicle) {
+        return response()->json([
+            'status'  => true,
+            'message' => "No vehicle assigned for this rider in this request.",
+            'data'    => [],
+        ]);
+    }
+
+    // File fields mapping
+    $fileFields = [
+        'odometer_image'  => 'odometer_images',
+        'vehicle_front'   => 'vehicle_front',
+        'vehicle_back'    => 'vehicle_back',
+        'vehicle_top'     => 'vehicle_top',
+        // 'vehicle_bottom'  => 'vehicle_bottom',
+        'vehicle_left'    => 'vehicle_left',
+        'vehicle_right'   => 'vehicle_right',
+        'vehicle_battery' => 'vehicle_battery',
+        'vehicle_charger' => 'vehicle_charger',
+    ];
+
+    // Convert to array so we can modify the data
+    $assignVehicleData = $assignVehicle->toArray();
+
+    // Generate full URLs for each file field
+    foreach ($fileFields as $field => $folder) {
+        $value = $assignVehicle->$field;
+
+        if (!empty($value)) {
+            $assignVehicleData[$field] = "b2b/{$folder}/{$value}";
+        } else {
+            $assignVehicleData[$field] = null;
+        }
+    }
+
+    return response()->json([
+        'status'  => true,
+        'message' => "Vehicle data found.",
+        'data'    => $assignVehicleData,
+    ]);
+}
+
+
+public function get_agent_logs(Request $request)
+{
+    $agent = $request->user(); // authenticated agent
+
+    if (!$agent) {
+        return response()->json([
+            "status"  => false,
+            "message" => "Agent Not Found"
+        ], 404);
+    }
+
+    // Filters
+    $status   = $request->input('status'); // running | closed | optional
+    $search   = $request->input('search');
+    $sortDir  = $request->input('sort_dir', 'desc'); // asc | desc
+    $perPage  = $request->input('per_page', 10);
+
+    // Base query
+    $query = B2BVehicleAssignmentLog::with([
+            'assignment.vehicle:id,permanent_reg_number',
+            'assignment.vehicleRequest:id,rider_id,req_id',
+            'assignment.vehicleRequest.rider:id,name'
+        ])
+        ->whereIn('status', ['running', 'closed'])
+        ->where('action_by',$agent->id)
+        ->where(function ($q) {
+            $q->where('type', 'agent')
+              ->orWhereNull('type');
+        });
+
+    // Filter by status (optional)
+    if ($status && in_array($status, ['running', 'closed'])) {
+        $query->where('status', $status);
+    }
+
+    // Search (vehicle number, rider name, req_id)
+    if (!empty($search)) {
+        $query->where(function ($q) use ($search) {
+            $q->whereHas('assignment.vehicle', function ($v) use ($search) {
+                $v->where('permanent_reg_number', 'LIKE', "%{$search}%");
+            })
+            ->orWhereHas('assignment.vehicleRequest', function ($vr) use ($search) {
+                $vr->where('req_id', 'LIKE', "%{$search}%")
+                   ->orWhereHas('rider', function ($r) use ($search) {
+                       $r->where('name', 'LIKE', "%{$search}%");
+                   });
+            });
+        });
+    }
+
+    // Sorting — ONLY by created_at
+    $query->orderBy('created_at', $sortDir === 'asc' ? 'asc' : 'desc');
+
+    // Pagination
+    $logs = $query->paginate($perPage);
+
+    // Format output
+    $logs->getCollection()->transform(function ($log) {
+        $vehicle = $log->assignment->vehicle;
+        $request = $log->assignment->vehicleRequest;
+        $rider   = $request?->rider;
+
+        return [
+            'req_id'         => $request->req_id ?? null,
+            'vehicle_number' => $vehicle->permanent_reg_number ?? null,
+            'rider_name'     => $rider?->name,
+            'status'         => $log->status,
+            'type'         => ($log->status == 'running') ? 'Assigned Vehicles' :'Returned Vehicles',
+            'datetime'       => $log->created_at?->format('d M Y h:i A'),
+        ];
+    });
+
+    return response()->json([
+        "status" => true,
+        "message" =>"Agent logs fetched successfully",
+        "data"   => $logs
+    ]);
+}
+
 public function fcm_token_update(Request $request){
     $user = $request->user('agent');
     
@@ -954,180 +1094,180 @@ public function update_request(Request $request)
     }
 
     
-    public function assign_vehicle(Request $request)
-    {
-        Log::info('Vehicle Assign Function Start'. now());
-        try {
+    // public function assign_vehicle(Request $request)
+    // {
+    //     Log::info('Vehicle Assign Function Start'. now());
+    //     try {
            
            
-            $user = $request->user('agent');
-            // Find Rider
-            $rider = B2BRider::with('customerLogin')->find($request->rider_id);
-            if (!$rider) {
-                return response()->json([
-                    'status'  => false,
-                    'message' => "Rider not found for the given ID: " . $request->rider_id,
-                ], 404);
-            }
+    //         $user = $request->user('agent');
+    //         // Find Rider
+    //         $rider = B2BRider::with('customerLogin')->find($request->rider_id);
+    //         if (!$rider) {
+    //             return response()->json([
+    //                 'status'  => false,
+    //                 'message' => "Rider not found for the given ID: " . $request->rider_id,
+    //             ], 404);
+    //         }
             
-            DB::beginTransaction();
+    //         DB::beginTransaction();
 
          
-            // Define file upload helper
-            $uploadFile = function ($file, $folder, $oldFile = null) {
-                $directory = public_path('b2b/' . $folder);
-                if (!is_dir($directory)) {
-                    mkdir($directory, 0777, true);
-                }
+    //         // Define file upload helper
+    //         $uploadFile = function ($file, $folder, $oldFile = null) {
+    //             $directory = public_path('b2b/' . $folder);
+    //             if (!is_dir($directory)) {
+    //                 mkdir($directory, 0777, true);
+    //             }
     
-                // Delete old file if exists
-                if (!empty($oldFile) && file_exists($directory . '/' . $oldFile)) {
-                    unlink($directory . '/' . $oldFile);
-                }
+    //             // Delete old file if exists
+    //             if (!empty($oldFile) && file_exists($directory . '/' . $oldFile)) {
+    //                 unlink($directory . '/' . $oldFile);
+    //             }
     
-                if ($file) {
-                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                    $file->move($directory, $filename);
-                    return $filename;
-                }
+    //             if ($file) {
+    //                 $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+    //                 $file->move($directory, $filename);
+    //                 return $filename;
+    //             }
     
-                return $oldFile;
-            };
+    //             return $oldFile;
+    //         };
     
-            // Fields that accept files
-            $fileFields = [
-                // 'kilometer_image' => 'kilometer_images',
-                'odometer_image'  => 'odometer_images',
-                'vehicle_front'   => 'vehicle_front',
-                'vehicle_back'    => 'vehicle_back',
-                'vehicle_top'     => 'vehicle_top',
-                'vehicle_bottom'  => 'vehicle_bottom',
-                'vehicle_left'    => 'vehicle_left',
-                'vehicle_right'   => 'vehicle_right',
-                'vehicle_battery' => 'vehicle_battery',
-                'vehicle_charger' => 'vehicle_charger',
-            ];
-            $assign_vehicle_check = B2BVehicleAssignment::where('req_id',$request->request_id)->where('rider_id',$request->rider_id)->first();
-            if($assign_vehicle_check){
-                 return response()->json([
-                    'status'  => false,
-                    'message' => 'Already Vehicle has been Assigned',
-                ]);   
-            }
-            // Assuming you have an AssignVehicle model/table
-            $assignVehicle = new B2BVehicleAssignment();
-            $assignVehicle->rider_id   = $request->rider_id;
-            $assignVehicle->req_id = $request->request_id;
-            $assignVehicle->kilometer_value =  0;
-            $assignVehicle->odometer_value  = $request->odometer_value ?? 0;
-            $assignVehicle->handover_type  = 'vehicle';
-            $assignVehicle->status  = 'running';
-            $assignVehicle->assigned_agent_id  = $user->id;
-            $assignVehicle->asset_vehicle_id  = $request->asset_vehicle_id ?? null;
+    //         // Fields that accept files
+    //         $fileFields = [
+    //             // 'kilometer_image' => 'kilometer_images',
+    //             'odometer_image'  => 'odometer_images',
+    //             'vehicle_front'   => 'vehicle_front',
+    //             'vehicle_back'    => 'vehicle_back',
+    //             'vehicle_top'     => 'vehicle_top',
+    //             'vehicle_bottom'  => 'vehicle_bottom',
+    //             'vehicle_left'    => 'vehicle_left',
+    //             'vehicle_right'   => 'vehicle_right',
+    //             'vehicle_battery' => 'vehicle_battery',
+    //             'vehicle_charger' => 'vehicle_charger',
+    //         ];
+    //         $assign_vehicle_check = B2BVehicleAssignment::where('req_id',$request->request_id)->where('rider_id',$request->rider_id)->first();
+    //         if($assign_vehicle_check){
+    //              return response()->json([
+    //                 'status'  => false,
+    //                 'message' => 'Already Vehicle has been Assigned',
+    //             ]);   
+    //         }
+    //         // Assuming you have an AssignVehicle model/table
+    //         $assignVehicle = new B2BVehicleAssignment();
+    //         $assignVehicle->rider_id   = $request->rider_id;
+    //         $assignVehicle->req_id = $request->request_id;
+    //         $assignVehicle->kilometer_value =  0;
+    //         $assignVehicle->odometer_value  = $request->odometer_value ?? 0;
+    //         $assignVehicle->handover_type  = 'vehicle';
+    //         $assignVehicle->status  = 'running';
+    //         $assignVehicle->assigned_agent_id  = $user->id;
+    //         $assignVehicle->asset_vehicle_id  = $request->asset_vehicle_id ?? null;
     
-            // Process file uploads
-            foreach ($fileFields as $field => $folder) {
-                if ($request->hasFile($field)) {
-                    $assignVehicle->$field = $uploadFile($request->file($field), $folder, $assignVehicle->$field ?? null);
-                }
-            }
+    //         // Process file uploads
+    //         foreach ($fileFields as $field => $folder) {
+    //             if ($request->hasFile($field)) {
+    //                 $assignVehicle->$field = $uploadFile($request->file($field), $folder, $assignVehicle->$field ?? null);
+    //             }
+    //         }
     
-            $assignVehicle->save();
+    //         $assignVehicle->save();
             
-            $vehicle_number = AssetMasterVehicle::select('permanent_reg_number')->where('id',$request->asset_vehicle_id)->first();
-            B2BVehicleAssignmentLog::create([
-                'assignment_id' => $assignVehicle->id,
-                'status'        => 'running',
-                'remarks'       => "Vehicle {$vehicle_number->permanent_reg_number} assigned to rider {$rider->name} successfully",
-                'action_by'     => $user->id ?? null,
-                'type'          => 'agent',
-            ]);
+    //         $vehicle_number = AssetMasterVehicle::select('permanent_reg_number')->where('id',$request->asset_vehicle_id)->first();
+    //         B2BVehicleAssignmentLog::create([
+    //             'assignment_id' => $assignVehicle->id,
+    //             'status'        => 'running',
+    //             'remarks'       => "Vehicle {$vehicle_number->permanent_reg_number} assigned to rider {$rider->name} successfully",
+    //             'action_by'     => $user->id ?? null,
+    //             'type'          => 'agent',
+    //         ]);
             
             
-            $inventory = AssetVehicleInventory::where('asset_vehicle_id', $request->asset_vehicle_id)->first();
+    //         $inventory = AssetVehicleInventory::where('asset_vehicle_id', $request->asset_vehicle_id)->first();
 
-            // Store current (old) location before update
-            $from_location_source = $inventory ? $inventory->transfer_status : null; 
+    //         // Store current (old) location before update
+    //         $from_location_source = $inventory ? $inventory->transfer_status : null; 
             
-            AssetVehicleInventory::where('asset_vehicle_id', $request->asset_vehicle_id)
-                        ->update(['transfer_status' => 1]);
+    //         AssetVehicleInventory::where('asset_vehicle_id', $request->asset_vehicle_id)
+    //                     ->update(['transfer_status' => 1]);
                 
-            $vehicle = AssetMasterVehicle::where('id',$request->asset_vehicle_id)->first();
+    //         $vehicle = AssetMasterVehicle::where('id',$request->asset_vehicle_id)->first();
                 
-            $customer_name = $rider->customerLogin->customer_relation->trade_name;
+    //         $customer_name = $rider->customerLogin->customer_relation->trade_name;
                 
-            $customer_id = $rider->customerLogin->customer_relation->id;
+    //         $customer_id = $rider->customerLogin->customer_relation->id;
             
-            // $vehicle->update(['client' => $customer_id]);
+    //         // $vehicle->update(['client' => $customer_id]);
             
-            $vehicle->update([
-            'client'                => $customer_id,
-            'vehicle_delivery_date' => Carbon::now()->format('Y-m-d'), 
-            ]);
+    //         $vehicle->update([
+    //         'client'                => $customer_id,
+    //         'vehicle_delivery_date' => Carbon::now()->format('Y-m-d'), 
+    //         ]);
         
         
             
-            $remarks = "Vehicle has been successfully assigned to {$customer_name}; inventory status updated accordingly.";
+    //         $remarks = "Vehicle has been successfully assigned to {$customer_name}; inventory status updated accordingly.";
             
-            // Log this inventory action
-            VehicleTransferChassisLog::create([
-                    'chassis_number' => $vehicle->chassis_number,
-                    'from_location_source' => $from_location_source,
-                    'to_location_destination' => 1,
-                    'vehicle_id'     => $vehicle->id,
-                    'status'         => 'updated',
-                    'remarks'        => $remarks,
-                    'created_by'     => $user->id,
-                    'type'           => 'b2b-agent-app'
-                ]);
+    //         // Log this inventory action
+    //         VehicleTransferChassisLog::create([
+    //                 'chassis_number' => $vehicle->chassis_number,
+    //                 'from_location_source' => $from_location_source,
+    //                 'to_location_destination' => 1,
+    //                 'vehicle_id'     => $vehicle->id,
+    //                 'status'         => 'updated',
+    //                 'remarks'        => $remarks,
+    //                 'created_by'     => $user->id,
+    //                 'type'           => 'b2b-agent-app'
+    //             ]);
                 
                 
-            $vehicle_request = B2BVehicleRequests::where('req_id',$assignVehicle->req_id)->first();
-            if ($vehicle_request) {
-                    $vehicle_request->is_active = 1;
-                    $vehicle_request->status = "completed";
-                    $vehicle_request->closed_by = $user->id;
-                    $vehicle_request->completed_at = now();
-                    $vehicle_request->save();
-                }
+    //         $vehicle_request = B2BVehicleRequests::where('req_id',$assignVehicle->req_id)->first();
+    //         if ($vehicle_request) {
+    //                 $vehicle_request->is_active = 1;
+    //                 $vehicle_request->status = "completed";
+    //                 $vehicle_request->closed_by = $user->id;
+    //                 $vehicle_request->completed_at = now();
+    //                 $vehicle_request->save();
+    //             }
                 
-            $vehicle_no = $vehicle_number->permanent_reg_number; //updated by Gowtham
-            $rider_name = $rider->name ?? 'Rider';
+    //         $vehicle_no = $vehicle_number->permanent_reg_number; //updated by Gowtham
+    //         $rider_name = $rider->name ?? 'Rider';
             
-            // $this->pushRiderVehicleStatusNotification($rider, $request->request_id,$vehicle_no,'rider_vehicle_assign_notify');
-            // $this->pushAgentVehicleStatusNotification($user,$request->request_id,$vehicle_no,'agent_vehicle_assign_notify',$rider_name);
-            // $this->AutoSendAssignVehicleEmail($user, $request->request_id, $request->rider_id, $request->asset_vehicle_id, 'agent_vehicle_assign_email_notify');
-            // $this->AutoSendAssignVehicleWhatsApp($user,$request->request_id,$request->rider_id,$request->asset_vehicle_id,'agent_vehicle_assign_notify');
+    //         // $this->pushRiderVehicleStatusNotification($rider, $request->request_id,$vehicle_no,'rider_vehicle_assign_notify');
+    //         // $this->pushAgentVehicleStatusNotification($user,$request->request_id,$vehicle_no,'agent_vehicle_assign_notify',$rider_name);
+    //         // $this->AutoSendAssignVehicleEmail($user, $request->request_id, $request->rider_id, $request->asset_vehicle_id, 'agent_vehicle_assign_email_notify');
+    //         // $this->AutoSendAssignVehicleWhatsApp($user,$request->request_id,$request->rider_id,$request->asset_vehicle_id,'agent_vehicle_assign_notify');
             
-            dispatch(new SendVehicleAllNotificationsJob(
-                $rider,
-                $user,
-                $request->request_id,
-                $vehicle_no,
-                $rider_name,
-                $request->rider_id,
-                $request->asset_vehicle_id
-            ));
+    //         dispatch(new SendVehicleAllNotificationsJob(
+    //             $rider,
+    //             $user,
+    //             $request->request_id,
+    //             $vehicle_no,
+    //             $rider_name,
+    //             $request->rider_id,
+    //             $request->asset_vehicle_id
+    //         ));
             
-            DB::commit();
+    //         DB::commit();
 
-            return response()->json([
-                'status'  => true,
-                'message' => 'Vehicle assigned successfully',
-                'data'    => $assignVehicle
-            ], 200);
+    //         return response()->json([
+    //             'status'  => true,
+    //             'message' => 'Vehicle assigned successfully',
+    //             'data'    => $assignVehicle
+    //         ], 200);
     
-        } catch (\Exception $e) {
-            Log::info("catch error for Assign Vehicle".$e->getMessage());
-            DB::rollBack();
+    //     } catch (\Exception $e) {
+    //         Log::info("catch error for Assign Vehicle".$e->getMessage());
+    //         DB::rollBack();
 
-            return response()->json([
-                'status'  => false,
-                'message' => 'Vehicle Assign Failed',
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
-    }
+    //         return response()->json([
+    //             'status'  => false,
+    //             'message' => 'Vehicle Assign Failed',
+    //             'error'   => $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
     
     public function AutoSendAssignVehicleEmail($agent, $vehicleRequestId, $rider_id, $vehicle_id, $forward_type)
     {
@@ -2547,7 +2687,7 @@ public function update_return_request(Request $request)
         B2BVehicleAssignmentLog::create([
             'assignment_id' => $returnRequest->assign_id,
             'status'        => 'closed',
-            'remarks'       => "Vehicle {$returnRequest->register_number} returned & request closed successfully",
+            'remarks'       => "Vehicle {$returnRequest->register_number} returned & request closed successfully.A service request {} was also created accordingly",
             'action_by'     => $user->id ?? null,
             'type'          => 'agent',
             'request_type'  => 'return_request',
@@ -2555,17 +2695,67 @@ public function update_return_request(Request $request)
         ]);
         
         
-         // FIELDPROXY TICKET RAISE SECTION START
+        $ticket_id = CustomHandler::GenerateTicketId($assignment->vehicle->quality_check->location);
+        
+        if ($ticket_id == "" || $ticket_id == null) {
             
-            $ticket_id = CustomHandler::GenerateTicketId($assignment->vehicle->quality_check->location);
-               
-                if ($ticket_id == "" || $ticket_id == null) {
-                    return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
-                }
-                
-             $customer = optional(optional($assignment->vehicle)->quality_check)->accountability_type == 2
+            \Log::error("TICKET ID creation failed", [
+                'assign_id' => $returnRequest->assign_id,
+                'vehicle' => $assignment->vehicle->permanent_reg_number ?? null,
+                'location' => $assignment->vehicle->quality_check->location ?? null,
+            ]);
+
+            throw new \Exception("Ticket ID creation failed");
+        }
+        
+        
+         $customer = optional(optional($assignment->vehicle)->quality_check)->accountability_type == 2
                 ? optional(optional($assignment->vehicle)->quality_check)->customer_relation
                 : optional($assignment->vehicle)->customer_relation;
+                
+        $serviceDescription = "Vehicle returned by customer {$customer->trade_name}. "
+                    . "A post-return inspection and maintenance check is required.";
+
+                
+            $service = B2BServiceRequest::create([
+                'assign_id'       => $returnRequest->assign_id,
+                'ticket_id'       =>$ticket_id ?? '',
+                'vehicle_number'  => $assignment->vehicle->permanent_reg_number ?? '',
+                'description'     => $serviceDescription,
+                'address'         => '',
+                'repair_type'     => 6,
+                'city'            => $assignment->vehicle->quality_check->location ?? '',
+                'zone_id'         =>   $assignment->vehicle->quality_check->zone_id ?? '',
+                'gps_pin_address'   => '',
+                'poc_name'          => $customer->trade_name ?? '',
+                'poc_number'    => $customer->phone ?? '',
+                'driver_name'   => $assignment->rider->name ?? '',
+                'driver_number'   => $assignment->rider->mobile_no ?? '',
+                'current_status'   => 'open',
+                'latitude'               => '',
+                'longitude'              => '',
+                'status'          => 'unassigned',
+                'created_by'      => $user->id,
+                'type'            => 'b2b-agent-app'
+            ]);
+            
+            
+            B2BVehicleAssignmentLog::create([
+                'assignment_id' => $returnRequest->assign_id,
+                'status'        => 'unassigned',
+                'current_status' => 'open',
+                'remarks'       => "Service request raised for vehicle {$assignment->vehicle->permanent_reg_number}",
+                'action_by'     => $user->id,
+                'type'          => 'b2b-agent-app',
+                'request_type'  => 'service_request',
+                'request_type_id' => $service->id
+            ]);
+            
+        
+         // FIELDPROXY TICKET RAISE SECTION START
+            
+           
+
 
             
                 $ticket = VehicleTicket::create([

@@ -17,8 +17,9 @@ class VehicleTransferLogExport implements FromCollection, WithHeadings
     protected $selectedFields;
     protected $selectedIds;
     protected $chassis_number;
+    protected $customer_id;
 
-    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [], $selectedIds = [] , $chassis_number)
+    public function __construct($status, $from_date, $to_date, $timeline, $selectedFields = [], $selectedIds = [] , $chassis_number,$customer_id)
     {
         $this->status = $status;
         $this->from_date = $from_date;
@@ -27,6 +28,7 @@ class VehicleTransferLogExport implements FromCollection, WithHeadings
         $this->selectedFields = array_filter($selectedFields);
         $this->selectedIds = array_filter($selectedIds) ?? [];
         $this->chassis_number = $chassis_number;
+        $this->customer_id = $customer_id;
     }
 
     public function collection(): Collection
@@ -59,6 +61,10 @@ class VehicleTransferLogExport implements FromCollection, WithHeadings
         } else {
             if (!empty($this->status) && $this->status !== "all") {
                 $query->where('return_status', $this->status === "closed" ? 1 : 0);
+            }
+            
+            if (!empty($this->customer_id)) {
+                $query->where('id', $this->customer_id);
             }
                 
             // Filter by chassis number (only matching transfer_details loaded)
@@ -133,6 +139,7 @@ class VehicleTransferLogExport implements FromCollection, WithHeadings
                     $from_location->name ?? '-',
                     $to_location->name ?? '-',
                     $transferStatus,
+                    
                     $detail->remarks ?? '-',
                     trim(($CreatedBy->name ?? '') . ' (' . ($CreatedBy->get_role->name ?? '')).')',
                     date('d-m-Y h:i:s A', strtotime($detail->created_at))

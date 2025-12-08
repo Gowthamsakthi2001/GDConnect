@@ -16,6 +16,7 @@ use App\Models\BusinessSetting;
 use Modules\City\Entities\City;
 use Modules\B2B\Entities\B2BRecoveryRequest;
 use Modules\VehicleServiceTicket\Entities\VehicleTicket;
+use Modules\B2B\Entities\B2BServiceRequest;
 use Modules\VehicleServiceTicket\Entities\FieldProxyTicket;//updated by Mugesh.B
 use Modules\VehicleServiceTicket\Entities\FieldProxyLog;//updated by Mugesh.B
 use Modules\B2B\Entities\B2BVehicleAssignmentLog;
@@ -484,7 +485,7 @@ public function addComment(Request $request)
         ], 404);
     }
 
-    $recovery = B2BRecoveryRequest::with('rider','assignment' , 'assignment.vehicle')->find($request->req_id);
+    $recovery = B2BRecoveryRequest::find($request->req_id);
     if (!$recovery) {
         return response()->json([
             'success' => false,
@@ -555,36 +556,7 @@ public function addComment(Request $request)
         $videoPath = $filename;
     }
 
-    // Create assignment log
-    if(!empty($request->status)){
-        
-        $name = ucwords($user->first_name . ' ' . $user->last_name);
-        
-        $remarks = [
-            'in_progress' => "$name has initiated the recovery process.",
-            'rider_contacted' => "$name has contacted the rider.",
-            'reached_location' => "$name has reached the vehicle’s last known location.",
-            'revisit_location' => "$name has revisited the recovery location for further inspection.",
-            'recovered' => "Vehicle has been successfully recovered by $name.",
-            'not_recovered' => "$name could not recover the vehicle after all attempts. Case closed as not recovered.",
-            'hold' => "Recovery process handled by $name has been temporarily placed on hold pending further instructions.",
-            'closed' => "Recovery request handled by $name has been closed after completing all necessary actions.",
-        ];
 
-      B2BVehicleAssignmentLog::create([
-        'assignment_id'   => $recovery->assign_id,
-        'status'          => $request->status ?? null,
-        'remarks'         => $remarks[$request->status] ?? null,
-        'action_by'       => $request->user_id ?? null,
-        'type'            => $user_type ?? null,
-        'request_type'    => 'recovery_request',
-        'request_type_id' => $recovery->id,
-        'location_lat'    => $request->lat ?? null,
-        'location_lng'    => $request->long ?? null,
-        'updates_id'         =>$faq_id ?? null
-    ]); 
-    }
-    
     // Create recovery comment
     $remark = RecoveryComment::create([
         'req_id'    => $recovery->id,
@@ -666,17 +638,58 @@ public function addComment(Request $request)
                         $ticket_id = CustomHandler::GenerateTicketId($vehicle->quality_check->location);
                            
                         if ($ticket_id == "" || $ticket_id == null) {
-                            
-                               Log::error('TICKET ID creation failed', [
-                                    'ticket_id' => $ticket_id
-                                ]);
 
-                            return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
+                            Log::error("TICKET ID creation failed", [
+                                'assign_id' => $recovery->assign_id,
+                                'vehicle' => $vehicle->permanent_reg_number ?? null,
+                                'location' => $vehicle->quality_check->location ?? null,
+                            ]);
+                        
+                            throw new \Exception("Ticket ID creation failed");
                         }
                             
                          $customer = optional(optional($vehicle)->quality_check)->accountability_type == 2
                             ? optional(optional($vehicle)->quality_check)->customer_relation
                             : optional($vehicle)->customer_relation;
+                            
+                            
+                         $serviceDescription = "Recovered vehicle received from customer {$customer->trade_name}. "
+                            . "A full inspection and maintenance check is required after recovery.";
+            
+            
+                            $service = B2BServiceRequest::create([
+                                'assign_id'       => $recovery->assign_id,
+                                'ticket_id'       =>$ticket_id ?? '',
+                                'vehicle_number'  => $recovery->assignment->vehicle->permanent_reg_number ?? '',
+                                'description'     => $serviceDescription,
+                                'address'         => '',
+                                'repair_type'     => 6,
+                                'city'            => $recovery->assignment->vehicle->quality_check->location ?? '',
+                                'zone_id'         =>   $recovery->assignment->vehicle->quality_check->zone_id ?? '',
+                                'gps_pin_address'   => '',
+                                'poc_name'          => $customer->trade_name ?? '',
+                                'poc_number'    => $customer->phone ?? '',
+                                'driver_name'   => $recovery->assignment->rider->name ?? '',
+                                'driver_number'   => $recovery->assignment->rider->mobile_no ?? '',
+                                'current_status'   => 'open',
+                                'latitude'               => '',
+                                'longitude'              => '',
+                                'status'          => 'unassigned',
+                                'created_by'      => $request->user_id,
+                                'type'            => 'b2b-recovery-app'
+                            ]);
+                            
+                            
+                            B2BVehicleAssignmentLog::create([
+                                'assignment_id' => $recovery->assign_id,
+                                'status'        => 'unassigned',
+                                'current_status' => 'open',
+                                'remarks'       => "Service request created accordingly for recovered vehicle {$recovery->assignment->vehicle->permanent_reg_number}.",
+                                'action_by'     => $request->user_id,
+                                'type'          => 'b2b-recovery-app',
+                                'request_type'  => 'service_request',
+                                'request_type_id' => $service->id
+                            ]);
             
                         
                             $ticket = VehicleTicket::create([
@@ -695,9 +708,9 @@ public function addComment(Request $request)
                             'long'              => '',
                             'driver_name'       =>  $recovery->assignment->rider->name ?? '',
                             'driver_number'     =>  $recovery->assignment->rider->mobile_no ?? '',
-                            'image'             => [],
+                            'image'             => '',
                             'created_datetime'  => now(),                                                                                                          
-                            'created_by'        => $user->id,
+                            'created_by'        => $request->user_id,
                             'created_role'      => '',
                             'customer_id'             => '',
                             'web_portal_status' => 0,
@@ -812,6 +825,38 @@ public function addComment(Request $request)
                 }
             }
         }
+        
+        
+        // Create assignment log
+        if(!empty($request->status)){
+            
+            $name = ucwords($user->first_name . ' ' . $user->last_name);
+            
+            $remarks = [
+                'in_progress' => "$name has initiated the recovery process.",
+                'rider_contacted' => "$name has contacted the rider.",
+                'reached_location' => "$name has reached the vehicle’s last known location.",
+                'revisit_location' => "$name has revisited the recovery location for further inspection.",
+                'recovered' => "Vehicle has been successfully recovered by $name.",
+                'not_recovered' => "$name could not recover the vehicle after all attempts. Case closed as not recovered.",
+                'hold' => "Recovery process handled by $name has been temporarily placed on hold pending further instructions.",
+                'closed' => "Recovery request handled by $name has been closed after completing all necessary actions.",
+            ];
+    
+          B2BVehicleAssignmentLog::create([
+            'assignment_id'   => $recovery->assign_id,
+            'status'          => $request->status ?? null,
+            'remarks'         => $remarks[$request->status] ?? null,
+            'action_by'       => $request->user_id ?? null,
+            'type'            => $user_type ?? null,
+            'request_type'    => 'recovery_request',
+            'request_type_id' => $recovery->id,
+            'location_lat'    => $request->lat ?? null,
+            'location_lng'    => $request->long ?? null,
+            'updates_id'         =>$faq_id ?? null
+        ]); 
+        }
+    
 
        
     
@@ -1100,7 +1145,7 @@ public function addComment(Request $request)
             'file'    => $e->getFile(),
             'line'    => $e->getLine(),
             'trace'   => $e->getTraceAsString(),
-            'input'   => $request->all()
+            'input'   => $request->all(),
         
         ]);
         return response()->json([

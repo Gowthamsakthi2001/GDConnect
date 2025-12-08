@@ -9,6 +9,8 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\ImportErrorCollector;
+use App\Imports\AssetMasterInventoryBulkImport;//updated by Gowtham.s
 use App\Imports\AssetMasterVehicleImport; //updated by Gowtham.s
 use App\Exports\AssetMasterVehicleExport;
 use App\Exports\AssetMasterInventoryExport;//updated by Mugesh.B
@@ -20,6 +22,7 @@ use Modules\MasterManagement\Entities\EvTblAccountabilityType;//updated by Muges
 use Modules\AssetMaster\Entities\QualityCheck;
 use Modules\AssetMaster\Entities\QualityCheckReinitiate;
 use Illuminate\Support\Facades\Auth; //updated by logesh
+use Modules\MasterManagement\Entities\LeasingPartnerMaster;//updated by Mugesh.B
 
 use Modules\MasterManagement\Entities\FinancingTypeMaster;//updated by Mugesh.B
 use Modules\MasterManagement\Entities\AssetOwnershipMaster;//updated by Mugesh.B
@@ -161,28 +164,43 @@ public function inventory_list(Request $request)
             
 
             $status = $request->input('status');
-            $city = $request->input('city');
-            $zone_id = $request->input('zone');
-            $customer_id = $request->input('customer');
-            $accountability_type_id = $request->input('accountability_type');
             
-            $timeline = $request->input('timeline');
+            $status_ids       = (array) $request->input('status', []);
+            $city_ids       = (array) $request->input('city', []);
+            $zone_ids           = (array) $request->input('zone', []);
+            $customer_ids       = (array) $request->input('customer', []);
+            $accountability_type_id = $request->input('accountability_type');
+            $vehicle_model_ids  = (array) $request->input('vehicle_model', []);
+            $vehicle_make_ids   = (array) $request->input('vehicle_make', []);
+            $vehicle_type_ids   = (array) $request->input('vehicle_type', []);
+
+            $timeline = ($request->filled('timeline') && $request->timeline !== 'custom') ? $request->timeline: '';
             $from_date = $request->input('from_date');
             $to_date = $request->input('to_date');
+            
+            if (in_array('all', $status_ids, true))        $status_ids = [];
+            if (in_array('all', $city_ids, true))          $city_ids = [];
+            if (in_array('all', $zone_ids, true))          $zone_ids = [];
+            if (in_array('all', $customer_ids, true))      $customer_ids = [];
+            if (in_array('all', $vehicle_type_ids, true))  $vehicle_type_ids = [];
+            if (in_array('all', $vehicle_model_ids, true)) $vehicle_model_ids = [];
+            if (in_array('all', $vehicle_make_ids, true))  $vehicle_make_ids = [];
+            
 
-            if ($status && $status !== 'all') {
-                $query->where('transfer_status', $status);
+
+            if (!empty($status_ids)) {
+                $query->whereIn('transfer_status', $status);
             }
 
-            if (!empty($city)) {
-                $query->whereHas('assetVehicle.quality_check', function ($q) use ($city) {
-                    $q->where('location', $city);
+            if (!empty($city_ids)) {
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($city_ids) {
+                    $q->whereIn('location', $city_ids);
                 });
             }
             
-            if (!empty($zone_id)) {
-                $query->whereHas('assetVehicle.quality_check', function ($q) use ($zone_id) {
-                    $q->where('zone_id', $zone_id);
+            if (!empty($zone_ids)) {
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($zone_ids) {
+                    $q->whereIn('zone_id', $zone_ids);
                 });
             }
             
@@ -192,15 +210,40 @@ public function inventory_list(Request $request)
                 });
             }
             
-            if (!empty($customer_id) && $accountability_type_id == 2) { //updated by Gowtham.s
-                $query->whereHas('assetVehicle.quality_check', function ($q) use ($customer_id) {
-                    $q->where('customer_id', $customer_id);
+            if (!empty($customer_ids) && $accountability_type_id == 2) { //updated by Gowtham.s
+                $query->whereHas('assetVehicle.quality_check', function ($q) use ($customer_ids) {
+                    $q->whereIn('customer_id', $customer_ids);
                 });
             }
-             if (!empty($customer_id) && $accountability_type_id == 1) { //updated by Gowtham.s
-                $query->whereHas('assetVehicle', function ($q) use ($customer_id) {
-                    $q->where('client', $customer_id);
+            if (!empty($customer_ids) && $accountability_type_id == 1) { //updated by Gowtham.s
+                $query->whereHas('assetVehicle', function ($q) use ($customer_ids) {
+                    $q->whereIn('client', $customer_ids);
                 });
+            }
+            if (!empty($customer_ids) && empty($accountability_type_id)) { //updated by Gowtham.s
+                $query->whereHas('assetVehicle', function ($q) use ($customer_ids) {
+                    $q->whereIn('client', $customer_ids);
+                });
+            }
+            
+             if (!empty($vehicle_type_ids)) { //updated by Gowtham.s
+               $query->whereHas('assetVehicle', function ($q) use ($vehicle_type_ids) {
+                    $q->whereIn('vehicle_type', $vehicle_type_ids);
+                });
+                 
+            }
+            
+            if (!empty($vehicle_model_ids)) { //updated by Gowtham.s
+                $query->whereHas('assetVehicle', function ($q) use ($vehicle_model_ids) {
+                    $q->whereIn('model', $vehicle_model_ids);
+                });
+                    
+            }
+            if (!empty($vehicle_make_ids)) { //updated by Gowtham.s
+               $query->whereHas('assetVehicle', function ($q) use ($vehicle_make_ids) {
+                    $q->whereIn('model', $vehicle_make_ids);
+                });
+                    
             }
             
              // Timeline filters
@@ -216,6 +259,12 @@ public function inventory_list(Request $request)
                             $now->endOfWeek()->toDateTimeString()
                         ]);
                         break;
+                    case 'last_15_days':
+                            $query->whereBetween('created_at', [
+                                now()->subDays(14)->startOfDay(),
+                                now()->endOfDay()
+                            ]);
+                            break;
                     case 'this_month':
                         $query->whereBetween('created_at', [
                             $now->startOfMonth()->toDateTimeString(),
@@ -378,7 +427,9 @@ public function inventory_list(Request $request)
     
     $accountablity_types = EvTblAccountabilityType::where('status', 1)->get();
     $customers = CustomerMaster::where('status',1)->get();
-
+    $vehicle_types = VehicleType::where('is_active', 1)->get();
+    $vehicle_models = VehicleModelMaster::where('status', 1)->get();
+    
     return view('assetmaster::inventory.inventory_list', [
         'status' => $request->status ?? 'all', 
         'from_date' => $request->from_date, 
@@ -391,6 +442,10 @@ public function inventory_list(Request $request)
         'city' => $request->city,
         'zone_id'  => $request->zone,
         'customer_id' => $request->customer ,
+        'vehicle_types'=>$vehicle_types,
+        'vehicle_models'=>$vehicle_models,
+        'vehicle_type' => $request->vehicle_type ?? '',
+        'vehicle_model' => $request->vehicle_model ?? '',
         'accountability_type' => $request->accountability_type,
         'total_count' => $total_count
     ]);
@@ -425,9 +480,10 @@ public function inventory_list(Request $request)
         $vehicle_models = VehicleModelMaster::where('status', 1)->get();
         $telematics = TelemetricOEMMaster::where('status',1)->get();
         $colors = ColorMaster::where('status',1)->get();
+        $leasing_partner = LeasingPartnerMaster::where('status',1)->get();
         
       
-        return view('assetmaster::inventory.inventory_view' , compact('data' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' , 'hypothecations' ,'registration_types' ,'vehicle_types' ,'locations' ,'vehicle_models' ,'passed_chassis_numbers' ,'inventory_locations' ,'telematics' ,'colors' ,'log_history'));
+        return view('assetmaster::inventory.inventory_view' , compact('data' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' , 'hypothecations' ,'registration_types' ,'vehicle_types' ,'locations' ,'vehicle_models' ,'passed_chassis_numbers' ,'inventory_locations' ,'telematics' ,'colors' ,'log_history' , 'leasing_partner'));
     }
  
  
@@ -443,12 +499,17 @@ public function inventory_list(Request $request)
         $customer = $request->customer ?? '';
         $zone = $request->zone ?? '';
         $accountability_type = $request->accountability_type ?? '';
+        $vehicle_model = $request->vehicle_model ?? '';
+        $vehicle_make = $request->vehicle_make ?? '';
+        $vehicle_type = $request->vehicle_type ?? '';
         
         $get_ids = $request->get('get_ids', []);
         // dd($request->get_export_labels);
         $get_labels = array_filter($request->get('get_export_labels', []), function ($label) {
             return !is_null($label) && trim($label) !== '';
         });
+        
+        // dd($status,$timeline,$from_date,$to_date,$city,$customer,$zone,$vehicle_model,$vehicle_type,$vehicle_make);
         
         $export = new AssetMasterInventoryExport(
             $request->status,
@@ -460,7 +521,10 @@ public function inventory_list(Request $request)
             $request->city,
             $request->customer ,
             $request->zone ,
-            $request->accountability_type
+            $request->accountability_type,
+            $vehicle_type,
+            $vehicle_model,
+            $vehicle_make
         );
         
         $roleName = optional(\Modules\Role\Entities\Role::find(optional(Auth::user())->role))->name ?? 'Unknown';
@@ -522,9 +586,9 @@ public function inventory_list(Request $request)
         $telematics = TelemetricOEMMaster::where('status',1)->get();
         $colors = ColorMaster::where('status',1)->get();
         $customers = CustomerMaster::where('status',1)->get();
-        
+         $leasing_partner = LeasingPartnerMaster::where('status',1)->get();
               
-        return view('assetmaster::inventory.inventory_edit' , compact('data' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' , 'hypothecations' ,'registration_types' ,'vehicle_types' ,'locations' ,'vehicle_models' ,'passed_chassis_numbers' ,'inventory_locations' ,'telematics' ,'colors' ,'log_history' , 'customers'));
+        return view('assetmaster::inventory.inventory_edit' , compact('data' ,'financing_types' ,'asset_ownerships' ,'insurer_names' ,'insurance_types' , 'hypothecations' ,'registration_types' ,'vehicle_types' ,'locations' ,'vehicle_models' ,'passed_chassis_numbers' ,'inventory_locations' ,'telematics' ,'colors' ,'log_history' , 'customers' , 'leasing_partner'));
        
     }
     
@@ -550,6 +614,7 @@ public function inventory_list(Request $request)
         'gd_hub_id' => 'nullable|string',
         'financing_type' => 'nullable|string',
         'asset_ownership' => 'nullable|string',
+        'leasing_partner' => 'nullable',
         'lease_start_date' => 'nullable|date',
         'lease_end_date' => 'nullable|date|after_or_equal:lease_start_date',
         'vehicle_delivery_date' => 'nullable|date',
@@ -770,6 +835,7 @@ public function inventory_list(Request $request)
                 'gd_hub_name' => $request->gd_hub_id,
                 'financing_type' => $request->financing_type,
                 'asset_ownership' => $request->asset_ownership,
+                'leasing_partner' => $request->leasing_partner,
                 'lease_start_date' => $request->lease_start_date,
                 'lease_end_date' => $request->lease_end_date,
                 'vehicle_delivery_date' => $request->vehicle_delivery_date,
@@ -939,6 +1005,7 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
             // 'client' => 'Client',
             // 'motor_number' => 'Motor Number',
             'vehicle_id' => 'Vehicle ID',
+            'leasing_partner' => 'Leasing Partner',
             'tax_invoice_number' => 'Tax Invoice Number',
             'tax_invoice_date' => 'Tax Invoice Date',
             'tax_invoice_value' => 'Tax Invoice Value',
@@ -1144,5 +1211,96 @@ private function handleLogsAndQcUpdate($vehicle_update,$changes ,  $request, $ol
     }
     
 }
+
+public function inventory_bulk_upload_form(Request $request){
+    try{
+        return view('assetmaster::inventory.bulk_upload_form');
+    }
+    catch(\Exception $e){
+        return back()->with('error','View Not Found');
+    }
+}
+
+    public function bulk_upload_data(Request $request)
+    {
+        \Log::info("Inventory Function IMPORT_ROW Called");
+    
+        // 1. CLEAR previous results
+        ImportErrorCollector::clear();
+    
+        // 2. PROCESS IMPORT
+        (new AssetMasterInventoryBulkImport)->import($request->file('asset_vehicle_excel_file'));
+    
+        // 3. READ RESULTS AFTER IMPORT
+        $updated = ImportErrorCollector::$updatedChassis;
+        $failed  = ImportErrorCollector::$failedChassis;
+        $errors  = ImportErrorCollector::all();
+    
+        // 4. IF THERE ARE IMPORT ERRORS (validation / master mismatches)
+        if (count($errors) > 0) {
+    
+            \Log::info("Import Array IF".json_encode($errors));
+    
+            $filename = 'import_errors_' . date('Ymd_His') . '.csv';
+            $folderPath = public_path('import_errors');
+    
+            if (!is_dir($folderPath)) {
+                mkdir($folderPath, 0777, true);
+            }
+    
+            $filepath = $folderPath . '/' . $filename;
+    
+            // Create CSV
+            $file = fopen($filepath, 'w');
+            fputcsv($file, ['S.No', 'Chassis Number', 'Error Message']);
+            $sno = 1;
+    
+            foreach ($errors as $e) {
+                fputcsv($file, [
+                    $sno++,
+                    $e['chassis_number'] ?? '',
+                    $e['error_message'] ?? ''
+                ]);
+            }
+    
+            fclose($file);
+    
+            return response()->json([
+                'status' => false,
+                'message' => 'Import completed with errors',
+                'download_url' => route('admin.asset_management.asset_master.inventory.import.error.file', $filename),
+                'updated_chassis' => $updated,
+                'failed_chassis'  => $failed,
+            ]);
+        }
+    
+        // 5. SUCCESS WITH ZERO ERRORS
+        return response()->json([
+            'status' => true,
+            'message' => 'Import completed successfully',
+            'updated_chassis' => $updated,
+            'failed_chassis'  => $failed,
+        ]);
+    }
+
+
+    public function downloadErrorFile($filename)
+    {
+        $filepath = public_path('import_errors/' . $filename);
+    
+        // File not found
+        if (!file_exists($filepath)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'File not found or already deleted'
+            ], 404);
+        }
+    
+        // File exists → download + delete
+        return response()->download($filepath)->deleteFileAfterSend(true);
+    }
+
+
+
     
 }

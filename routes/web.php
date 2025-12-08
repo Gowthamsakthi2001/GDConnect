@@ -29,6 +29,7 @@ Route::post('filter/data', [DashboardController::class, 'filterData'])->name('fi
 Route::post('filter/hrdata', [DashboardController::class, 'filterhrData'])->name('filter.hrdata')->middleware('auth');
 Route::get('/get-city-list/{state_id}', [DashboardController::class, 'getCities'])->name('global.get_cities')->middleware('auth');//updated by Gowtham.S
 Route::get('/get-zone-list/{city_id}', [GetZoneController::class, 'getZones'])->name('global.get_zones');//updated by Gowtham.s - Zone Map
+Route::get('/get-multi-city-zone', [GetZoneController::class, 'getMultiCityZones'])->name('global.get_multi_city_zones');//updated by Logesh - Zone Map
 Route::get('/admin', [DashboardController::class, 'redirectToDashboard'])->middleware('auth');
 Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard')->middleware('auth');
 Route::get('/admin/tracking', [MobitraApiController::class, 'mobitra_tracking'])->name('admin.tracking')->middleware('auth');

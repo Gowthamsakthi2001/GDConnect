@@ -35,5 +35,6 @@
     "MasterManagement": true,
     "B2B": true,
     "B2BAdmin": true,
-    "RecoveryManager": true
+    "RecoveryManager": true,
+    "B2CRental": true
 }

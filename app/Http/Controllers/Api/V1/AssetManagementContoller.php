@@ -586,13 +586,17 @@ class AssetManagementContoller extends Controller
                     'check_lists' => $checklistFormatted,
                     'datetime' => date('d M Y h:i A' , strtotime($data->datetime)) ?? null,
                     'status' => $data->status ?? null,
-                    'image' => $data->image ? 'https://evms.greendrivemobility.com/EV/images/quality_check/' . $data->image : null,
+                    'image' => $data->image ? asset('EV/images/quality_check/' . $data->image) : null,
                     'remarks' => $data->remarks ?? null,
                     'created_at' => $data->created_at ?? null,
                     'updated_at' => $data->updated_at ?? null,
                     'vehicle_type_relation' => $data->vehicle_type_relation,
                     'vehicle_model_relation' => $data->vehicle_model_relation,
                     'location_relation' => $data->location_relation,
+                    'zone_relation' => $data->zone,
+                    'accountability_type_relation' => $data->accountability_type_relation,
+                    'customer_relation' => $data->customer_relation,
+                    'is_recoverable'=>$data->is_recoverable ?? 0,
                 ],
                     'logs' => $formattedLogs,
                 ], 200);
@@ -627,7 +631,8 @@ class AssetManagementContoller extends Controller
                 'motor_number'       => 'required',
                 'result'             => 'required',
                 'remarks'            => 'max:255',
-                'file'               => 'required|file|mimes:jpg,jpeg,png,pdf|max:1024'//1MB Accept
+                'file'               => 'required|file|mimes:jpg,jpeg,png,pdf|max:1024',
+                'is_recoverable' => 'required|in:0,1'
             ];
             
             if ($checklists->count() > 0) {
@@ -693,7 +698,7 @@ class AssetManagementContoller extends Controller
                         'datetime' =>  now(),
                         'status' => $request->result ?? '',
                         'remarks' => $request->remarks ?? '',
-                        'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
+                        'is_recoverable' => $request->is_recoverable, 
                         'dm_id' => $request->user_id ?? '' ,
                         'check_lists' => json_encode($request->qc ?? []),
                         'image' => $imageName, 
@@ -808,7 +813,8 @@ class AssetManagementContoller extends Controller
                 'result'             => 'required',
                 'remarks'            => 'max:255',
                 'file'               => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:1024',//1MB Accept
-                'qc_id' => 'required'
+                'qc_id' => 'required' ,
+                'is_recoverable' => 'required|in:0,1'
                 
             ];
             
@@ -949,12 +955,12 @@ class AssetManagementContoller extends Controller
                 'zone_id'            =>$request->zone ?? '',
                 'accountability_type' => $request->accountability_type ?? '',
                 'customer_id' => $customerId,
-                'is_recoverable' => $request->has('is_recoverable') ? 1 : 0, 
+                'is_recoverable' => $request->is_recoverable, 
                 'chassis_number'     => $request->chassis_number ?? '',
                 'battery_number'     => $request->battery_number ?? '',
                 'telematics_number'  => $request->telematics_number ?? '',
                 'motor_number'       => $request->motor_number ?? '',
-                'datetime'           => now(),
+                // 'datetime'           => now(),
                 'status'             => $request->result ?? '',
                 'remarks'            => $request->remarks ?? '',
                 'check_lists' => json_encode($request->qc ?? []),
@@ -1010,6 +1016,8 @@ class AssetManagementContoller extends Controller
             
             
                 DB::commit(); 
+                
+               Log::info('Quality check values', $request->all());
 
                return response()->json([
                     'success' => true,

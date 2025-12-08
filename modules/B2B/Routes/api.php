@@ -73,7 +73,7 @@ Route::prefix('v1/b2brider')->name('api.b2brider')->group(function () {
         
         Route::get('get-notifications', [B2BRiderController::class, 'get_notification_list'])->name('get_notification_list');
         Route::get('notification/status-update/{notification_id}/{status}', [B2BRiderController::class, 'notification_status_update'])->name('notification_status_update');
-        
+         Route::get('get-rider-logs', [B2BRiderController::class, 'get_rider_logs'])->name('get_rider_logs');
     });
     
     

@@ -23,15 +23,17 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
     protected $selectedIds;
     protected $selectedFields;
     protected $accountability_type;
+    protected $zone_id;
 
-    public function __construct($status, $from_date, $to_date, $selectedIds = [], $selectedFields = [] , $accountability_type)
+    public function __construct($status, $from_date, $to_date, $selectedIds = [], $selectedFields = [] , $accountability_type = [],$zone_id = [])
     {
         $this->status = $status;
         $this->from_date = $from_date;
         $this->to_date = $to_date;
         $this->selectedIds = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->accountability_type = $accountability_type;
+        $this->accountability_type = (array)$accountability_type;
+         $this->zone_id = (array)$zone_id;
     }
 
     public function collection()
@@ -46,7 +48,7 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
             ->pluck('id');
         
         
-      $query = B2BVehicleRequests::with('rider');
+      $query = B2BVehicleRequests::with('rider','zone','city');
        
         if (!empty($this->selectedIds)) {
             $query->whereIn('id', $this->selectedIds);
@@ -57,16 +59,20 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
             }
 
             if ($guard === 'master') {
-                $query->where('city_id', $user->city_id);
+                $query->whereIn('city_id', [$user->city_id]);
             }
 
             if ($guard === 'zone') {
-                $query->where('city_id', $user->city_id)
-                  ->where('zone_id', $user->zone_id);
+                $query->whereIn('city_id', [$user->city_id])
+                  ->whereIn('zone_id', [$user->zone_id]);
             }
 
             if (!empty($this->accountability_type)) {
-                $query->where('account_ability_type', $this->accountability_type);
+                $query->whereIn('account_ability_type', $this->accountability_type);
+            }
+            
+            if (!empty($this->zone_id)) {
+                $query->whereIn('zone_id', $this->zone_id);
             }
             
             if (in_array($this->status, ['pending', 'completed'])) {
@@ -156,6 +162,14 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
                     case 'llr_number':
                         $mapped[] = $row->rider->llr_number ?? '-';
                         break;
+                    
+                    case 'zone_id':
+                        $mapped[] = $row->zone->name ?? '-';
+                        break;
+                        
+                    case 'city_id':
+                        $mapped[] = $row->city->city_name ?? '-';
+                        break;
                         
                     case 'created_at':
                         $mapped[] = $row->$key ? \Carbon\Carbon::parse($row->$key)->format('d M Y h:i A') : '-';
@@ -224,6 +238,8 @@ class B2BVehicleRequestExport implements FromCollection, WithHeadings, WithMappi
             'llr_image'             => 'LLR Image',
             'llr_number'            => 'LLR Number',
             'status'                => 'Status',
+            'city_id'                => 'City',
+            'zone_id'                => 'Zone',
             'created_at'            => 'Created Date & Time',
             'updated_at'            => 'Updated Date & Time',
             'aging'                 => 'Aging'

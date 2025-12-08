@@ -250,17 +250,18 @@
           </div>
           <div class="offcanvas-body">
         
-            
+      
             <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select City</h6></div>
+                   <div><h6 class="custom-dark">Select Option</h6></div>
                </div>
                <div class="card-body">
  
                     <div class="mb-3">
                         <label class="form-label" for="FromDate">City</label>
-                        <select name="city_id" id="city_id" class="form-control custom-select2-field" >
-                            <option value="">Select City</option>
+                        <select name="city_id" id="city_id" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select City</option>
+                            <option value="all" >All</option>
                             @if(isset($cities))
                             @foreach($cities as $city)
                             <option value="{{$city->id}}" >{{$city->city_name}}</option>
@@ -269,26 +270,38 @@
 
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Status</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    
+                     <div class="mb-3">
+                       
+                    <label class="form-label mb-0" for="customer_master">Customer</label>
+                        
+                        <select name="customer_master" id="customer_master" class="form-control custom-select2-field" multiple>
+                            
+                            <option value="" disabled>Select Customer</option>
+                            <option value="all">All</option>
+                            @if(isset($customers))
+                            @foreach($customers as $customer)
+                            <option value="{{$customer->id}}" >{{$customer->trade_name}}</option>
+                            @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    
                     <div class="mb-3">
                         <label class="form-label" for="zone_id">Status</label>
-                        <select name="status_value" id="status_value" class="form-control custom-select2-field">
-                            <option value="">Select</option>
+                        <select name="status_value" id="status_value" class="form-control custom-select2-field" multiple>
+                            <option value="" disabled>Select</option>
+                            <option value="all">All</option>
                             <option value="1">Active</option>
                             <option value="0">Inactive</option>
                         </select>
                     </div>
+                    
+                    
                </div>
             </div>
+            
+            
             
             
          
@@ -303,6 +316,94 @@
 
 @section('script_js')
 
+<script>
+function initSelectAll(selector) {
+    let internalChange = false;
+
+    // store previous selection when user interacts (before change fires)
+    $(document).on('mousedown touchstart', selector, function () {
+        // save previous selection as data on element
+        const prev = $(this).val() || [];
+        $(this).data('prevSelection', prev);
+    });
+
+    // For keyboard interactions (focus + key), also capture focus
+    $(document).on('focus', selector, function () {
+        const prev = $(this).val() || [];
+        $(this).data('prevSelection', prev);
+    });
+
+    $(selector).on('change', function () {
+        if (internalChange) return;
+
+        const $el = $(this);
+        let prev = $el.data('prevSelection') || [];
+        let current = $el.val() || [];
+
+        // normalize to strings (safety)
+        prev = prev.map(String);
+        current = current.map(String);
+
+        internalChange = true;
+
+        // CASE A: previously had "all" and now user added other values
+        // -> remove "all" and keep newly selected items
+        if (prev.includes('all') && current.includes('all') && current.length > 1) {
+            // user had all, then clicked another option: we keep the other options
+            const cleaned = current.filter(v => v !== 'all');
+            $el.val(cleaned).trigger('change.select2');
+            // update stored prev
+            $el.data('prevSelection', cleaned);
+            internalChange = false;
+            return;
+        }
+
+        // CASE B: user selected "all" after having other items -> keep only 'all'
+        if (!prev.includes('all') && current.includes('all')) {
+            // user selected "all" now, so keep only all
+            $el.val(['all']).trigger('change.select2');
+            $el.data('prevSelection', ['all']);
+            internalChange = false;
+            return;
+        }
+
+        // CASE C: user selected "all" + others in one action OR current has all+others
+        // -> prefer KEEPING only 'all'
+        if (current.includes('all') && current.length > 1) {
+            $el.val(['all']).trigger('change.select2');
+            $el.data('prevSelection', ['all']);
+            internalChange = false;
+            return;
+        }
+
+        // CASE D: user selected other items (no 'all') -> ensure 'all' removed (if present)
+        if (!current.includes('all')) {
+            const cleaned = current.filter(v => v !== 'all');
+            // if cleaned differs from current, set it (safety)
+            if (cleaned.length !== current.length) {
+                $el.val(cleaned).trigger('change.select2');
+                $el.data('prevSelection', cleaned);
+                internalChange = false;
+                return;
+            }
+        }
+
+        // default -> just store current as prev
+        $el.data('prevSelection', current);
+        internalChange = false;
+    });
+}
+
+
+
+
+$(document).ready(function () {
+    initSelectAll('#city_id');
+    // initSelectAll('#zone_id');
+    initSelectAll('#customer_master');
+});
+
+</script>
 <script>
     
     
@@ -405,7 +506,7 @@
     
     function clearRiderFilter() {
         $('#city_id').val('').trigger('change'); // 🔹 reset city + trigger change
-         $('#status_value').val('').trigger('change');
+         $('#status_value, #customer_master').val('').trigger('change');
         $('#zone_id').html('<option value="">Select Zone</option>').trigger('change'); // 🔹 reset zones + trigger change
         table.ajax.reload();
         
@@ -429,6 +530,7 @@
                 d.city_id = $('#city_id').val();
                 d.zone_id = $('#zone_id').val();
                 d.status = $('#status_value').val();
+                d.customer = $('#customer_master').val();
                 },
             
                 beforeSend: function () {
@@ -515,16 +617,20 @@
         return;
     }
     
-    const city   = document.getElementById('city_id').value;
-    const status   = document.getElementById('status_value').value;
-
+    // const city   = document.getElementById('city_id').value;
+    // const status   = document.getElementById('status_value').value;
+    const status = getMultiValues('#status_value');
+    const city = getMultiValues('#city_id');
+    const customer = getMultiValues('#customer_master');
     
     const params = new URLSearchParams();
 
 
-    if (city) params.append('city', city);
-    if (status) params.append('status', status);
-
+    // if (city) params.append('city', city);
+    // if (status) params.append('status', status);
+    appendMultiSelect(params, 'status', status);
+    appendMultiSelect(params, 'city_id', city);
+    appendMultiSelect(params, 'customer', customer);
     
     selectedFields.forEach(f => params.append('fields[]', f));
     
@@ -532,7 +638,15 @@
     const url = `{{ route('b2b.admin.zone.export') }}?${params.toString()}`;
     window.location.href = url;
   });
-
+    function appendMultiSelect(params, key, values) {
+            if (values && values.length > 0) {
+                values.forEach(v => params.append(key + '[]', v));
+            }
+        }
+    function getMultiValues(selector) {
+        return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                    .map(option => option.value);
+    }
 
 </script>
 
@@ -542,7 +656,7 @@
 
     ZoneDropdown.empty().append('<option value="">Loading...</option>');
 
-    if (CityID) {
+    if (CityID) { 
         $.ajax({
             url: "{{ route('global.get_zones', ':CityID') }}".replace(':CityID', CityID),
             type: "GET",

@@ -17,21 +17,32 @@ class B2BVehicleListExport implements FromCollection, WithHeadings, WithMapping
     protected $to_date;
     protected $selectedIds;
     protected $selectedFields;
-    protected $city;
-    protected $zone;
-    protected $status;
-    protected $accountability_type;
+    protected $city= [];
+    protected $zone = [];
+    protected $status = [];
+    protected $vehicle_model = [];
+    protected $vehicle_type = [];
+    protected $vehicle_make = [];
+    protected $accountability_type = [];
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status = null , $accountability_type = null)
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [], $status = [],
+        $vehicle_model = [],
+        $vehicle_type = [],
+        $vehicle_make = [],
+        $accountability_type = [])
     {
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
         $this->selectedIds    = $selectedIds;
         $this->selectedFields = $selectedFields;
-        $this->city           = $city;
-        $this->zone           = $zone;
-        $this->status         = $status;
-        $this->accountability_type = $accountability_type;
+        $this->city           = (array)$city;
+        $this->zone           = (array)$zone;
+        $this->status = (array) $status;
+        $this->vehicle_model = (array) $vehicle_model;
+        $this->vehicle_type = (array) $vehicle_type;
+        $this->vehicle_make = (array) $vehicle_make;
+        $this->accountability_type = (array) $accountability_type;
+       
     }
 
 public function collection()
@@ -64,33 +75,33 @@ public function collection()
                 $q->whereIn('created_by', $customerLoginIds);
             }
 
-            if ($this->accountability_type) {
-                $q->where('account_ability_type', $this->accountability_type);
+            if (!empty(array_filter($this->accountability_type))) {
+                $q->whereIn('account_ability_type', $this->accountability_type);
             }
             
             
             if ($guard === 'master') {
-                $q->where('city_id', $user->city_id);
+                $q->whereIn('city_id', [$user->city_id]);
             }
 
             if ($guard === 'zone') {
-                $q->where('city_id', $user->city_id)
-                  ->where('zone_id', $user->zone_id);
+                $q->whereIn('city_id', [$user->city_id])
+                  ->whereIn('zone_id', $user->zone_id);
             }
 
-            if ($this->city) {
-                $q->where('city_id', $this->city);
+            if (!empty(array_filter($this->city))) {
+                $q->whereIn('city_id', $this->city);
             }
 
-            if ($this->zone) {
-                $q->where('zone_id', $this->zone);
+            if (!empty(array_filter($this->zone))) {
+                $q->whereIn('zone_id', $this->zone);
             }
 
   
         });
         
-        if (!empty($this->status)) {
-            $query->where('status', $this->status);
+        if (!empty(array_filter($this->status))) {
+            $query->whereIn('status', $this->status);
         }
         
         if (!empty($this->from_date)) {
@@ -100,12 +111,28 @@ public function collection()
         if (!empty($this->to_date)) {
             $query->whereDate('created_at', '<=', $this->to_date);
         }
+        
+        if (!empty(array_filter($this->vehicle_model))) {
+                $query->whereHas('vehicle', function ($q) {
+                    $q->whereIn('model', $this->vehicle_model);
+                });
+            }
 
+            if (!empty(array_filter($this->vehicle_type))) {
+                $query->whereHas('vehicle', function ($q) {
+                    $q->whereIn('vehicle_type', $this->vehicle_type);
+                });
+            }
+
+            if (!empty(array_filter($this->vehicle_make))) {
+                $query->whereHas('vehicle.vehicle_model_relation', function ($q) {
+                    $q->whereIn('make', $this->vehicle_make);
+                });
+            }
     }
     $data = $query->orderBy('id', 'desc')->get();
     
- 
-    return $query->orderBy('id', 'desc')->get();
+    return $data;
     
 }
 
@@ -121,7 +148,7 @@ public function collection()
                     break;
 
                 case 'vehicle_id':
-                    $mapped[] = $row->vehicle->vehicle_id ?? '-';
+                    $mapped[] = $row->vehicle->id ?? '-';
                     break;
 
                 case 'chassis_number':

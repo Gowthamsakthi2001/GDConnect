@@ -246,6 +246,7 @@
                         <th scope="col" class="custom-dark text-center">Rider Contact</th>
                         <th scope="col" class="custom-dark text-center">Vehicle No</th>
                         <th scope="col" class="custom-dark text-center">Vehicle Type</th>
+                        <th scope="col" class="custom-dark text-center">Vehicle Model</th>
                         <th scope="col" class="custom-dark text-center">Vehicle Make</th>
                         <th scope="col" class="custom-dark text-center">City</th>
                         <th scope="col" class="custom-dark text-center">Zone Name</th>
@@ -273,16 +274,57 @@
                     <!--    <button class="btn btn-outline-secondary w-50" onclick="clearAssignFilter()">Clear All</button>-->
                     <!--    <button class="btn btn-success w-50" onclick="applyAssignFilter()">Apply</button>-->
                     <!--</div>-->
-                                      <div class="card mb-3">
+                    
+                    <div class="card mb-3">
+               <div class="card-header p-2">
+                   <h6 class="custom-dark">Quick Date Filter</h6>
+               </div>
+               <div class="card-body">
+ 
+                     <div class="mb-3">
+                        <label class="form-label" for="quick_date_filter">Select Date Range</label>
+                        <select name="datefilter" id="quick_date_filter" class="form-control custom-select2-field">
+                            <option value="">Select</option>
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="month">This Month</option>
+                            <option value="year">This Year</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3 date-container">
+                        <label class="form-label" for="FromDate">From Date</label>
+                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                    </div>
+                    
+                    <div class="mb-3 date-container">
+                        <label class="form-label" for="ToDate">To Date</label>
+                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                    </div>
+  
+               </div>
+            </div>
+            
+                    <div class="card mb-3">
                         <div class="card-header p-2">
-                            <div><h6 class="custom-dark">Date Between</h6></div>
+                            <div><h6 class="custom-dark">Select Status</h6></div>
                         </div>
                       <div class="card-body">
          
                             <div class="mb-3">
-                                <label class="form-label" for="assignment_status">Status</label>
-                                <select name="assignment_status" id="assignment_status" class="form-control custom-select2-field">
-                                    <option value="">All</option>
+                            
+                                <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="assignment_status">Status</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="assignment_status_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                                <select name="assignment_status" id="assignment_status" class="form-control custom-select2-field" multiple> 
+                                    <!--<option value="">All</option>-->
                                     <option value="running">Running</option>
                                     <option value="under_maintenance">Under Maintenance</option>
                                     <option value="recovery_request">Recovery Request</option>
@@ -296,14 +338,21 @@
                     
                     <div class="card mb-3">
                        <div class="card-header p-2">
-                           <div><h6 class="custom-dark">Select Accountability Type</h6></div>
+                           <div><h6 class="custom-dark">Select Options</h6></div>
                        </div>
                        <div class="card-body">
          
                             <div class="mb-3">
-                                <label class="form-label" for="FromDate">Accountability Type</label>
-                                <select name="accountability_type" id="accountability_type" class="form-control custom-select2-field">
-                                    <option value="">Select Type</option>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="v_type">Accountability Type</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="accountability_type_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                                <select name="accountability_type" id="accountability_type" class="form-control custom-select2-field" multiple>
+                                    <!--<option value="">Select Type</option>-->
                                     @if(isset($accountability_types))
                                     @foreach($accountability_types as $type)
                                     <option value="{{$type->id}}" >{{$type->name}}</option>
@@ -312,25 +361,104 @@
         
                                 </select>
                             </div>
+                             @if($guard == 'master')
+                            <div class="mb-3">
+                                
+                            <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="zone_id">Zone</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="zone_id_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                                <select name="zone_id" id="zone_id_1" class="form-control custom-select2-field" multiple>
+                                    <!--<option value="">Select Zone</option>-->
+                                    @if(!empty($zones))
+                                    @foreach($zones as $zone)
+                                    <option value='{{$zone->id}}'>{{$zone->name}}</option>
+                                    @endforeach
+                                    @endif
+                                </select>
+                            </div>
+                            @endif
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_type">Vehicle Type</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_type_select_all">
+                                Select All
+                            </label>
+                        </div>
+                    
+                        <select name="v_type" id="v_type" class="form-control custom-select2-field" multiple>
+                            @foreach($vehicle_types as $val)
+                                <option value="{{ $val->id }}">{{ $val->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+
+                    
+                     <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_model">Vehicle Model</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_model_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_model" id="v_model" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" >{{$val->vehicle_model}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_make">Vehicle Make</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_make_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_make" id="v_make" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_makes))
+                                @foreach($vehicle_makes as $val)
+                                <option value="{{$val}}">{{$val}}</option>
+                                @endforeach
+                            @endif
+                        </select>
+                    </div>
+
+
                        </div>
                     </div>
                     
                     <!-- Date Filter -->
-                    <div class="card mb-3">
-                        <div class="card-header p-2">
-                            <div><h6 class="custom-dark">Date Between</h6></div>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label" for="FromDate">From Date</label>
-                                <input type="date" name="from_date" id="FromDate" class="form-control" max="{{ date('Y-m-d') }}">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label" for="ToDate">To Date</label>
-                                <input type="date" name="to_date" id="ToDate" class="form-control" max="{{ date('Y-m-d') }}">
-                            </div>
-                        </div>
-                    </div>
+                    <!--<div class="card mb-3">-->
+                    <!--    <div class="card-header p-2">-->
+                    <!--        <div><h6 class="custom-dark">Date Between</h6></div>-->
+                    <!--    </div>-->
+                    <!--    <div class="card-body">-->
+                    <!--        <div class="mb-3">-->
+                    <!--            <label class="form-label" for="FromDate">From Date</label>-->
+                    <!--            <input type="date" name="from_date" id="FromDate" class="form-control" max="{{ date('Y-m-d') }}">-->
+                    <!--        </div>-->
+                    <!--        <div class="mb-3">-->
+                    <!--            <label class="form-label" for="ToDate">To Date</label>-->
+                    <!--            <input type="date" name="to_date" id="ToDate" class="form-control" max="{{ date('Y-m-d') }}">-->
+                    <!--        </div>-->
+                    <!--    </div>-->
+                    <!--</div>-->
                     
                     <div class="d-flex gap-2 mb-3">
                         <button class="btn btn-outline-secondary w-50" onclick="clearAssignFilter()">Clear All</button>
@@ -651,6 +779,49 @@
 @endsection
 
 @section('js')
+
+<script>
+    function initSelectAll(selector, checkboxSelector) {
+
+    // Select/Deselect all via checkbox
+    $(checkboxSelector).on('change', function () {
+        if (this.checked) {
+            let values = [];
+            $(selector + ' option').each(function () {
+                values.push($(this).val());
+            });
+            $(selector).val(values).trigger('change');
+        } else {
+            $(selector).val(null).trigger('change');
+        }
+    });
+
+    // Auto sync checkbox based on user actions
+    $(selector).on('change', function () {
+        let total = $(selector + ' option').length;
+        let selected = $(selector).val() ? $(selector).val().length : 0;
+
+        if (selected === total) {
+            $(checkboxSelector).prop('checked', true);
+        } else {
+            $(checkboxSelector).prop('checked', false);
+        }
+    });
+}
+
+$(document).ready(function () {
+
+    initSelectAll('#v_type', '#v_type_select_all');
+    initSelectAll('#v_model', '#v_model_select_all');
+    initSelectAll('#v_make', '#v_make_select_all');
+    initSelectAll('#accountability_type', '#accountability_type_select_all');
+    initSelectAll('#assignment_status', '#assignment_status_select_all');
+    initSelectAll('#zone_id_1', '#zone_id_select_all');
+
+});
+</script>
+
+
 <script>
     $(document).ready(function () {
     // Select all functionality for export fields
@@ -749,26 +920,46 @@ function RightSideFilerOpen() {
         return;
     }
     
-        const accountability_type   = document.getElementById('accountability_type').value;
-    const status   = document.getElementById('assignment_status').value;
+    //     const accountability_type   = document.getElementById('accountability_type').value;
+    // const status   = document.getElementById('assignment_status').value;
 
    
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
-    // const status   = document.getElementById('status_value').value;
-    // const city   = document.getElementById('city_id').value;
-    // const zone   = document.getElementById('zone_id').value;
-
+    // const vehicle_model   = document.getElementById('v_model').value;
+    // const vehicle_make   = document.getElementById('v_make').value;
+    // const vehicle_type   = document.getElementById('v_type').value;
+    
+    const status = getMultiValues('assignment_status');
+    const vehicle_make   = getMultiValues('#v_make');
+    const vehicle_model = getMultiValues('#v_model');
+    const vehicle_type  = getMultiValues('#v_type');
+    const accountability_type = getMultiValues('#accountability_type');
+    const zone_id = getMultiValues('#zone_id_1');
     
     const params = new URLSearchParams();
  
     if (fromDate) params.append('from_date', fromDate);
     if (toDate) params.append('to_date', toDate);
+    // if (vehicle_model) params.append('vehicle_model', vehicle_model);
+    // if (vehicle_make) params.append('vehicle_make', vehicle_make);
+    // if (vehicle_type) params.append('vehicle_type', vehicle_type);
+    // if (accountability_type) params.append('accountability_type', accountability_type);
     // if (status) params.append('status', status);
-    // if (city) params.append('city', city);
-    // if (zone) params.append('zone', zone);
-        if (accountability_type) params.append('accountability_type', accountability_type);
-    if (status) params.append('status', status);
+    // if (zone_id) params.append('zone_id', zone_id);
+    
+    // status
+        appendMultiSelect(params, 'status', status);
+        
+        // vehicle filters
+        appendMultiSelect(params, 'vehicle_model', vehicle_model);
+        appendMultiSelect(params, 'vehicle_make', vehicle_make);
+        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+        
+        // others
+        appendMultiSelect(params, 'accountability_type', accountability_type);
+        appendMultiSelect(params, 'zone_id', zone_id);
+        
 
     // append IDs
     selected.forEach(id => params.append('selected_ids[]', id));
@@ -780,7 +971,16 @@ function RightSideFilerOpen() {
     const url = `{{ route('b2b.export_vehicle_details') }}?${params.toString()}`;
     window.location.href = url;
   });
-
+    
+    function appendMultiSelect(params, key, values) {
+            if (values && values.length > 0) {
+                values.forEach(v => params.append(key + '[]', v));
+            }
+        }
+function getMultiValues(selector) {
+    return Array.from(document.querySelectorAll(selector + ' option:checked'))
+                .map(option => option.value);
+}
 
     
 var table; // Declare globally
@@ -816,8 +1016,15 @@ function clearAssignFilter() {
     $('#FromDate').val('');
     $('#ToDate').val('');
     // $('input[name="status_value"][value="all"]').prop('checked', true);
-        $('#accountability_type').val('').trigger('change');
-    $('#assignment_status').val('').trigger('change');
+    $('#assignment_status').val(null).trigger('change');
+    $('#quick_date_filter').val(null).trigger('change');
+    $('#v_type').val(null).trigger('change');
+$('#v_model').val(null).trigger('change');
+$('#v_make').val(null).trigger('change');
+$('#accountability_type').val(null).trigger('change');
+$('#zone_id_1').val(null).trigger('change');
+
+    
     table.ajax.reload();
     
         const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
@@ -842,6 +1049,11 @@ function clearAssignFilter() {
                 d.to_date = $('#ToDate').val();
                 d.accountability_type = $('#accountability_type').val();
                 d.status   = $('#assignment_status').val();
+                d.vehicle_model = $('#v_model').val();
+                d.vehicle_type = $('#v_type').val();
+                d.vehicle_make = $('#v_make').val();
+                d.datefilter = $('#quick_date_filter').val();
+                d.zone_id = $('#zone_id_1').val() ?? '';
             },
             beforeSend: function () {
                 $('#loadingOverlay').show();
@@ -868,7 +1080,8 @@ function clearAssignFilter() {
             { data: 10 },
             { data: 11 },
             { data: 12 },
-            { data: 13, orderable: false, searchable: false },
+            { data: 13 },
+            { data: 14, orderable: false, searchable: false },
         ],
         lengthMenu: [[25, 50, 100, 250, -1], [25, 50, 100, 250, "All"]],
         scrollX: true,
@@ -932,5 +1145,25 @@ function clearAssignFilter() {
           }
         });
       });
+</script>
+
+<script>
+    $(document).ready(function () {
+
+        function toggleDates() {
+            if ($('#quick_date_filter').val() === 'custom') {
+                $('.date-container').show();
+            } else {
+                $('.date-container').hide();
+            }
+        }
+
+        // On change
+        $('#quick_date_filter').on('change', toggleDates);
+
+        // On page load (for old values)
+        toggleDates();
+    });
+    
 </script>
 @endsection

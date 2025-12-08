@@ -31,7 +31,7 @@
             margin-bottom: 5px;
         }
         .stat-value {
-            font-size: 24px;
+            font-size: 1.8rem;
             font-weight: 600;
             margin-right: 8px;
         }
@@ -76,7 +76,8 @@
                 font-size: 16px;
             }
             .stat-value {
-                font-size: 30px;
+                font-size: 1.4rem;
+                font-weight: 600;
             }
             .action-title {
                 font-size: 14px;
@@ -90,6 +91,10 @@
                 height: auto;
                 min-height: 60px;
             }
+            .stat-value {
+                font-size: 1.4rem;
+                font-weight: 600;
+            }
         }
         
         .dashboard-card {
@@ -101,6 +106,10 @@
     cursor: pointer;
 }
 
+.offcanvas {
+    overflow-y: auto !important;
+}
+
 .dashboard-card:hover {
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
     transform: translateY(-4px);
@@ -110,11 +119,6 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
-}
-
-.stat-value {
-    font-size: 1.8rem;
-    font-weight: 600;
 }
     </style>
 @endsection
@@ -162,7 +166,7 @@
         @endphp
         <div class="row mb-2">
         
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total Vehicles</div>
@@ -178,7 +182,7 @@
                 </div>
             </div>
             
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2 accountability-card-2 {{ !in_array(2, $accountabilityTypes) ? 'd-none' : '' }}" style="padding:0 8px">
+            <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2 accountability-card-2 {{ !in_array(2, $accountabilityTypes) ? 'd-none' : '' }}" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total RFD</div>
@@ -195,7 +199,7 @@
             </div>
             
             
-                <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+                <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total Running Vehicle</div>
@@ -210,7 +214,7 @@
                     @endphp
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="assigned_vehicle">{{ $assigned_vehicles['current']}}</span>
+                            <span class="stat-value" id="assigned_vehicle">{{ $assigned_vehicles['current'] ?? 0}}</span>
                             <!--<span class="stat-change" id="assigned_vehicle_change" style="color:#005D27; background:#D4EFDF;">-->
                             <!--   {{ $symbol1 }}{{ abs($percent1) }} %-->
                             <!--</span>-->
@@ -221,7 +225,7 @@
             </div>
             
             
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total Under Maintenance</div>
@@ -236,7 +240,7 @@
                     @endphp
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="service_request">{{ $service_requests['current']}}</span>
+                            <span class="stat-value" id="service_request">{{ $service_requests['current'] ?? 0}}</span>
                             <!--<span class="stat-change" style="color:#F54900; background:#FFF7ED;">-->
                             <!--     {{ $symbol2 }}{{ abs($percent2) }} %-->
                             <!--</span>-->
@@ -246,7 +250,7 @@
                 </div>
             </div>
             
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total Return Requested Vehicles</div>
@@ -256,7 +260,7 @@
                     </div>
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="return_requested">{{ $totalReturnopenRequests }}</span>
+                            <span class="stat-value" id="return_requested">{{ $totalReturnRequests ?? 0 }}</span>
                         </div>
                     </div>
                 </div>
@@ -264,7 +268,7 @@
              
 
 
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total Returned Vehicles</div>
@@ -279,7 +283,7 @@
                     @endphp
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="return_request">{{ $return_requests['current']}}</span>
+                            <span class="stat-value" id="returned">{{ $return_requests['current'] ?? 0}}</span>
                             <!--<span class="stat-change" id="return_request_change" style="color:#2563EB; background:rgba(37, 99, 235, 0.1);">-->
                             <!--     {{ $symbol3 }}{{ abs($percent3) }} %-->
                             <!--</span>-->
@@ -288,36 +292,11 @@
                     </div>
                 </div>
             </div>
-
-
-            <div class="col-lg-4 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            
+            <div class="col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
-                        <div>Total Accident</div>
-                        <div>
-                            <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
-                        </div>
-                    </div>
-                    @php
-                        $percent4 = $accident_report['change_percent'];
-                        $isPositive4 = $percent4 >= 0;
-                        $symbol4 = $isPositive4 ? '+' : '−'; // using minus sign
-                    @endphp
-                    <div>
-                        <div class="d-flex align-items-center">
-                            <span class="stat-value" id="service_request">{{ $accident_report['current']}}</span>
-                            <!--<span class="stat-change" id="service_request_change" style="color:#005D27; background:#D4EFDF;">-->
-                            <!--    {{ $symbol4 }}{{ abs($percent4) }} %-->
-                            <!--</span>-->
-                        </div>
-                        <!--<div class="stat-comparison">vs prior 30 days</div>-->
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
-                <div class="dashboard-card stat-card">
-                    <div class="stat-header">
-                        <div>Total Recovery Request</div>
+                        <div>Total Recovery Requested Vehicles</div>
                         <div>
                             <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
                         </div>
@@ -329,7 +308,7 @@
                     @endphp
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value" id="recovery_request">{{ $recovery_requests['current']}}</span>
+                            <span class="stat-value" id="recovery_request">{{ $recovery_requests['current'] ?? 0}}</span>
                             <!--<span class="stat-change" id="recovery_request_change" style="color:#005D27; background:#D4EFDF;">-->
                             <!--     {{ $symbol5 }}{{ abs($percent5) }} %-->
                             <!--</span>-->
@@ -338,9 +317,60 @@
                     </div>
                 </div>
             </div>
+            
+            <div class="col-lg-3 col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+                <div class="dashboard-card stat-card">
+                    <div class="stat-header">
+                        <div>Total Recovered Vehicles</div>
+                        <div>
+                            <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
+                        </div>
+                    </div>
+                    @php
+                        $percent3 = $return_requests['change_percent'];
+                        $isPositive3 = $percent3 >= 0;
+                        $symbol3 = $isPositive3 ? '+' : '−'; // using minus sign
+                    @endphp
+                    <div>
+                        <div class="d-flex align-items-center">
+                            <span class="stat-value" id="recovered">{{ $totalRecovered ?? 0}}</span>
+                            <!--<span class="stat-change" id="return_request_change" style="color:#2563EB; background:rgba(37, 99, 235, 0.1);">-->
+                            <!--     {{ $symbol3 }}{{ abs($percent3) }} %-->
+                            <!--</span>-->
+                        </div>
+                        <!--<div class="stat-comparison">vs prior 30 days</div>-->
+                    </div>
+                </div>
+            </div>
+            
+             <div class="col-lg-3 col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+                <div class="dashboard-card stat-card">
+                    <div class="stat-header">
+                        <div>Total Accident Vehicles</div>
+                        <div>
+                            <img src="{{ asset('b2b/img/error.svg') }}" alt="Error Icon" style="height:18px;">
+                        </div>
+                    </div>
+                    @php
+                        $percent4 = $accident_report['change_percent'];
+                        $isPositive4 = $percent4 >= 0;
+                        $symbol4 = $isPositive4 ? '+' : '−'; // using minus sign
+                    @endphp
+                    <div>
+                        <div class="d-flex align-items-center">
+                            <span class="stat-value" id="accident_report">{{ $accident_report['current'] ?? 0 }}</span>
+                            <!--<span class="stat-change" id="service_request_change" style="color:#005D27; background:#D4EFDF;">-->
+                            <!--    {{ $symbol4 }}{{ abs($percent4) }} %-->
+                            <!--</span>-->
+                        </div>
+                        <!--<div class="stat-comparison">vs prior 30 days</div>-->
+                    </div>
+                </div>
+            </div>
+            
             <?php  $guard = Auth::guard('master')->check() ? 'master' : 'zone';?>
             @if($guard == 'master')
-            <div class="col-md-4 col-sm-6 mb-2 mt-2" style="padding:0 8px">
+            <div class="col-md-3 col-sm-6 mb-2 mt-2" style="padding:0 8px">
                 <div class="dashboard-card stat-card">
                     <div class="stat-header">
                         <div>Total No Zone</div>
@@ -350,7 +380,7 @@
                     </div>
                     <div>
                         <div class="d-flex align-items-center">
-                            <span class="stat-value">{{$totalZones}}</span>
+                            <span class="stat-value">{{$totalZones ?? 0}}</span>
                             <!--<span class="stat-change" style="color:#005D27; background:#D4EFDF;">-->
                         
                             <!--</span>-->
@@ -450,26 +480,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
           </div>
           <div class="offcanvas-body">
-              
-          <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Accountability Type</h6></div>
-               </div>
-               <div class="card-body">
- 
-                    <div class="mb-3">
-                        <label class="form-label" for="FromDate">Accountability Type</label>
-                        <select name="accountability_type" id="accountability_type" class="form-control custom-select2-field">
-                            @if(isset($accountability_types))
-                            @foreach($accountability_types as $type)
-                            <option value="{{$type->id}}" >{{$type->name}}</option>
-                            @endforeach
-                            @endif
-
-                        </select>
-                    </div>
-               </div>
-            </div>
         
             <div class="card mb-3">
                 <div class="card-header p-2">
@@ -482,45 +492,91 @@
                             <option value="">Select</option>
                             <option value="today">Today</option>
                             <option value="week">This Week</option>
+                            <option value="last15days">Last 15 days</option>
                             <option value="month">This Month</option>
                             <option value="year">This Year</option>
+                            <option value="custom">Custom</option>
                         </select>
+                    </div>
+                    <div class="mb-3 date-container">
+                        <label class="form-label" for="FromDate">From Date</label>
+                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                    </div>
+                    
+                    <div class="mb-3 date-container">
+                        <label class="form-label" for="ToDate">To Date</label>
+                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
                     </div>
                 </div>
             </div>
-
-            @if($guard == 'master')
+            
+            <!--<div class="card mb-3">-->
+            <!--   <div class="card-header p-2">-->
+            <!--       <div><h6 class="custom-dark">Date Between</h6></div>-->
+            <!--   </div>-->
+            <!--   <div class="card-body">-->
+ 
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="FromDate">From Date</label>-->
+            <!--            <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">-->
+            <!--        </div>-->
+                    
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="ToDate">To Date</label>-->
+            <!--            <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">-->
+            <!--        </div>-->
+  
+            <!--   </div>-->
+            <!--</div>-->
             <div class="card mb-3">
                <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select City</h6></div>
+                   <div><h6 class="custom-dark">Select Options</h6></div>
                </div>
                <div class="card-body">
  
                     <div class="mb-3">
-                        <label class="form-label" for="FromDate">City</label>
-                        <select name="city_id" id="city_id_1" class="form-control custom-select2-field" disabled>
-                            <!--<option value="">Select City</option>-->
-                            @if(isset($cities))
-                            @foreach($cities as $city)
-                            <option value="{{$city->id}}" >{{$city->city_name}}</option>
+                       <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="v_type">Accountability Type</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="accountability_type_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="accountability_type" id="accountability_type" class="form-control custom-select2-field" multiple>
+                            @if(isset($accountability_types))
+                            @foreach($accountability_types as $type)
+                            <option value="{{$type->id}}" >{{$type->name}}</option>
                             @endforeach
                             @endif
 
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Select Zone</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    
+                    <!--<div class="mb-3">-->
+                    <!--    <label class="form-label" for="FromDate">City</label>-->
+                    <!--    <select name="city_id" id="city_id_1" class="form-control custom-select2-field" disabled>-->
+                            <!--<option value="">Select City</option>-->
+                    <!--        @if(isset($cities))-->
+                    <!--        @foreach($cities as $city)-->
+                    <!--        <option value="{{$city->id}}" >{{$city->city_name}}</option>-->
+                    <!--        @endforeach-->
+                    <!--        @endif-->
+
+                    <!--    </select>-->
+                    <!--</div>-->
+                    @if($guard == 'master')
                     <div class="mb-3">
-                        <label class="form-label" for="zone_id">Zone</label>
-                        <select name="zone_id" id="zone_id_1" class="form-control custom-select2-field">
-                            <option value="">Select Zone</option>
+                        <div class="d-flex justify-content-between align-items-center">
+                                <label class="form-label mb-0" for="zone_id">Zone</label>
+                        
+                                <label class="mb-0">
+                                    <input type="checkbox" id="zone_id_select_all">
+                                    Select All
+                                </label>
+                            </div>
+                        <select name="zone_id" id="zone_id_1" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select Zone</option>-->
                             @if(isset($zones))
                             @foreach($zones as $zone)
                             <option value="{{$zone->id}}" >{{$zone->name}}</option>
@@ -528,28 +584,110 @@
                             @endif
                         </select>
                     </div>
-               </div>
-            </div>
-            
-            @endif
-           <div class="card mb-3">
-               <div class="card-header p-2">
-                   <div><h6 class="custom-dark">Date Between</h6></div>
-               </div>
-               <div class="card-body">
- 
+                    @endif
                     <div class="mb-3">
-                        <label class="form-label" for="FromDate">From Date</label>
-                        <input type="date" name="from_date" id="FromDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('from_date') }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_type">Vehicle Type</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_type_select_all">
+                                Select All
+                            </label>
+                        </div>
+                    
+                        <select name="v_type" id="v_type" class="form-control custom-select2-field" multiple>
+                            @foreach($vehicle_types as $val)
+                                <option value="{{ $val->id }}">{{ $val->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+
+                    
+                     <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_model">Vehicle Model</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_model_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_model" id="v_model" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_models))
+                                @foreach($vehicle_models as $val)
+                                <option value="{{$val->id}}" >{{$val->vehicle_model}}</option>
+                                @endforeach
+                            @endif
+                        </select>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label" for="ToDate">To Date</label>
-                        <input type="date" name="to_date" id="ToDate" class="form-control" max="{{date('Y-m-d')}}" value="{{ request('to_date') }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <label class="form-label mb-0" for="v_make">Vehicle Make</label>
+                    
+                            <label class="mb-0">
+                                <input type="checkbox" id="v_make_select_all">
+                                Select All
+                            </label>
+                        </div>
+                        <select name="v_make" id="v_make" class="form-control custom-select2-field" multiple>
+                            <!--<option value="">Select</option>-->
+                            @if(isset($vehicle_makes))
+                                @foreach($vehicle_makes as $val)
+                                <option value="{{$val}}">{{$val}}</option>
+                                @endforeach
+                            @endif
+                        </select>
                     </div>
-  
+                    
                </div>
             </div>
+            @if($guard == 'master')
+            <!--<div class="card mb-3">-->
+            <!--   <div class="card-header p-2">-->
+            <!--       <div><h6 class="custom-dark">Select City</h6></div>-->
+            <!--   </div>-->
+            <!--   <div class="card-body">-->
+ 
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="FromDate">City</label>-->
+            <!--            <select name="city_id" id="city_id_1" class="form-control custom-select2-field" disabled>-->
+                            <!--<option value="">Select City</option>-->
+            <!--                @if(isset($cities))-->
+            <!--                @foreach($cities as $city)-->
+            <!--                <option value="{{$city->id}}" >{{$city->city_name}}</option>-->
+            <!--                @endforeach-->
+            <!--                @endif-->
+
+            <!--            </select>-->
+            <!--        </div>-->
+            <!--   </div>-->
+            <!--</div>-->
+            
+            <!--<div class="card mb-3">-->
+            <!--   <div class="card-header p-2">-->
+            <!--       <div><h6 class="custom-dark">Select Zone</h6></div>-->
+            <!--   </div>-->
+            <!--   <div class="card-body">-->
+ 
+            <!--        <div class="mb-3">-->
+            <!--            <label class="form-label" for="zone_id">Zone</label>-->
+            <!--            <select name="zone_id" id="zone_id_1" class="form-control custom-select2-field">-->
+            <!--                <option value="">Select Zone</option>-->
+            <!--                @if(isset($zones))-->
+            <!--                @foreach($zones as $zone)-->
+            <!--                <option value="{{$zone->id}}" >{{$zone->name}}</option>-->
+            <!--                @endforeach-->
+            <!--                @endif-->
+            <!--            </select>-->
+            <!--        </div>-->
+            <!--   </div>-->
+            <!--</div>-->
+            
+            @endif
+           
          
             <div class="d-flex gap-2 mb-3">
                 <button class="btn btn-outline-secondary w-50" id="clearFilterBtn">Clear All</button>
@@ -561,6 +699,7 @@
 @endsection
   
 @section('js')
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
@@ -677,6 +816,15 @@
         });
     </script>
     <script>
+    
+    let types = @json($accountabilityTypes) ?? [];
+
+    // Convert to numbers
+    types = types.map(Number);
+    
+    // Decide final accountability_type
+    let selectedAccountabilityType = types.includes(2) ? 2 : 1;
+
     function showLoader() {
         document.getElementById('page-loader').style.display = 'flex';
     }
@@ -905,10 +1053,11 @@
         // Update stat cards
         $('#assigned_vehicle').text(data.assigned_vehicles.current);
         $('#service_request').text(data.service_requests.current);
-        $('#return_request').text(data.return_requests.current);
+        $('#returned').text(data.return_requests.current);
         $('#recovery_request').text(data.recovery_requests.current);
-        $('#accident_request').text(data.accident_report.current);
-        $('#return_requested').text(data.totalReturnOpenRequests);
+        $('#accident_report').text(data.accident_report.current);
+        $('#return_requested').text(data.totalReturnRequests);
+        $('#recovered').text(data.totalRecovered);
         
         $('#total_vehicles').text(data.total_vehicles);
         $('#total_rfds').text(data.total_rfd_vehicles);
@@ -956,24 +1105,31 @@
         $('#FromDate').val('');
         $('#ToDate').val('');
         $('#zone_id_1').val('').trigger('change');
-        $('#accountability_type').val("{{ $accountability_Type }}").trigger('change');
+        $('#accountability_type').val('').trigger('change');
         $('#service-status').val('');
         $('#return-status').val('');
         $('#accident-status').val('');
         $('#recovery-status').val('');
-
-        // Filters object (empty/defaults)
+        $('#v_type').val(null).trigger('change');
+        $('#v_model').val(null).trigger('change');
+        $('#v_make').val(null).trigger('change');
+        
+        console.log(selectedAccountabilityType);
+        //  Filters object (empty/defaults)
         let filters = {
-            quick_date_filter: 'month',
+            quick_date_filter: 'year',
             city_id: '',
             zone_id: '',
             service_status: '',
             return_status: '',
             accident_status: '',
             recovery_status: '',
-            accountability_type: $('#accountability_type').val() || '',
+            accountability_type: selectedAccountabilityType,
             from_date: '',
-            to_date: ''
+            to_date: '',
+            vehicle_model:'',
+            vehicle_type:'',
+            vehicle_make: ''
         };
 
         // AJAX call
@@ -1003,6 +1159,7 @@
                 if (bsOffcanvas) bsOffcanvas.hide();
             },
             error: function () {
+                hideLoader();
                 toastr.error('Failed to update dashboard');
             }
         });
@@ -1024,7 +1181,8 @@
             toastr.error("To Date must be greater than or equal to From Date");
             return;
         }
-
+        
+        console.log(selectedAccountabilityType);
         // Filters object
         let filters = {
             quick_date_filter: $('#quick_date_filter').val(),
@@ -1034,9 +1192,12 @@
             return_status: $('#return-status').val(),
             accident_status: $('#accident-status').val(),
             recovery_status: $('#recovery-status').val(),
-            accountability_type: $('#accountability_type').val() || '',
+            accountability_type: $('#accountability_type').val() || selectedAccountabilityType,
             from_date: from_date,
-            to_date: to_date
+            to_date: to_date,
+            vehicle_model: $('#v_model').val(),
+            vehicle_type: $('#v_type').val(),
+            vehicle_make: $('#v_make').val(),
         };
 
         // AJAX call
@@ -1055,28 +1216,36 @@
                 hideLoader(); 
                 updateDashboard(response); // 🔥 use shared function
                 // Close filter offcanvas if open
-                 let selectedAccountability = $('#accountability_type').val(); // value from filter (string)
-                 let defaultTypes = @json($accountabilityTypes).map(Number); // convert to numbers
+                //  let selectedAccountability = $('#accountability_type').val(); // value from filter (string)
+                //  let defaultTypes = @json($accountabilityTypes).map(Number); // convert to numbers
                     
-                    if(selectedAccountability == '2'){
-                        $('.accountability-card-2').removeClass('d-none');
-                    } else if(selectedAccountability === '' || selectedAccountability === null){
-                        // No filter selected, use default user types
-                        if(defaultTypes.includes(2)){
-                            $('.accountability-card-2').removeClass('d-none');
-                        } else {
-                            $('.accountability-card-2').addClass('d-none');
-                        }
-                    } else {
-                        // Selected other than 2
-                        $('.accountability-card-2').addClass('d-none');
-                    }
+                //     if(selectedAccountability == '2'){
+                //         $('.accountability-card-2').removeClass('d-none');
+                //     } else if(selectedAccountability === '' || selectedAccountability === null){
+                //         // No filter selected, use default user types
+                //         if(defaultTypes.includes(2)){
+                //             $('.accountability-card-2').removeClass('d-none');
+                //         } else {
+                //             $('.accountability-card-2').addClass('d-none');
+                //         }
+                //     } else {
+                //         // Selected other than 2
+                //         $('.accountability-card-2').addClass('d-none');
+                //     }
                 
+                let defaultTypes = (response.accountability_Type ?? []).map(Number); // convert strings to numbers
+                // console.log(defaultTypes);
+                if(defaultTypes.includes(2)){
+                    $('.accountability-card-2').removeClass('d-none');
+                } else {
+                    $('.accountability-card-2').addClass('d-none');
+                }
                 
                 const bsOffcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('offcanvasRightHR01'));
                 if (bsOffcanvas) bsOffcanvas.hide();
             },
             error: function () {
+                hideLoader();
                 toastr.error('Failed to update dashboard');
             }
         });
@@ -1084,22 +1253,61 @@
 </script>
 
 <script>
-    $(document).ready(function(){
+    $(document).ready(function () {
 
-    // When user selects a custom date
-    $('#FromDate, #ToDate').on('change', function(){
-        if($('#FromDate').val() || $('#ToDate').val()) {
-            $('#quick_date_filter').val('').trigger('change'); // reset quick filter
+        function toggleDates() {
+            if ($('#quick_date_filter').val() === 'custom') {
+                $('.date-container').show();
+            } else {
+                $('.date-container').hide();
+            }
+        }
+
+        // On change
+        $('#quick_date_filter').on('change', toggleDates);
+
+        // On page load (for old values)
+        toggleDates();
+    });
+    
+</script>
+
+<script>
+    function initSelectAll(selector, checkboxSelector) {
+
+    // Select/Deselect all via checkbox
+    $(checkboxSelector).on('change', function () {
+        if (this.checked) {
+            let values = [];
+            $(selector + ' option').each(function () {
+                values.push($(this).val());
+            });
+            $(selector).val(values).trigger('change');
+        } else {
+            $(selector).val(null).trigger('change');
         }
     });
 
-    // When user selects a quick date filter
-    $('#quick_date_filter').on('change', function(){
-        if($(this).val()) {
-            $('#FromDate').val('');
-            $('#ToDate').val('');
+    // Auto sync checkbox based on user actions
+    $(selector).on('change', function () {
+        let total = $(selector + ' option').length;
+        let selected = $(selector).val() ? $(selector).val().length : 0;
+
+        if (selected === total) {
+            $(checkboxSelector).prop('checked', true);
+        } else {
+            $(checkboxSelector).prop('checked', false);
         }
     });
+}
+
+$(document).ready(function () {
+
+    initSelectAll('#v_type', '#v_type_select_all');
+    initSelectAll('#v_model', '#v_model_select_all');
+    initSelectAll('#v_make', '#v_make_select_all');
+    initSelectAll('#accountability_type', '#accountability_type_select_all');
+    initSelectAll('#zone_id_1', '#zone_id_select_all');
 
 });
 </script>

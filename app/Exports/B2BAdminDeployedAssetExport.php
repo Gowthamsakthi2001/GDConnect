@@ -17,12 +17,18 @@ class B2BAdminDeployedAssetExport implements FromCollection, WithHeadings, WithM
     protected $to_date;
     protected $selectedIds;
     protected $selectedFields;
-    protected $city;
-    protected $zone;
-    protected $status;
+    protected $city = [];
+    protected $zone= [];
+    protected $status= [];
+    protected $vehicle_model= [];
+    protected $vehicle_type= [];
+    protected $vehicle_make= [];
+    protected $date_filter;
+    protected $accountability_type= [];
+    protected $customer_id= [];
 
-    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = null, $zone = null, $status = null)
-    {
+    public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [], $status = []  ,$accountability_type=[],$customer_id=[], $vehicle_type= [] , $vehicle_model= [],$vehicle_make= [], $date_filter= [])    {
+        
         $this->from_date      = $from_date;
         $this->to_date        = $to_date;
         $this->selectedIds    = $selectedIds;
@@ -30,6 +36,12 @@ class B2BAdminDeployedAssetExport implements FromCollection, WithHeadings, WithM
         $this->city           = $city;
         $this->zone           = $zone;
         $this->status         = $status;
+        $this->vehicle_type         = $vehicle_type;
+        $this->vehicle_model         = $vehicle_model;
+        $this->vehicle_make        = $vehicle_make;
+        $this->date_filter         = $date_filter;
+        $this->accountability_type         = $accountability_type;
+        $this->customer_id         = $customer_id;
         
     }
 
@@ -41,7 +53,8 @@ public function collection()
         'rider',
         'vehicle.vehicle_type_relation',
         'vehicle.vehicle_model_relation',
-        'VehicleRequest',              // include the request relation
+        'VehicleRequest',       
+        'vehicle.quality_check',
         'VehicleRequest.city', 
         'VehicleRequest.zone',// eager load city through request
         'VehicleRequest.rider.customerLogin.customer_relation',
@@ -54,35 +67,112 @@ public function collection()
         
         $query->whereHas('VehicleRequest', function ($q) {
 
-            if ($this->city) {
-                $q->where('city_id', $this->city);
+            if (!empty($this->city) && !in_array('all',$this->city)) {
+                $q->whereIn('city_id', $this->city);
             }
 
-            if ($this->zone) {
-                $q->where('zone_id', $this->zone);
+            if (!empty($this->zone) && !in_array('all',$this->zone)) {
+                $q->whereIn('zone_id', $this->zone);
             }
 
-            if ($this->status) {
-                $q->where('status', $this->status);
-            }
-
-            // if ($this->from_date) {
-            //     $q->whereDate('created_at', '>=', $this->from_date);
+            // if (!empty($this->city) && !in_array('all',$this->city)) {
+            //     $q->where('status', $this->status);
             // }
 
-            // if ($this->to_date) {
-            //     $q->whereDate('created_at', '<=', $this->to_date);
-            // }
 
-            // $q->whereNotIn('status', ['return_request', 'returned']);
         });
     }
-    // Filter through VehicleRequest relation
-     if ($this->from_date != "" && $this->to_date != "") {
-        $query->whereDate('created_at', '>=', $this->from_date)
-              ->whereDate('created_at', '<=', $this->to_date);
-    }
-    // $data = $query->orderBy('id', 'desc')->get();
+
+    //  if ($this->from_date != "" && $this->to_date != "") {
+    //     $query->whereDate('created_at', '>=', $this->from_date)
+    //           ->whereDate('created_at', '<=', $this->to_date);
+    // }
+    
+            if ($this->date_filter) {
+        
+            switch ($this->date_filter) {
+                
+                case 'today':
+                    $query->whereDate('created_at', now()->toDateString());
+                    break;
+        
+                case 'week':
+                    $query->whereDate('created_at', '>=', now()->startOfWeek())
+                          ->whereDate('created_at', '<=', now()->endOfWeek());
+                    break;
+                
+                case 'last_15_days':
+                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
+                              ->whereYear('created_at', now()->endOfDay());
+                        break;
+                case 'month':
+                    $query->whereDate('created_at', '>=', now()->startOfMonth())
+                          ->whereDate('created_at', '<=', now()->endOfMonth());
+                    break;
+        
+                case 'year':
+                    $query->whereDate('created_at', '>=', now()->startOfYear())
+                          ->whereDate('created_at', '<=', now()->endOfYear());
+                    break;
+        
+                case 'custom':
+
+                    if ($this->from_date && $this->to_date) {
+                        $query->whereDate('created_at', '>=', $this->from_date)
+                              ->whereDate('created_at', '<=', $this->to_date);
+                    }
+                    break;
+            }
+        }
+
+        if (!empty($this->vehicle_type) && !in_array('all',$this->vehicle_type)) {
+            $query->whereHas('vehicle.quality_check', function ($q) {
+                $q->where('vehicle_type', $this->vehicle_type);
+            });
+        }
+
+        // Vehicle Model Filter
+        if (!empty($this->vehicle_model) && !in_array('all',$this->vehicle_model)) {
+            $query->whereHas('vehicle.quality_check', function ($q) {
+                $q->where('vehicle_model', $this->vehicle_model);
+            });
+        }
+        
+        if (!empty($this->vehicle_make) && !in_array('all',$this->vehicle_make)) {
+            $query->whereHas('vehicle.quality_check.vehicle_model_relation', function ($q) {
+                $q->where('make', $this->vehicle_make);
+            });
+        }
+        
+        if (!empty($this->accountability_type) && !in_array('all',$this->accountability_type)) {
+            $query->whereHas('vehicle.quality_check', function ($q) {
+                $q->where('accountability_type', $this->accountability_type);
+            });
+        }
+        
+        if (!empty($this->customer_id) && !in_array('all',$this->customer_id)) {
+            $customer_id = $this->customer_id;
+        
+            if (in_array(1,$this->accountability_type)) {
+        
+                // Accountability = 1 → Filter using vehicle.client
+                $query->whereHas('vehicle', function ($q) use ($customer_id) {
+                    $q->whereIn('client', $customer_id);
+                });
+        
+            } else {
+        
+                // Accountability = 2 → Filter using quality_check.customer_id
+                $query->whereHas('vehicle.quality_check', function ($q) use ($customer_id) {
+                    $q->whereIn('customer_id', $customer_id);
+                });
+        
+            }
+        }
+        if(!empty($this->status) && !in_array('all',$this->status)){
+             $query->whereIn('status',$this->status);
+        }
+       
       $data = $query->orderBy('id', 'desc')
                       ->get()
                       ->unique('asset_vehicle_id')
@@ -116,6 +206,10 @@ public function collection()
                 
                 case 'vehicle_model':
                     $mapped[] = $row->vehicle->vehicle_model_relation->vehicle_model ?? '-';
+                    break;
+                
+                case 'vehicle_make':
+                    $mapped[] = $row->vehicle->vehicle_model_relation->make ?? '-';
                     break;
                     
                 case 'contract_start_date':
@@ -173,7 +267,7 @@ public function collection()
                     break;
 
                 case 'status':
-                    $mapped[] = ucfirst($row->status ?? '-') ;
+                    $mapped[] = ucwords(str_replace('_', ' ', $row->status ?? '-'));
                     break;
                 
                 case 'client_name':
@@ -273,6 +367,7 @@ public function collection()
             'chassis_number'         => 'Chassis Number',
             'vehicle_type'           => 'Vehicle Type',
             'vehicle_model'           => 'Vehicle Model',
+            'vehicle_make'           => 'Vehicle Make',
             'handover_type'          => 'Handover Type',
             'handover_time'          => 'Handover Time',
             'city'                   => 'City',

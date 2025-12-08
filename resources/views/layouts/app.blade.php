@@ -56,6 +56,8 @@
                   <x-admin.bgv_sidebar />
                 @elseif(!empty($activeModule) && $activeModule->id == 7) <!-- Recovery Manager sidebar-->
                   <x-admin.recovery_manager_sidebar />
+                @elseif(!empty($activeModule) && $activeModule->id == 8) <!-- B2C Bike Rental sidebar-->
+                  <x-admin.b2c_rental_sidebar />
                 @else
                   <x-admin.left-sidebar />
                 @endif

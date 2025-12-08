@@ -9,8 +9,15 @@ use Modules\MasterManagement\Database\factories\AssetMasterVehicleFactory;
 class LeasingPartnerMaster extends Model
 {
     use HasFactory;
+    
 
     protected $table = 'ev_tbl_leasing_partner_master';
+    
+    protected $primaryKey = 'id'; 
+
+    public $incrementing = true; 
+
+    protected $keyType = 'int';
 
     protected $fillable = [
         'name',

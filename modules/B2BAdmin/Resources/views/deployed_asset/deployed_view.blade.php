@@ -543,9 +543,9 @@
                                 </div>
                             </div>
                             
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Vehicle Bottom</label>
-                                <div class="file-preview-container">
+                            <!--<div class="col-md-6 mb-3">-->
+                            <!--    <label class="form-label">Vehicle Bottom</label>-->
+                            <!--    <div class="file-preview-container">-->
                                     @if(!empty($data->assignment->vehicle_bottom))
                                         @php
                                             $frontExtension = pathinfo($data->assignment->vehicle_bottom, PATHINFO_EXTENSION);
@@ -554,30 +554,30 @@
                                        
                         
                                         @if(in_array(strtolower($frontExtension), ['jpg', 'jpeg', 'png']))
-                                            <img src="{{ $frontPath }}"
-                                                 class="img-fluid rounded"
-                                                 alt="Odometer Image"
-                                                 onclick="OpenImageModal('{{ $frontPath }}')">
+                                            <!--<img src="{{ $frontPath }}"-->
+                                            <!--     class="img-fluid rounded"-->
+                                            <!--     alt="Odometer Image"-->
+                                            <!--     onclick="OpenImageModal('{{ $frontPath }}')">-->
                                         @elseif(strtolower($frontExtension) === 'pdf')
-                                        <iframe src="{{ $frontPath }}"
-                                                class="file-preview border rounded"
-                                                style="width:100%; height:200px;"
-                                                frameborder="0"></iframe>
+                                        <!--<iframe src="{{ $frontPath }}"-->
+                                        <!--        class="file-preview border rounded"-->
+                                        <!--        style="width:100%; height:200px;"-->
+                                        <!--        frameborder="0"></iframe>-->
                                                    
-                                         <div class="position-absolute top-0 start-0 w-100 h-100"
-                                         style="cursor: pointer; background: transparent;"
-                                         onclick="OpenImageModal('{{ $frontPath }}')">
-                                        </div>                             
+                                        <!-- <div class="position-absolute top-0 start-0 w-100 h-100"-->
+                                        <!-- style="cursor: pointer; background: transparent;"-->
+                                        <!-- onclick="OpenImageModal('{{ $frontPath }}')">-->
+                                        <!--</div>                             -->
                                         @endif
                                     @else
-                                        <img src="{{ asset('b2b/img/default_image.png') }}"
-                                             class="img-fluid rounded"
-                                             alt="Odometer Image"
-                                             onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">
+                                        <!--<img src="{{ asset('b2b/img/default_image.png') }}"-->
+                                        <!--     class="img-fluid rounded"-->
+                                        <!--     alt="Odometer Image"-->
+                                        <!--     onclick="OpenImageModal('{{ asset('b2b/img/default_image.png') }}')">-->
                                     @endif
                                          
-                                </div>
-                            </div>
+                            <!--    </div>-->
+                            <!--</div>-->
                             
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Vehicle Right</label>

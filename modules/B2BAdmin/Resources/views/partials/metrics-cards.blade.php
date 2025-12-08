@@ -31,6 +31,7 @@
                 'top-border' =>'#FFC1BE'
             ]
         ];
+
     @endphp
 
     @foreach($metrics as $metric)

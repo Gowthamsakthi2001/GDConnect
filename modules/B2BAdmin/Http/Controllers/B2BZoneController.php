@@ -25,7 +25,11 @@ class B2BZoneController extends Controller
             $start  = $request->input('start', 0);
             $length = $request->input('length', 25);
             $search = $request->input('search.value');
-           
+            
+            $city_id   = $request->input('city_id', []);
+            $customer_id = $request->input('customer', []);
+            $status   = $request->input('status', []);
+         
            $query = CustomerMaster::with('cities')
             ->withCount([
                 'customerlogins as zone_logins_count' => function ($q) {
@@ -34,16 +38,18 @@ class B2BZoneController extends Controller
             ]);
                     
     
-            if ($request->filled('status') && $request->status != 'all') {
-                $query->where('status', $request->status);
+            if (!empty($status) && !in_array('all', $status)) {
+                $query->whereIn('status', $status);
             }
 
 
-            if ($request->filled('city_id')) {
-                $query->where('city_id', $request->city_id);
+            if (!empty($city_id) && !in_array('all', $city_id)) {
+                $query->whereIn('city_id', $city_id);
             }
 
-        
+            if (!empty($customer_id) && !in_array('all', $customer_id)) {
+                $query->whereIn('id', $customer_id);
+            }
             
             if (!empty($search)) {
                 $query->where(function($q) use ($search) {
@@ -121,8 +127,10 @@ class B2BZoneController extends Controller
         }
         
         $cities = City::where('status',1)->get();
-        
-        return view('b2badmin::zones.list' , compact('cities'));
+        $customers = CustomerMaster::select('id','trade_name')->where('status', 1) //updated by logesh
+        ->orderBy('id', 'desc')
+        ->get();
+        return view('b2badmin::zones.list' , compact('cities','customers'));
     }
     
     public function zone_view(Request $request , $id)
@@ -249,76 +257,107 @@ class B2BZoneController extends Controller
     }
     
     
-    public function export(Request $request)
-    {
-        
-        $fields    = $request->input('fields', []);  
-        $city = $request->input('city')?? null;
+public function export(Request $request)
+{
+    $fields      = $request->input('fields', []);  
+    $cityIds     = $request->input('city', []);     // array
+    $customerIds = $request->input('customer', []); // array
+    $selectedIds = $request->input('selected_ids', []);
+    $status = $request->input('status', []);
 
-        if (empty($fields)) {
-            return back()->with('error', 'Please select at least one field to export.');
-        }
-        
-        $formattedFields = [];
-    if (is_array($fields)) {
-        foreach ($fields as $item) {
-            $name = null;
+    if (empty($fields)) {
+        return back()->with('error', 'Please select at least one field to export.');
+    }
 
-            // plain string
-            if (is_string($item) && trim($item) !== '') {
-                $name = $item;
-            }
-            // associative array like ['name' => 'zone_name']
-            elseif (is_array($item)) {
-                if (!empty($item['name']) && is_string($item['name'])) {
-                    $name = $item['name'];
-                } elseif (!empty($item['field']) && is_string($item['field'])) {
-                    $name = $item['field'];
-                } else {
-                    $first = reset($item);
-                    if (is_string($first) && trim($first) !== '') {
-                        $name = $first;
-                    }
+    $formattedFields = [];
+    foreach ((array) $fields as $item) {
+        $name = null;
+
+        if (is_string($item) && trim($item) !== '') {
+            $name = $item;
+        } elseif (is_array($item)) {
+            if (!empty($item['name'])) {
+                $name = $item['name'];
+            } elseif (!empty($item['field'])) {
+                $name = $item['field'];
+            } else {
+                $first = reset($item);
+                if (is_string($first) && trim($first) !== '') {
+                    $name = $first;
                 }
             }
-
-            if (empty($name)) continue;
-
-            // Format snake_case → Title Case
-            $clean = ucwords(str_replace('_', ' ', strtolower($name)));
-
-            // Optional mapping
-            $manual = [
-                'Id' => 'ID',
-            ];
-            if (isset($manual[$clean])) {
-                $clean = $manual[$clean];
-            }
-
-            $formattedFields[] = $clean;
         }
+
+        if (!$name) continue;
+
+        $clean = ucwords(str_replace('_', ' ', strtolower($name)));
+
+        $manual = ['Id' => 'ID'];
+        $formattedFields[] = $manual[$clean] ?? $clean;
     }
 
     $fieldsText = empty($formattedFields) ? 'ALL' : implode(', ', $formattedFields);
 
-    // -----------------------
-    // Resolve City Name (if provided)
-    // -----------------------
-    $cityName = $city ? (optional(City::find($city))->city_name ?? $city) : null;
+    $cityNames = [];
 
-    // -----------------------
-    // Prepare audit log
-    // -----------------------
+    if (!empty($cityIds)) {
+        $cityRecords = City::whereIn('id', (array)$cityIds)->get();
+        foreach ($cityRecords as $c) {
+            $cityNames[] = $c->city_name;
+        }
+
+        $notFound = array_diff($cityIds, $cityRecords->pluck('id')->toArray());
+        foreach ($notFound as $nf) {
+            $cityNames[] = $nf;
+        }
+    }
+
+    $cityFilterText = empty($cityNames) ? null : implode(', ', $cityNames);
+
+    $customerNames = [];
+
+    if (!empty($customerIds)) {
+        $customerModelExists = class_exists(\App\Models\Customer::class);
+
+        if ($customerModelExists) {
+            $customers = \App\Models\Customer::whereIn('id', (array)$customerIds)->get();
+
+            foreach ($customers as $cus) {
+                $customerNames[] = $cus->name ?? $cus->id;
+            }
+
+            $notFoundCustomers = array_diff($customerIds, $customers->pluck('id')->toArray());
+            foreach ($notFoundCustomers as $nf) {
+                $customerNames[] = $nf;
+            }
+
+        } else {
+            $customerNames = (array)$customerIds;
+        }
+    }
+
+    $customerFilterText = empty($customerNames) ? null : implode(', ', $customerNames);
+
+    $filters = [];
+
+    if ($cityFilterText)     $filters[] = "City: {$cityFilterText}";
+    if ($customerFilterText) $filters[] = "Customer: {$customerFilterText}";
+
+    $filtersText = empty($filters) ? 'No filters applied' : implode('; ', $filters);
+
+    $selectedIdsText = empty($selectedIds)
+        ? 'ALL'
+        : implode(', ', array_map('strval', (array)$selectedIds));
+
     $fileName = 'zones-list-' . date('d-m-Y') . '.xlsx';
+
     $user = Auth::user();
     $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
 
-    $filters = [];
-    if (!empty($cityName)) $filters[] = "City: {$cityName}";
-    $filtersText = empty($filters) ? 'No filters applied' : implode('; ', $filters);
-
     $longDesc = "User initiated B2B Admin Zone export. File: {$fileName}. "
-              . "| Selected Fields: {$fieldsText}. | Filters: {$filtersText}.";
+              . "Selected Fields: {$fieldsText}. "
+              . "Filters: {$filtersText}. "
+              . "Selected IDs: {$selectedIdsText}.";
 
     audit_log_after_commit([
         'module_id'         => 5,
@@ -332,12 +371,13 @@ class B2BZoneController extends Controller
         'ip_address'        => $request->ip(),
         'user_device'       => $request->userAgent()
     ]);
-    
-        return Excel::download(
-            new B2BAdminZonesExport($fields,$city),
-            'zones-list-' . date('d-m-Y') . '.xlsx'
-        );
-    }
+
+    return Excel::download(
+        new B2BAdminZonesExport($fields, $cityIds, $status , $customerIds),
+        $fileName
+    );
+}
+
 
 
 }
