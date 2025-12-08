@@ -411,212 +411,215 @@ class AssetMasterController extends Controller
 
         if (!empty($chart_type) && $chart_type == 'VehicleStatusSummaryChart' || $chart_type == 'OEMChart') {
 
-        if ($chart_type == 'VehicleStatusSummaryChart') {
-            Log::info("VehicleStatusSummaryChart Loading Start".now());
-           $vehicleData = DB::table('vehicle_qc_check_lists as qc')
-                ->when($accountability_type_id != 'all' && $accountability_type_id != 2, function ($query) {
-                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
-                })
-
-               ->when(!empty($vehicle_status_ids), function ($query) use ($vehicle_status_ids) {
-                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
-                          ->whereIn('inv.transfer_status', $vehicle_status_ids);
-                })
-                ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')
-                ->when($accountability_type_id !== 'all',
-                    fn($q) => $q->where('qc.accountability_type', $accountability_type_id)
-                )
-                ->when(!empty($customer_ids) && (int)$accountability_type_id === 2,
-                    fn($q) => $q->whereIn('qc.customer_id', $customer_ids)
-                )
-                ->when(!empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                    fn($q) => $q->whereIn('vh.client', $customer_ids)
-                )
-                ->when(!empty($location_ids),
-                    fn($q) => $q->whereIn('qc.location', $location_ids)
-                )
-                ->when(!empty($zone_ids),
-                    fn($q) => $q->whereIn('qc.zone_id', $zone_ids)
-                )
-                ->when(!empty($vehicle_model_ids),
-                    fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_model_ids)
-                )
-                ->when(!empty($vehicle_make_ids),
-                    fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_make_ids) 
-                )
-                ->when(!empty($vehicle_type_arr),
-                    fn($q) => $q->whereIn('qc.vehicle_type', $vehicle_type_arr)
-                )
-                ->when($timeline === 'today',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfDay(), now()->endOfDay()])
-                )
-                ->when($timeline === 'this_week',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfWeek(), now()->endOfWeek()])
-                )
-                ->when($timeline === 'last_15_days',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->subDays(14)->startOfDay(), now()->endOfDay()])
-                )
-                ->when($timeline === 'this_month',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfMonth(), now()->endOfMonth()])
-                )
-                ->when($timeline === 'this_year',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfYear(), now()->endOfYear()])
-                )
-                ->when(!$timeline && $from_date,
-                    fn($q) => $q->whereDate('qc.created_at', '>=', $from_date)
-                )
-                ->when(!$timeline && $to_date,
-                    fn($q) => $q->whereDate('qc.created_at', '<=', $to_date)
-                )
-                ->where('qc.delete_status', 0)
-                ->selectRaw("
-                    qc.vehicle_type,
-                    vt.name as vehicle_type_name,
-                    COUNT(qc.id) as total_count,
-                    SUM(inv.transfer_status = 1) as onroad_count
-                ")
-                ->groupBy('qc.vehicle_type', 'vt.name')
-                ->get();
-
-
-            $summary = [
-                'total_assets' => 0,
-                'total_onroad' => 0,
-                'total_offroad' => 0,
-                'types' => []
-            ];
-
-            $total_vh_count = 0;
-            foreach ($vehicleData as $row) {
-
-                $type = $row->vehicle_type ?? 'Unknown';
-            
-                $offroad = max(($row->total_count - $row->onroad_count), 0); 
-            
-                $summary['types'][$type] = [
-                    'vehicle_type_name' => $row->vehicle_type_name,
-                    'total'        => (int)$row->total_count,
-                    'onroad'       => (int)$row->onroad_count,
-                    'offroad'      => $offroad,
-                    'utilization'  => $row->total_count > 0
-                        ? round(($row->onroad_count / $row->total_count) * 100, 2)
-                        : 0
+            if ($chart_type == 'VehicleStatusSummaryChart') {
+                Log::info("VehicleStatusSummaryChart Loading Start".now());
+               $vehicleData = DB::table('vehicle_qc_check_lists as qc')
+                    ->when($accountability_type_id == 'all', function ($query) {
+                        $query->leftJoin('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                              ->leftJoin('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                    })
+                    ->when($accountability_type_id != 'all' && $accountability_type_id != 2, function ($query) {
+                        $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                              ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                    })
+                   ->when(!empty($vehicle_status_ids), function ($query) use ($vehicle_status_ids) {
+                        $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                              ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
+                              ->whereIn('inv.transfer_status', $vehicle_status_ids);
+                    })
+                    ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')
+                    ->when($accountability_type_id !== 'all',
+                        fn($q) => $q->where('qc.accountability_type', $accountability_type_id)
+                    )
+                    ->when(!empty($customer_ids) && (int)$accountability_type_id === 2,
+                        fn($q) => $q->whereIn('qc.customer_id', $customer_ids)
+                    )
+                    ->when(!empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                        fn($q) => $q->whereIn('vh.client', $customer_ids)
+                    )
+                    ->when(!empty($location_ids),
+                        fn($q) => $q->whereIn('qc.location', $location_ids)
+                    )
+                    ->when(!empty($zone_ids),
+                        fn($q) => $q->whereIn('qc.zone_id', $zone_ids)
+                    )
+                    ->when(!empty($vehicle_model_ids),
+                        fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_model_ids)
+                    )
+                    ->when(!empty($vehicle_make_ids),
+                        fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_make_ids) 
+                    )
+                    ->when(!empty($vehicle_type_arr),
+                        fn($q) => $q->whereIn('qc.vehicle_type', $vehicle_type_arr)
+                    )
+                    ->when($timeline === 'today',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfDay(), now()->endOfDay()])
+                    )
+                    ->when($timeline === 'this_week',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfWeek(), now()->endOfWeek()])
+                    )
+                    ->when($timeline === 'last_15_days',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->subDays(14)->startOfDay(), now()->endOfDay()])
+                    )
+                    ->when($timeline === 'this_month',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfMonth(), now()->endOfMonth()])
+                    )
+                    ->when($timeline === 'this_year',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfYear(), now()->endOfYear()])
+                    )
+                    ->when(!$timeline && $from_date,
+                        fn($q) => $q->whereDate('qc.created_at', '>=', $from_date)
+                    )
+                    ->when(!$timeline && $to_date,
+                        fn($q) => $q->whereDate('qc.created_at', '<=', $to_date)
+                    )
+                    ->where('qc.delete_status', 0)
+                    ->selectRaw("
+                        qc.vehicle_type,
+                        vt.name as vehicle_type_name,
+                        COUNT(qc.id) as total_count,
+                        SUM(inv.transfer_status = 1) as onroad_count
+                    ")
+                    ->groupBy('qc.vehicle_type', 'vt.name')
+                    ->get();
+    
+    
+                $summary = [
+                    'total_assets' => 0,
+                    'total_onroad' => 0,
+                    'total_offroad' => 0,
+                    'types' => []
                 ];
-            
-                $summary['total_assets']  += (int)$row->total_count;
-                $summary['total_onroad']  += (int)$row->onroad_count;
-                $summary['total_offroad'] += $offroad; 
-                $total_vh_count           += (int)$row->total_count;
-            }
-            $summary['utilization'] = $summary['total_assets'] > 0
-            ? round(($summary['total_onroad'] / $summary['total_assets']) * 100, 2)
-            : 0;
-             Log::info("VehicleStatusSummaryChart Loading End".now());
-            return response()->json(['status' => true, 'vehicle_summary' => $summary, 'total_vh_count' => $total_vh_count]);
-        } else {
-            
-            Log::info("OEMChart Loading Start".now());
-            $assetWiseTable = DB::table('vehicle_qc_check_lists as qc')
-                ->when($accountability_type_id != 'all' && $accountability_type_id != 2, function ($query) {
-                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
-                })
-
-               ->when(!empty($vehicle_status_ids), function ($query) use ($vehicle_status_ids) {
-                    $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
-                          ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
-                          ->whereIn('inv.transfer_status', $vehicle_status_ids);
-                })
-                ->leftJoin('ev_tbl_vehicle_models as vm', 'qc.vehicle_model', '=', 'vm.id')
-                ->leftJoin('ev_tbl_brands as bm', 'vm.brand', '=', 'bm.id')
-                ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')
-                ->where('qc.delete_status', 0)
-                ->when($accountability_type_id !== 'all',
-                    fn($q) => $q->where('qc.accountability_type', $accountability_type_id)
-                )
-                ->when(!empty($customer_ids) && (int)$accountability_type_id === 2,
-                    fn($q) => $q->whereIn('qc.customer_id', $customer_ids)
-                )
-                ->when(!empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                    fn($q) => $q->whereIn('vh.client', $customer_ids)
-                )
-                ->when(!empty($location_ids),
-                    fn($q) => $q->whereIn('qc.location', $location_ids)
-                )
-                ->when(!empty($zone_ids),
-                    fn($q) => $q->whereIn('qc.zone_id', $zone_ids)
-                )
-                ->when(!empty($vehicle_model_ids),
-                    fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_model_ids)
-                )
-                ->when(!empty($vehicle_make_ids),
-                    fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_make_ids)  
-                )
-                ->when(!empty($vehicle_type_arr),
-                    fn($q) => $q->whereIn('qc.vehicle_type', $vehicle_type_arr)
-                )
-                ->when($timeline === 'today',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfDay(), now()->endOfDay()])
-                )
-                ->when($timeline === 'this_week',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfWeek(), now()->endOfWeek()])
-                )
-                ->when($timeline === 'last_15_days',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->subDays(14)->startOfDay(), now()->endOfDay()])
-                )
-                ->when($timeline === 'this_month',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfMonth(), now()->endOfMonth()])
-                )
-                ->when($timeline === 'this_year',
-                    fn($q) => $q->whereBetween('qc.created_at', [now()->startOfYear(), now()->endOfYear()])
-                )
-                ->when(!$timeline && $from_date,
-                    fn($q) => $q->whereDate('qc.created_at', '>=', $from_date)
-                )
-                ->when(!$timeline && $to_date,
-                    fn($q) => $q->whereDate('qc.created_at', '<=', $to_date)
-                )
-                ->selectRaw("
-                    bm.brand_name,
-                    vm.vehicle_model,
-                    vt.name as vehicle_type_name,
-                    qc.vehicle_type,
-                    COUNT(qc.id) as vehicle_count
-                ")
-                ->groupBy(
-                    'bm.brand_name',
-                    'vm.vehicle_model',
-                    'qc.vehicle_type',
-                    'vt.name'
-                )
-                ->get();
-
-            $total_vh_count = 0;
-            $brandWiseData = [];
-            foreach ($assetWiseTable as $row) {
-                $brand = $row->brand_name;
-
-                if (!isset($brandWiseData[$brand])) {
-                    $brandWiseData[$brand] = [
-                        'brand'   => $brand,
-                        'total'   => 0,
-                        'details' => []
+    
+                $total_vh_count = 0;
+                foreach ($vehicleData as $row) {
+    
+                    $type = $row->vehicle_type ?? 'Unknown';
+                
+                    $offroad = max(($row->total_count - $row->onroad_count), 0); 
+                
+                    $summary['types'][$type] = [
+                        'vehicle_type_name' => $row->vehicle_type_name,
+                        'total'        => (int)$row->total_count,
+                        'onroad'       => (int)$row->onroad_count,
+                        'offroad'      => $offroad,
+                        'utilization'  => $row->total_count > 0
+                            ? round(($row->onroad_count / $row->total_count) * 100, 2)
+                            : 0
                     ];
+                
+                    $summary['total_assets']  += (int)$row->total_count;
+                    $summary['total_onroad']  += (int)$row->onroad_count;
+                    $summary['total_offroad'] += $offroad; 
+                    $total_vh_count           += (int)$row->total_count;
                 }
-                $brandWiseData[$brand]['total'] += $row->vehicle_count;
-                $brandWiseData[$brand]['details'][] = [
-                    'model'   => $row->vehicle_model,
-                    'type_id' => $row->vehicle_type,
-                    'type'    => $row->vehicle_type_name,
-                    'count'   => $row->vehicle_count,
-                ];
-                $total_vh_count += $row->vehicle_count;
+                $summary['utilization'] = $summary['total_assets'] > 0
+                ? round(($summary['total_onroad'] / $summary['total_assets']) * 100, 2)
+                : 0;
+                 Log::info("VehicleStatusSummaryChart Loading End".now());
+                return response()->json(['status' => true, 'vehicle_summary' => $summary, 'total_vh_count' => $total_vh_count]);
+            } else {
+                
+                Log::info("OEMChart Loading Start".now());
+                $assetWiseTable = DB::table('vehicle_qc_check_lists as qc')
+                    ->when($accountability_type_id != 'all' && $accountability_type_id != 2, function ($query) {
+                        $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                              ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id');
+                    })
+    
+                   ->when(!empty($vehicle_status_ids), function ($query) use ($vehicle_status_ids) {
+                        $query->join('ev_tbl_asset_master_vehicles as vh', 'qc.id', '=', 'vh.qc_id')
+                              ->join('asset_vehicle_inventories as inv', 'inv.asset_vehicle_id', '=', 'vh.id')
+                              ->whereIn('inv.transfer_status', $vehicle_status_ids);
+                    })
+                    ->leftJoin('ev_tbl_vehicle_models as vm', 'qc.vehicle_model', '=', 'vm.id')
+                    ->leftJoin('ev_tbl_brands as bm', 'vm.brand', '=', 'bm.id')
+                    ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')
+                    ->where('qc.delete_status', 0)
+                    ->when($accountability_type_id !== 'all',
+                        fn($q) => $q->where('qc.accountability_type', $accountability_type_id)
+                    )
+                    ->when(!empty($customer_ids) && (int)$accountability_type_id === 2,
+                        fn($q) => $q->whereIn('qc.customer_id', $customer_ids)
+                    )
+                    ->when(!empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                        fn($q) => $q->whereIn('vh.client', $customer_ids)
+                    )
+                    ->when(!empty($location_ids),
+                        fn($q) => $q->whereIn('qc.location', $location_ids)
+                    )
+                    ->when(!empty($zone_ids),
+                        fn($q) => $q->whereIn('qc.zone_id', $zone_ids)
+                    )
+                    ->when(!empty($vehicle_model_ids),
+                        fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_model_ids)
+                    )
+                    ->when(!empty($vehicle_make_ids),
+                        fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_make_ids)  
+                    )
+                    ->when(!empty($vehicle_type_arr),
+                        fn($q) => $q->whereIn('qc.vehicle_type', $vehicle_type_arr)
+                    )
+                    ->when($timeline === 'today',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfDay(), now()->endOfDay()])
+                    )
+                    ->when($timeline === 'this_week',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfWeek(), now()->endOfWeek()])
+                    )
+                    ->when($timeline === 'last_15_days',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->subDays(14)->startOfDay(), now()->endOfDay()])
+                    )
+                    ->when($timeline === 'this_month',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfMonth(), now()->endOfMonth()])
+                    )
+                    ->when($timeline === 'this_year',
+                        fn($q) => $q->whereBetween('qc.created_at', [now()->startOfYear(), now()->endOfYear()])
+                    )
+                    ->when(!$timeline && $from_date,
+                        fn($q) => $q->whereDate('qc.created_at', '>=', $from_date)
+                    )
+                    ->when(!$timeline && $to_date,
+                        fn($q) => $q->whereDate('qc.created_at', '<=', $to_date)
+                    )
+                    ->selectRaw("
+                        bm.brand_name,
+                        vm.vehicle_model,
+                        vt.name as vehicle_type_name,
+                        qc.vehicle_type,
+                        COUNT(qc.id) as vehicle_count
+                    ")
+                    ->groupBy(
+                        'bm.brand_name',
+                        'vm.vehicle_model',
+                        'qc.vehicle_type',
+                        'vt.name'
+                    )
+                    ->get();
+    
+                $total_vh_count = 0;
+                $brandWiseData = [];
+                foreach ($assetWiseTable as $row) {
+                    $brand = $row->brand_name;
+    
+                    if (!isset($brandWiseData[$brand])) {
+                        $brandWiseData[$brand] = [
+                            'brand'   => $brand,
+                            'total'   => 0,
+                            'details' => []
+                        ];
+                    }
+                    $brandWiseData[$brand]['total'] += $row->vehicle_count;
+                    $brandWiseData[$brand]['details'][] = [
+                        'model'   => $row->vehicle_model,
+                        'type_id' => $row->vehicle_type,
+                        'type'    => $row->vehicle_type_name,
+                        'count'   => $row->vehicle_count,
+                    ];
+                    $total_vh_count += $row->vehicle_count;
+                }
+    
+                $brandWiseData = array_values($brandWiseData);
             }
-
-            $brandWiseData = array_values($brandWiseData);
-        }
             Log::info("OEMChart Loading End".now());
             return response()->json(['status' => true, 'brandWiseData' => $brandWiseData, 'total_vh_count' => $total_vh_count]);
         }
@@ -830,321 +833,321 @@ class AssetMasterController extends Controller
         //     ]);
         // }
         
-    if (!empty($chart_type) && $chart_type == 'DocumentValidityTable') {
-        $startDate = null;
-        $endDate   = null;
-    
-        if (empty($timeline) && empty($from_date) && empty($to_date)) {
-    
-            $startDate = now()->startOfMonth()->toDateString();
-            $endDate   = now()->endOfMonth()->toDateString();
-        } elseif ($timeline === 'today') {
-    
-            $startDate = today()->toDateString();
-            $endDate   = today()->toDateString();
-        } elseif ($timeline === 'this_week') {
-    
-            $startDate = now()->startOfWeek()->toDateString();
-            $endDate   = now()->endOfWeek()->toDateString();
-        } elseif ($timeline === 'last_15_days') {
-    
-            $startDate = now()->subDays(14)->startOfDay();
-            $endDate   = now()->endOfDay();
-        } elseif ($timeline === 'this_month') {
-    
-            $startDate = now()->startOfMonth()->toDateString();
-            $endDate   = now()->endOfMonth()->toDateString();
-        } elseif ($timeline === 'this_year') {
-    
-            $startDate = now()->startOfYear()->toDateString();
-            $endDate   = now()->endOfYear()->toDateString();
-        } elseif (!empty($from_date) && !empty($to_date)) {
-    
-            $startDate = $from_date;
-            $endDate   = $to_date;
+        if (!empty($chart_type) && $chart_type == 'DocumentValidityTable') {
+            $startDate = null;
+            $endDate   = null;
+        
+            if (empty($timeline) && empty($from_date) && empty($to_date)) {
+        
+                $startDate = now()->startOfMonth()->toDateString();
+                $endDate   = now()->endOfMonth()->toDateString();
+            } elseif ($timeline === 'today') {
+        
+                $startDate = today()->toDateString();
+                $endDate   = today()->toDateString();
+            } elseif ($timeline === 'this_week') {
+        
+                $startDate = now()->startOfWeek()->toDateString();
+                $endDate   = now()->endOfWeek()->toDateString();
+            } elseif ($timeline === 'last_15_days') {
+        
+                $startDate = now()->subDays(14)->startOfDay();
+                $endDate   = now()->endOfDay();
+            } elseif ($timeline === 'this_month') {
+        
+                $startDate = now()->startOfMonth()->toDateString();
+                $endDate   = now()->endOfMonth()->toDateString();
+            } elseif ($timeline === 'this_year') {
+        
+                $startDate = now()->startOfYear()->toDateString();
+                $endDate   = now()->endOfYear()->toDateString();
+            } elseif (!empty($from_date) && !empty($to_date)) {
+        
+                $startDate = $from_date;
+                $endDate   = $to_date;
+            }
+        
+        
+            $insurance_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
+                    $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
+                        ->whereIn('inv.transfer_status', $vehicle_status_ids);
+                })
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                                    'Insurance' AS document_type,
+                                    SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                                    SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                                    SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                                    SUM(CASE WHEN vh.insurance_expiry_date = ? THEN 1 ELSE 0 END) AS today
+                                ", [
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.insurance_expiry_date', [$startDate, $endDate])
+                ->where('vh.is_status', 'accepted')
+        
+                ->when(!empty($location_ids), function ($query) use ($location_ids) {
+                    return $query->whereIn('vqc.location', $location_ids);
+                })
+                ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
+                    return $query->whereIn('vqc.zone_id', $zone_ids);
+                })
+                ->when(
+                    $accountability_type_id !== 'all',
+                    fn($q) =>
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when(
+                    !empty($customer_ids) && $accountability_type_id == 2,
+                    fn($q) =>
+                    $q->whereIn('vqc.customer_id', $customer_ids)
+                )
+                ->when(
+                    !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                    fn($q) =>
+                    $q->whereIn('vh.client', $customer_ids)
+                )
+                ->when(
+                    !empty($vehicle_model_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
+                )
+                ->when(
+                    !empty($vehicle_make_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
+                );
+        
+            $fitness_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
+                    $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
+                        ->whereIn('inv.transfer_status', $vehicle_status_ids);
+                })
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                                    'Fitness Certificate' AS document_type,
+                                    SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                                    SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                                    SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                                    SUM(CASE WHEN vh.fc_expiry_date = ? THEN 1 ELSE 0 END) AS today
+                                ", [
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.fc_expiry_date', [$startDate, $endDate])
+                ->where('vh.is_status', 'accepted')
+        
+                ->when(!empty($location_ids), function ($query) use ($location_ids) {
+                    return $query->whereIn('vqc.location', $location_ids);
+                })
+                ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
+                    return $query->whereIn('vqc.zone_id', $zone_ids);
+                })
+        
+                ->when(
+                    $accountability_type_id !== 'all',
+                    fn($q) =>
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when(
+                    !empty($customer_ids) && $accountability_type_id == 2,
+                    fn($q) =>
+                    $q->whereIn('vqc.customer_id', $customer_ids)
+                )
+                ->when(
+                    !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                    fn($q) =>
+                    $q->whereIn('vh.client', $customer_ids)
+                )
+                ->when(
+                    !empty($vehicle_model_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
+                )
+                ->when(
+                    !empty($vehicle_make_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
+                );
+        
+            $roadTax_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
+                    $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
+                        ->whereIn('inv.transfer_status', $vehicle_status_ids);
+                })
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                                    'Road Tax' AS document_type,
+                                    SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                                    SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                                    SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                                    SUM(CASE WHEN vh.road_tax_next_renewal_date = ? THEN 1 ELSE 0 END) AS today
+                                ", [
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.road_tax_next_renewal_date', [$startDate, $endDate])
+                ->where('vh.is_status', 'accepted')
+        
+                ->when(!empty($location_ids), function ($query) use ($location_ids) {
+                    return $query->whereIn('vqc.location', $location_ids);
+                })
+                ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
+                    return $query->whereIn('vqc.zone_id', $zone_ids);
+                })
+                ->when(
+                    $accountability_type_id !== 'all',
+                    fn($q) =>
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when(
+                    !empty($customer_ids) && $accountability_type_id == 2,
+                    fn($q) =>
+                    $q->whereIn('vqc.customer_id', $customer_ids)
+                )
+                ->when(
+                    !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                    fn($q) =>
+                    $q->whereIn('vh.client', $customer_ids)
+                )
+                ->when(
+                    !empty($vehicle_model_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
+                )
+                ->when(
+                    !empty($vehicle_make_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
+                );
+        
+        
+            $leaseAgreement_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
+                ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
+                    $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
+                        ->whereIn('inv.transfer_status', $vehicle_status_ids);
+                })
+                ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->selectRaw("
+                                    'Lease Agreement' AS document_type,
+                                    SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
+                                    SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
+                                    SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
+                                    SUM(CASE WHEN vh.lease_end_date = ? THEN 1 ELSE 0 END) AS today
+                                ", [
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                    $startDate,
+                ])
+                ->whereBetween('vh.lease_end_date', [$startDate, $endDate])
+                ->where('vh.is_status', 'accepted')
+        
+                ->when(!empty($location_ids), function ($query) use ($location_ids) {
+                    return $query->whereIn('vqc.location', $location_ids);
+                })
+                ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
+                    return $query->whereIn('vqc.zone_id', $zone_ids);
+                })
+        
+                ->when(
+                    $accountability_type_id !== 'all',
+                    fn($q) =>
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when(
+                    !empty($customer_ids) && $accountability_type_id == 2,
+                    fn($q) =>
+                    $q->whereIn('vqc.customer_id', $customer_ids)
+                )
+                ->when(
+                    !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                    fn($q) =>
+                    $q->whereIn('vh.client', $customer_ids)
+                )
+                ->when(
+                    !empty($vehicle_model_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
+                )
+                ->when(
+                    !empty($vehicle_make_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
+                );
+        
+            $document_alerts = $insurance_sql
+                ->unionAll($fitness_sql)
+                ->unionAll($roadTax_sql)
+                ->unionAll($leaseAgreement_sql)
+                ->get();
+        
+            $document_validity_count = DB::table('asset_vehicle_inventories as inv')
+                ->join('ev_tbl_asset_master_vehicles as vh', 'vh.id', '=', 'inv.asset_vehicle_id')
+                ->join('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
+                ->where('vh.is_status', 'accepted')
+                ->where('vh.delete_status', 0)
+                ->where('vqc.delete_status', 0)
+                ->when(!empty($location_ids), function ($query) use ($location_ids) {
+                    return $query->whereIn('vqc.location', $location_ids);
+                })
+                ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
+                    $q->whereIn('inv.transfer_status', $vehicle_status_ids);
+                })
+                ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
+                    return $query->whereIn('vqc.zone_id', $zone_ids);
+                })
+                ->when(
+                    $accountability_type_id !== 'all',
+                    fn($q) =>
+                    $q->where('vqc.accountability_type', $accountability_type_id)
+                )
+                ->when(
+                    !empty($customer_ids) && $accountability_type_id == 2,
+                    fn($q) =>
+                    $q->whereIn('vqc.customer_id', $customer_ids)
+                )
+                ->when(
+                    !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
+                    fn($q) =>
+                    $q->whereIn('vh.client', $customer_ids)
+                )
+                ->when(
+                    !empty($vehicle_model_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
+                )
+                ->when(
+                    !empty($vehicle_make_ids),
+                    fn($q) =>
+                    $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
+                )
+                ->count();
+        
+            return response()->json([
+                'document_alerts' => $document_alerts,
+                'document_validity_count' => $document_validity_count
+            ]);
         }
-    
-    
-        $insurance_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-            ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
-                $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
-                    ->whereIn('inv.transfer_status', $vehicle_status_ids);
-            })
-            ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-            ->selectRaw("
-                                'Insurance' AS document_type,
-                                SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
-                                SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
-                                SUM(CASE WHEN vh.insurance_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
-                                SUM(CASE WHEN vh.insurance_expiry_date = ? THEN 1 ELSE 0 END) AS today
-                            ", [
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-            ])
-            ->whereBetween('vh.insurance_expiry_date', [$startDate, $endDate])
-            ->where('vh.is_status', 'accepted')
-    
-            ->when(!empty($location_ids), function ($query) use ($location_ids) {
-                return $query->whereIn('vqc.location', $location_ids);
-            })
-            ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
-                return $query->whereIn('vqc.zone_id', $zone_ids);
-            })
-            ->when(
-                $accountability_type_id !== 'all',
-                fn($q) =>
-                $q->where('vqc.accountability_type', $accountability_type_id)
-            )
-            ->when(
-                !empty($customer_ids) && $accountability_type_id == 2,
-                fn($q) =>
-                $q->whereIn('vqc.customer_id', $customer_ids)
-            )
-            ->when(
-                !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                fn($q) =>
-                $q->whereIn('vh.client', $customer_ids)
-            )
-            ->when(
-                !empty($vehicle_model_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
-            )
-            ->when(
-                !empty($vehicle_make_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
-            );
-    
-        $fitness_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-            ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
-                $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
-                    ->whereIn('inv.transfer_status', $vehicle_status_ids);
-            })
-            ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-            ->selectRaw("
-                                'Fitness Certificate' AS document_type,
-                                SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
-                                SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
-                                SUM(CASE WHEN vh.fc_expiry_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
-                                SUM(CASE WHEN vh.fc_expiry_date = ? THEN 1 ELSE 0 END) AS today
-                            ", [
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-            ])
-            ->whereBetween('vh.fc_expiry_date', [$startDate, $endDate])
-            ->where('vh.is_status', 'accepted')
-    
-            ->when(!empty($location_ids), function ($query) use ($location_ids) {
-                return $query->whereIn('vqc.location', $location_ids);
-            })
-            ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
-                return $query->whereIn('vqc.zone_id', $zone_ids);
-            })
-    
-            ->when(
-                $accountability_type_id !== 'all',
-                fn($q) =>
-                $q->where('vqc.accountability_type', $accountability_type_id)
-            )
-            ->when(
-                !empty($customer_ids) && $accountability_type_id == 2,
-                fn($q) =>
-                $q->whereIn('vqc.customer_id', $customer_ids)
-            )
-            ->when(
-                !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                fn($q) =>
-                $q->whereIn('vh.client', $customer_ids)
-            )
-            ->when(
-                !empty($vehicle_model_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
-            )
-            ->when(
-                !empty($vehicle_make_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
-            );
-    
-        $roadTax_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-            ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
-                $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
-                    ->whereIn('inv.transfer_status', $vehicle_status_ids);
-            })
-            ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-            ->selectRaw("
-                                'Road Tax' AS document_type,
-                                SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
-                                SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
-                                SUM(CASE WHEN vh.road_tax_next_renewal_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
-                                SUM(CASE WHEN vh.road_tax_next_renewal_date = ? THEN 1 ELSE 0 END) AS today
-                            ", [
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-            ])
-            ->whereBetween('vh.road_tax_next_renewal_date', [$startDate, $endDate])
-            ->where('vh.is_status', 'accepted')
-    
-            ->when(!empty($location_ids), function ($query) use ($location_ids) {
-                return $query->whereIn('vqc.location', $location_ids);
-            })
-            ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
-                return $query->whereIn('vqc.zone_id', $zone_ids);
-            })
-            ->when(
-                $accountability_type_id !== 'all',
-                fn($q) =>
-                $q->where('vqc.accountability_type', $accountability_type_id)
-            )
-            ->when(
-                !empty($customer_ids) && $accountability_type_id == 2,
-                fn($q) =>
-                $q->whereIn('vqc.customer_id', $customer_ids)
-            )
-            ->when(
-                !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                fn($q) =>
-                $q->whereIn('vh.client', $customer_ids)
-            )
-            ->when(
-                !empty($vehicle_model_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
-            )
-            ->when(
-                !empty($vehicle_make_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
-            );
-    
-    
-        $leaseAgreement_sql = DB::table('ev_tbl_asset_master_vehicles as vh')
-            ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
-                $q->join('asset_vehicle_inventories as inv', 'vh.id', '=', 'inv.asset_vehicle_id')
-                    ->whereIn('inv.transfer_status', $vehicle_status_ids);
-            })
-            ->leftJoin('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-            ->selectRaw("
-                                'Lease Agreement' AS document_type,
-                                SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 1 MONTH) THEN 1 ELSE 0 END) AS within_1_month,
-                                SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 15 DAY) THEN 1 ELSE 0 END) AS within_15_days,
-                                SUM(CASE WHEN vh.lease_end_date BETWEEN ? AND DATE_ADD(?, INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS within_7_days,
-                                SUM(CASE WHEN vh.lease_end_date = ? THEN 1 ELSE 0 END) AS today
-                            ", [
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-                $startDate,
-            ])
-            ->whereBetween('vh.lease_end_date', [$startDate, $endDate])
-            ->where('vh.is_status', 'accepted')
-    
-            ->when(!empty($location_ids), function ($query) use ($location_ids) {
-                return $query->whereIn('vqc.location', $location_ids);
-            })
-            ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
-                return $query->whereIn('vqc.zone_id', $zone_ids);
-            })
-    
-            ->when(
-                $accountability_type_id !== 'all',
-                fn($q) =>
-                $q->where('vqc.accountability_type', $accountability_type_id)
-            )
-            ->when(
-                !empty($customer_ids) && $accountability_type_id == 2,
-                fn($q) =>
-                $q->whereIn('vqc.customer_id', $customer_ids)
-            )
-            ->when(
-                !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                fn($q) =>
-                $q->whereIn('vh.client', $customer_ids)
-            )
-            ->when(
-                !empty($vehicle_model_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
-            )
-            ->when(
-                !empty($vehicle_make_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
-            );
-    
-        $document_alerts = $insurance_sql
-            ->unionAll($fitness_sql)
-            ->unionAll($roadTax_sql)
-            ->unionAll($leaseAgreement_sql)
-            ->get();
-    
-        $document_validity_count = DB::table('asset_vehicle_inventories as inv')
-            ->join('ev_tbl_asset_master_vehicles as vh', 'vh.id', '=', 'inv.asset_vehicle_id')
-            ->join('vehicle_qc_check_lists as vqc', 'vh.qc_id', '=', 'vqc.id')
-            ->where('vh.is_status', 'accepted')
-            ->where('vh.delete_status', 0)
-            ->where('vqc.delete_status', 0)
-            ->when(!empty($location_ids), function ($query) use ($location_ids) {
-                return $query->whereIn('vqc.location', $location_ids);
-            })
-            ->when(!empty($vehicle_status_ids), function ($q) use ($vehicle_status_ids) {
-                $q->whereIn('inv.transfer_status', $vehicle_status_ids);
-            })
-            ->when(!empty($zone_ids), function ($query) use ($zone_ids) {
-                return $query->whereIn('vqc.zone_id', $zone_ids);
-            })
-            ->when(
-                $accountability_type_id !== 'all',
-                fn($q) =>
-                $q->where('vqc.accountability_type', $accountability_type_id)
-            )
-            ->when(
-                !empty($customer_ids) && $accountability_type_id == 2,
-                fn($q) =>
-                $q->whereIn('vqc.customer_id', $customer_ids)
-            )
-            ->when(
-                !empty($customer_ids) && in_array($accountability_type_id, [1, 'all']),
-                fn($q) =>
-                $q->whereIn('vh.client', $customer_ids)
-            )
-            ->when(
-                !empty($vehicle_model_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_model_ids)
-            )
-            ->when(
-                !empty($vehicle_make_ids),
-                fn($q) =>
-                $q->whereIn('vqc.vehicle_model', $vehicle_make_ids)
-            )
-            ->count();
-    
-        return response()->json([
-            'document_alerts' => $document_alerts,
-            'document_validity_count' => $document_validity_count
-        ]);
-    }
 
         if (!empty($chart_type) && $chart_type == 'ClientwisebarChart') {
             Log::info("ClientwisebarChart Loading Start ".now());
@@ -1686,44 +1689,44 @@ class AssetMasterController extends Controller
             ->get()
             ->keyBy(fn($r) => $r->location.'_'.$r->vehicle_type);
       
-        $onRoadData = DB::table('vehicle_qc_check_lists as qc')
-            ->join('ev_tbl_asset_master_vehicles as vh', function ($join) {
-                $join->on('qc.id', '=', 'vh.qc_id')
-                     ->where('vh.delete_status', 0);
-            })
-            ->join('asset_vehicle_inventories as inv', function ($join) {
-                $join->on('inv.asset_vehicle_id', '=', 'vh.id')
-                     ->where('inv.transfer_status', 1);
-            })
-             ->selectRaw("
-                qc.location,
-                qc.vehicle_type,
-                CASE
-                    WHEN ? = 1 THEN COUNT(inv.id)
-                    ELSE 0
-                END AS onroad_count
-            ", [
-                empty($vehicle_status_ids) || in_array(1, $vehicle_status_ids) ? 1 : 0
-            ])
-            ->where('qc.delete_status', 0)
-        
-            ->when($accountability_type_id !== 'all',
-                fn($q) => $q->where('qc.accountability_type', $accountability_type_id)
-            )
-            ->when(!empty($customer_ids) && in_array($accountability_type_id, [1,2]),
-                fn($q) => $q->whereIn('qc.customer_id', $customer_ids)
-            )
-            ->when(!empty($vehicle_model_ids),
-                fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_model_ids)
-            )
-            ->when(!empty($vehicle_make_ids),
-                fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_make_ids)
-            )
-        
-            ->groupBy('qc.location', 'qc.vehicle_type')
-            ->get()
-            ->keyBy(fn($r) => $r->location.'_'.$r->vehicle_type);
-        
+            $onRoadData = DB::table('vehicle_qc_check_lists as qc')
+                ->join('ev_tbl_asset_master_vehicles as vh', function ($join) {
+                    $join->on('qc.id', '=', 'vh.qc_id')
+                         ->where('vh.delete_status', 0);
+                })
+                ->join('asset_vehicle_inventories as inv', function ($join) {
+                    $join->on('inv.asset_vehicle_id', '=', 'vh.id')
+                         ->where('inv.transfer_status', 1);
+                })
+                 ->selectRaw("
+                    qc.location,
+                    qc.vehicle_type,
+                    CASE
+                        WHEN ? = 1 THEN COUNT(inv.id)
+                        ELSE 0
+                    END AS onroad_count
+                ", [
+                    empty($vehicle_status_ids) || in_array(1, $vehicle_status_ids) ? 1 : 0
+                ])
+                ->where('qc.delete_status', 0)
+            
+                ->when($accountability_type_id !== 'all',
+                    fn($q) => $q->where('qc.accountability_type', $accountability_type_id)
+                )
+                ->when(!empty($customer_ids) && in_array($accountability_type_id, [1,2]),
+                    fn($q) => $q->whereIn('qc.customer_id', $customer_ids)
+                )
+                ->when(!empty($vehicle_model_ids),
+                    fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_model_ids)
+                )
+                ->when(!empty($vehicle_make_ids),
+                    fn($q) => $q->whereIn('qc.vehicle_model', $vehicle_make_ids)
+                )
+            
+                ->groupBy('qc.location', 'qc.vehicle_type')
+                ->get()
+                ->keyBy(fn($r) => $r->location.'_'.$r->vehicle_type);
+            
         $city_table_data = [];
         
         foreach ($totalAssetsData as $key => $row) {
@@ -1823,8 +1826,8 @@ class AssetMasterController extends Controller
                 'reg_number' => $val->assetVehicle->permanent_reg_number ?? 'N/A',
                 // 'model' => $val->assetVehicle->vehicle_model_relation->vehicle_model ?? 'N/A',
                 'make' => $val->assetVehicle->vehicle_model_relation->make ?? 'N/A',
-                'location' => $val->assetVehicle->quality_check->location_relation->name,
-                'hub' => '-',
+                'location' => $val->assetVehicle->quality_check->location_relation->city_name ?? 'N/A',
+                'hub' => $val->assetVehicle->quality_check->zone->name ?? 'N/A',
                 'telematic_no' => $val->assetVehicle->telematics_imei_number ?? 'N/A',
                 'location_status' => $val->inventory_location->name ?? 'N/A',
                 'client_name' => $val->assetVehicle->customer_relation->trade_name ?? 'N/A',
@@ -1834,7 +1837,6 @@ class AssetMasterController extends Controller
 
         return response()->json($data);
     }
-
     public function get_customer_name(Request $request)
     {
         $search = $request->input('search');
@@ -1850,10 +1852,6 @@ class AssetMasterController extends Controller
 
         return response()->json($get_customers);
     }
-
-
-
-
 
     /**
      * Display a listing of the resource.
