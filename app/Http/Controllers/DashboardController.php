@@ -618,5 +618,63 @@ class DashboardController extends Controller
         ]);
     }
     
+    public function getDeliveryMans(Request $request)
+    {
+        $userTypes = $request->user_types;
+        if (!is_array($userTypes)) {
+            $userTypes = [$userTypes];
+        }
+    
+        if (in_array("all", $userTypes)) {
+            $userTypeData = DB::table('ev_tbl_delivery_men')
+                ->select('id', 'first_name', 'last_name', 'emp_id', 'mobile_number')
+                ->whereNotNull('register_date_time')
+                ->get();
+        } else {
+            $userTypeData = DB::table('ev_tbl_delivery_men')
+                ->select('id', 'first_name', 'last_name', 'emp_id', 'mobile_number')
+                ->whereNotNull('register_date_time')
+                ->whereIn('work_type', $userTypes)
+                ->get();
+        }
+    
+        return response()->json([
+            'success' => true,
+            'data' => $userTypeData
+        ]);
+    }
+    
+    
+    public function getDeliveryMans_Ids(Request $request)
+    {
+        $userTypes = $request->user_types;
+        $empIds = $request->emp_ids;
+    
+        if (!is_array($userTypes)) {
+            $userTypes = [$userTypes];
+        }
+        
+        $userTypes = array_filter($userTypes); 
+        $userTypes = array_values($userTypes);
+    
+        $query = DB::table('ev_tbl_delivery_men')
+            ->select('id', 'emp_id','work_type')
+            ->whereNotNull('register_date_time');
+        if (!in_array("all", $userTypes) && !empty($userTypes)) {
+            $query->whereIn('work_type', $userTypes);
+        }
+        if (!empty($empIds)) {
+            $query->whereIn('emp_id', $empIds);
+        }
+        $data = $query->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
+
+    
      
 }

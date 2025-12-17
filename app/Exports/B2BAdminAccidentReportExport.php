@@ -3,11 +3,15 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Modules\B2B\Entities\B2BReportAccident;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
-class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, WithMapping
+class B2BAdminAccidentReportExport implements FromQuery, WithHeadings, WithMapping,WithChunkReading
 {
     protected $from_date;
     protected $to_date;
@@ -15,13 +19,13 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
     protected $selectedFields;
     protected $city=[];
     protected $zone=[];
-    protected $accountability_type=[]; //updated by logesh
-    protected $customer_id=[]; //updated by logesh
-    protected $status=[]; //updated by logesh
-    protected $vehicle_type=[]; //updated by logesh
-    protected $vehicle_model=[]; //updated by logesh
-    protected $vehicle_make=[]; //updated by logesh
-    protected $date_filter; //updated by Mugesh
+    protected $accountability_type=[]; 
+    protected $customer_id=[]; 
+    protected $status=[]; 
+    protected $vehicle_type=[]; 
+    protected $vehicle_model=[]; 
+    protected $vehicle_make=[]; 
+    protected $date_filter; 
 
     public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [], $status = [],$accountability_type = [],$customer_id=[], $vehicle_type=[] , $vehicle_model=[],$vehicle_make=[], $date_filter)
     {
@@ -31,112 +35,140 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
         $this->selectedFields = $selectedFields;
         $this->city           = (array)$city;
         $this->zone           = (array)$zone;
-        $this->accountability_type = (array)$accountability_type; //updated by logesh
-        $this->customer_id =(array) $customer_id; //updated by logesh
-        $this->status = (array)$status; //updated by logesh
-        $this->vehicle_type =(array) $vehicle_type; //updated by logesh
-        $this->vehicle_model = (array)$vehicle_model; //updated by logesh
-        $this->vehicle_make =(array) $vehicle_make; //updated by logesh
-        $this->date_filter = $date_filter; //updated by Mugesh
+        $this->accountability_type = (array)$accountability_type; 
+        $this->customer_id =(array) $customer_id; 
+        $this->status = (array)$status; 
+        $this->vehicle_type =(array) $vehicle_type; 
+        $this->vehicle_model = (array)$vehicle_model; 
+        $this->vehicle_make =(array) $vehicle_make; 
+        $this->date_filter = $date_filter; 
     }
-
-    public function collection()
+    
+     public function query()
     {
-        $query = B2BReportAccident::with([
-            'assignment.VehicleRequest.city',
-            'assignment.VehicleRequest.zone',
-            'assignment.vehicle',
-            'assignment.vehicle.quality_check',
-            'assignment.rider.customerlogin.customer_relation'
-        ]);
-
+        $query = DB::table('b2b_tbl_report_accident as ar')
+            ->join('b2b_tbl_vehicle_assignments as ass', 'ass.id', '=', 'ar.assign_id')
+            ->join('b2b_tbl_vehicle_requests as vhr', 'vhr.req_id', '=', 'ass.req_id')
+            ->leftJoin('ev_tbl_asset_master_vehicles as vh', 'vh.id', '=', 'ass.asset_vehicle_id')
+            ->leftJoin('vehicle_qc_check_lists as qc', 'qc.id', '=', 'vh.qc_id')
+            ->leftJoin('ev_tbl_vehicle_models as vm', 'vm.id', '=', 'qc.vehicle_model')
+            ->leftJoin('vehicle_types as vt', 'vt.id', '=', 'qc.vehicle_type')
+            ->leftJoin('ev_tbl_accountability_types as actype', 'actype.id', '=', 'vhr.account_ability_type')
+            ->leftJoin('ev_tbl_city as cty', 'cty.id', '=', 'vhr.city_id')
+            ->leftJoin('zones as zn', 'zn.id', '=', 'vhr.zone_id')
+            ->leftJoin('b2b_tbl_riders as rider', 'rider.id', '=', 'ass.rider_id')
+            ->leftJoin('ev_tbl_customer_logins as cml', 'cml.id', '=', 'rider.created_by')
+            ->leftJoin('ev_tbl_customer_master as cm', 'cm.id', '=', 'cml.customer_id')
+            ->where('vh.is_status', 'accepted')
+            ->select([
+                'vhr.req_id',
+                'rider.name as rider_name',
+                'rider.llr_number as llr_number',
+                'rider.driving_license_number as driving_license_number',
+                'actype.name as accountability_name',
+                'vh.permanent_reg_number as permanent_reg_number',
+                'qc.chassis_number as chassis_number',
+                'vt.name as vehicle_type_name',
+                'vm.vehicle_model as vehicle_model',
+                'vm.make as vehicle_make',
+                'rider.mobile_no as rider_mobile_no',
+                'cml.email as created_by',
+                'cm.trade_name as client_name',
+                'cm.phone as client_phone',
+                'cty.city_name',
+                'zn.name as zone_name',
+                'ar.accident_type as accident_type',
+                'ar.location_of_accident as location_of_accident',
+                'ar.status as status',
+                'ar.vehicle_damage as vehicle_damage',
+                'ar.rider_injury_description',
+                'ar.accident_attachments',
+                'ar.police_report',
+                'ar.third_party_injury_description',
+                'ar.description',
+                'ar.created_at as created_at',
+                'ar.updated_at as updated_at'
+            ]);
+    
         if (!empty($this->selectedIds)) {
-            $query->whereIn('id', $this->selectedIds);
+    
+            $query->whereIn('ar.id', $this->selectedIds);
         } else {
-            if (!empty($this->city) && !in_array('all',$this->city)) {
-                $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->whereIn('city_id', $this->city);
-                });
+    
+            if (!empty($this->city) && !in_array('all', $this->city)) {
+                $query->whereIn('vhr.city_id', $this->city);
             }
-
-            if (!empty($this->zone) && !in_array('all',$this->zone)) {
-                $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->whereIn('zone_id', $this->zone);
-                });
+    
+            if (!empty($this->zone) && !in_array('all', $this->zone)) {
+                $query->whereIn('vhr.zone_id', $this->zone);
             }
-            
-            if (!empty($this->vehicle_model) && !in_array('all',$this->vehicle_model)) {
-                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
-                    $q->whereIn('vehicle_model', $this->vehicle_model);
-                });
+    
+            if (!empty($this->vehicle_model) && !in_array('all', $this->vehicle_model)) {
+                $query->whereIn('qc.vehicle_model', $this->vehicle_model);
             }
-            
-            if (!empty($this->vehicle_type) && !in_array('all',$this->vehicle_type)) {
-                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
-                    $q->whereIn('vehicle_type', $this->vehicle_type);
-                });
+    
+            if (!empty($this->vehicle_type) && !in_array('all', $this->vehicle_type)) {
+                $query->whereIn('qc.vehicle_type', $this->vehicle_type);
             }
-            
-            if (!empty($this->vehicle_make) && !in_array('all',$this->vehicle_make)) {
-                $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($q) {
-                    $q->whereIn('make', $this->vehicle_make);
-                });
+    
+            if (!empty($this->vehicle_make) && !in_array('all', $this->vehicle_make)) {
+                $query->whereIn('vm.make', $this->vehicle_make);
             }
-            
+            if (!empty($this->accountability_type) && !in_array('all', $this->accountability_type)) {
+                $query->whereIn('vhr.account_ability_type', (array) $this->accountability_type);
+            }
+    
+            if (!empty($this->customer_id) && !in_array('all', $this->customer_id)) {
+                $query->whereIn('cm.id', $this->customer_id);
+            }
+    
+            if (!empty($this->status) && !in_array('all', $this->status)) {
+                $query->whereIn('ar.status', (array) $this->status);
+            }
+    
             if (!empty($this->date_filter)) {
+    
                 switch ($this->date_filter) {
-            
+    
                     case 'today':
-                        $query->whereDate('created_at', today());
+                        $query->whereDate('ar.created_at', today());
                         break;
-            
+    
                     case 'week':
-                        $query->whereBetween('created_at', [
+                        $query->whereBetween('ar.created_at', [
                             now()->startOfWeek(),
                             now()->endOfWeek(),
                         ]);
                         break;
-            
-                    case 'month':
-                        $query->whereMonth('created_at', now()->month)
-                              ->whereYear('created_at', now()->year);
-                        break;
-                        
+    
                     case 'last_15_days':
-                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
-                              ->whereYear('created_at', now()->endOfDay());
+                        $query->whereBetween('ar.created_at', [
+                            now()->subDays(14)->startOfDay(),
+                            now()->endOfDay(),
+                        ]);
                         break;
+    
+                    case 'month':
+                        $query->whereMonth('ar.created_at', now()->month)
+                            ->whereYear('ar.created_at', now()->year);
+                        break;
+    
                     case 'year':
-                        $query->whereYear('created_at', now()->year);
+                        $query->whereYear('ar.created_at', now()->year);
                         break;
-            
-                    // custom handled outside
                 }
             }
-            
-            if ($this->from_date) {
-                $query->whereDate('created_at', '>=', $this->from_date);
+    
+            if (!empty($this->from_date)) {
+                $query->whereDate('ar.created_at', '>=', $this->from_date);
             }
-
-            if ($this->to_date) {
-                $query->whereDate('created_at', '<=', $this->to_date);
-            }
-            
-            //updated by logesh
-            if ($this->accountability_type) {
-                $query->wherehas('assignment.VehicleRequest', function ($p) {
-                     $p->where('account_ability_type', $this->accountability_type);
-                });
-            }
-            //updated by logesh
-            if ($this->customer_id) {
-                $query->wherehas('assignment.VehicleRequest.rider.customerLogin.customer_relation', function ($p) {
-                     $p->where('id', $this->customer_id);
-                });
+    
+            if (!empty($this->to_date)) {
+                $query->whereDate('ar.created_at', '<=', $this->to_date);
             }
         }
-
-        return $query->orderBy('id', 'desc')->get();
+    
+        return $query->orderBy('ar.id', 'desc');
     }
 
     public function map($row): array
@@ -154,57 +186,57 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
         foreach ($this->selectedFields as $key) {
             switch ($key) {
                 case 'req_id':
-                    $mapped[] = $row->assignment->VehicleRequest->req_id ?? '-';
+                    $mapped[] = $row->req_id ?? '-';
                     break;
                 
-                //updated by logesh
+                
                 case 'accountability_type':
-                    $mapped[] = $row->accountAbilityRelation->name ?? '-';
+                    $mapped[] = $row->accountability_name ?? '-';
                     break;
                     
                 case 'rider_name':
-                    $mapped[] = $row->assignment->rider->name ?? '-';
+                    $mapped[] = $row->rider_name ?? '-';
                     
                     break;
 
                 case 'vehicle_no':
-                    $mapped[] = $row->assignment->vehicle->permanent_reg_number ?? '-';
+                    $mapped[] = $row->permanent_reg_number ?? '-';
                     break;
 
                 case 'chassis_number':
-                    $mapped[] = $row->assignment->vehicle->chassis_number ?? '-';
+                    $mapped[] = $row->chassis_number ?? '-';
                     break;
                 
                 case 'vehicle_type':
-                    $mapped[] = $row->assignment->vehicle->vehicle_type_relation->name?? '-';
+                    $mapped[] = $row->vehicle_type_name ?? '-';
                     break;
                     
                 case 'vehicle_model':
-                    $mapped[] = $row->assignment->vehicle->vehicle_model_relation->vehicle_model?? '-';
+                    $mapped[] = $row->vehicle_model ?? '-';
                     break;
                     
                 case 'vehicle_make':
-                    $mapped[] = $row->assignment->vehicle->vehicle_model_relation->make?? '-';
+                    $mapped[] = $row->vehicle_make ?? '-';
                     break;
                     
                 case 'mobile_no':
-                    $mapped[] = $row->assignment->rider->mobile_no ?? '-';
+                    $mapped[] = $row->rider_mobile_no ?? '-';
                     break;
 
                 case 'poc_name':
-                    $mapped[] = $row->assignment->rider->customerlogin->customer_relation->trade_name ?? '-';
+                    $mapped[] = $row->client_name ?? '-';
                     break;
                 
                 case 'poc_number':
-                    $mapped[] = $row->assignment->rider->customerlogin->customer_relation->phone ?? '-';
+                    $mapped[] = $row->client_phone ?? '-';
                     break;
                     
                 case 'city':
-                    $mapped[] = $row->assignment->VehicleRequest->city->city_name ?? '-';
+                    $mapped[] = $row->city_name ?? '-';
                     break;
 
                 case 'zone':
-                    $mapped[] = $row->assignment->VehicleRequest->zone->name ?? '-';
+                    $mapped[] = $row->zone_name ?? '-';
                     break;
 
                 case 'accident_type':
@@ -216,11 +248,11 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
                     break;
                 
                 case 'rider_llr_number':
-                    $mapped[] = $row->assignment->rider->llr_number ?? '-';
+                    $mapped[] = $row->llr_number ?? '-';
                     break;
                     
                 case 'rider_license_number':
-                    $mapped[] = $row->assignment->rider->driving_license_number ?? '-';
+                    $mapped[] = $row->driving_license_number ?? '-';
                     break;
                 case 'vehicle_damage':
                     $mapped[] = $row->vehicle_damage ?? '-';
@@ -235,20 +267,20 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
                     break;
                 
                 case 'accident_attachments':
-                    $attachments = json_decode($row->accident_attachments, true); // decode JSON
+                    $attachments = json_decode($row->accident_attachments, true); 
                     if (is_array($attachments) && !empty($attachments)) {
                         $urls = [];
                         foreach ($attachments as $file) {
                             $urls[] = asset('b2b/accident_reports/attachments/' . $file);
                         }
-                        $mapped[] = implode(", ", $urls); // join multiple URLs
+                        $mapped[] = implode(", ", $urls); 
                     } else {
                         $mapped[] = '-';
                     }
                     break;
                 
                 case 'police_report':
-                    $report = json_decode($row->police_report, true); // decode JSON
+                    $report = json_decode($row->police_report, true);
                     if (!empty($report['name'])) {
                         $mapped[] = asset('b2b/accident_reports/police_reports/' . $report['name']);
                     } else {
@@ -265,7 +297,7 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
                     break;
                     
                 case 'created_by':
-                    $mapped[] = $row->assignment->rider->customerlogin->customer_relation->trade_name ?? '-';
+                    $mapped[] = $row->created_by ?? '-';
                     break;
 
                 case 'status':
@@ -274,12 +306,13 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
 
                 case 'created_at':
                     $mapped[] = $row->created_at
-                        ? $row->created_at->format('d M Y h:i A')
+                        ? Carbon::parse($row->created_at)->format('d M Y h:i A')
                         : '-';
                     break;
+                
                 case 'updated_at':
                     $mapped[] = $row->updated_at
-                        ? $row->updated_at->format('d M Y h:i A')
+                        ? Carbon::parse($row->updated_at)->format('d M Y h:i A')
                         : '-';
                     break;
 
@@ -297,7 +330,7 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
 
         $customHeadings = [
             'req_id'        => 'Request ID',
-            'accountability_type'    => 'Accountablity Type', //updated by logesh
+            'accountability_type'    => 'Accountablity Type', 
             'vehicle_no'    => 'Vehicle Number',
             'chassis_number'=> 'Chassis Number',
             'vehicle_type'    => 'Vehicle Type',
@@ -331,5 +364,9 @@ class B2BAdminAccidentReportExport implements FromCollection, WithHeadings, With
         }
 
         return $headers;
+    }
+    public function chunkSize(): int
+    {
+        return 500;
     }
 }

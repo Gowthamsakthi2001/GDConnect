@@ -37,6 +37,17 @@ class VehicleModelMaster extends Model
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type');
     }
+    //same copied here to resolve the issue of same vehicle_type,brand field (Logesh)
+    
+    public function vehicle_brand()
+    {
+        return $this->belongsTo(BrandModelMaster::class, 'brand');
+    }
+    
+    public function type()
+    {
+        return $this->belongsTo(VehicleType::class, 'vehicle_type');
+    }
 
   
 }

@@ -26,6 +26,7 @@ Route::prefix('v1/b2bagent')->name('api.b2bagent')->group(function () {
         Route::get('deployment/request-list', [B2BAgentController::class, 'request_list'])->name('request_list');// 
         Route::get('deployment/request-view/{id}', [B2BAgentController::class, 'request_view'])->name('request_view');// 
         Route::post('update-request', [B2BAgentController::class, 'update_request'])->name('update_request');
+        Route::post('update-vehicle', [B2BAgentController::class, 'vehicle_update'])->name('vehicle_update');//updated by logesh
         Route::post('assign-vehicle', [B2BAgentController::class, 'assign_vehicle'])->name('assign_vehicle');
         Route::get('get-return-request-list', [B2BAgentController::class, 'get_return_request_list'])->name('get_return_request_list');// 
         Route::post('update-return-request', [B2BAgentController::class, 'update_return_request'])->name('update_return_request');
@@ -35,9 +36,11 @@ Route::prefix('v1/b2bagent')->name('api.b2bagent')->group(function () {
         
         Route::get('get-dashboard-data', [B2BAgentController::class, 'get_dashboard_data'])->name('get_dashboard_data');// 
         Route::get('get-vehicle-list', [B2BAgentController::class, 'get_vehicle_list'])->name('get_vehicle_list');// 
+        Route::get('get-vehicle-data', [B2BAgentController::class, 'get_vehicle_data'])->name('get_vehicle_data');// 
         
         Route::get('get-notifications', [B2BAgentController::class, 'get_notification_data'])->name('get_notification_data');
         Route::get('notification/status-update/{notification_id}/{status}', [B2BAgentController::class, 'notification_status_update'])->name('notification_status_update');
+          Route::get('get-agent-logs', [B2BAgentController::class, 'get_agent_logs'])->name('get_agent_logs');
     });
     
     

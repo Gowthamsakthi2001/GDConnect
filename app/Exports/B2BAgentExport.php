@@ -2,13 +2,13 @@
 
 namespace App\Exports;
 
-use Modules\B2B\Entities\B2BAgent;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Carbon\Carbon;
-
-class B2BAgentExport implements FromCollection, WithHeadings, WithMapping
+class B2BAgentExport implements FromQuery, WithHeadings, WithMapping, WithChunkReading
 {
     protected $from_date;
     protected $to_date;
@@ -28,63 +28,73 @@ class B2BAgentExport implements FromCollection, WithHeadings, WithMapping
         $this->zone           = (array)$zone;
         $this->datefilter           = $datefilter;
     }
-
-    public function collection()
+    
+    public function query()
     {
-        $query = B2BAgent::where('role',17)->with(['city', 'zone']); // if relations exist
+        $query = DB::table('users as u')
+            ->leftJoin('ev_tbl_city as cty','cty.id','=','u.city_id')
+            ->leftJoin('zones as zn','zn.id','=','u.zone_id')
+            ->where('u.role', 17)
+            ->select([
+                'u.*',
+                'cty.city_name as city_name',
+                'zn.name as zone_name'
+            ]);
 
         if (!empty($this->selectedIds)) {
-            $query->whereIn('id', $this->selectedIds);
+            $query->whereIn('u.id', $this->selectedIds);
         } else {
+
             if (!empty($this->city)) {
-                $query->whereIn('city_id', $this->city);
+                $query->whereIn('u.city_id', $this->city);
             }
 
             if (!empty($this->zone)) {
-                $query->whereIn('zone_id', $this->zone);
+                $query->whereIn('u.zone_id', $this->zone);
             }
-            
-            if (!empty($this->datefilter )) {
-                switch ($this->datefilter ) {
-            
+
+            if (!empty($this->datefilter)) {
+                switch ($this->datefilter) {
+
                     case 'today':
-                        $query->whereDate('created_at', today());
+                        $query->whereDate('u.created_at', today());
                         break;
-            
+
                     case 'week':
-                        $query->whereBetween('created_at', [
+                        $query->whereBetween('u.created_at', [
                             now()->startOfWeek(),
-                            now()->endOfWeek(),
+                            now()->endOfWeek()
                         ]);
                         break;
-                        
+
                     case 'last_15_days':
-                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
-                              ->whereYear('created_at', now()->endOfDay());
+                        $query->whereBetween('u.created_at', [
+                            now()->subDays(14)->startOfDay(),
+                            now()->endOfDay()
+                        ]);
                         break;
-                        
+
                     case 'month':
-                        $query->whereMonth('created_at', now()->month)
-                              ->whereYear('created_at', now()->year);
+                        $query->whereMonth('u.created_at', now()->month)
+                              ->whereYear('u.created_at', now()->year);
                         break;
-            
+
                     case 'year':
-                        $query->whereYear('created_at', now()->year);
+                        $query->whereYear('u.created_at', now()->year);
                         break;
-            
                 }
             }
 
             if ($this->from_date) {
-                $query->whereDate('created_at', '>=', $this->from_date);
+                $query->whereDate('u.created_at', '>=', $this->from_date);
             }
 
             if ($this->to_date) {
-                $query->whereDate('created_at', '<=', $this->to_date);
+                $query->whereDate('u.created_at', '<=', $this->to_date);
             }
         }
 
-        return $query->orderBy('id', 'desc')->get();
+        return $query->orderBy('u.id', 'desc');
     }
 
     public function map($row): array
@@ -106,11 +116,11 @@ class B2BAgentExport implements FromCollection, WithHeadings, WithMapping
                     break;
 
                 case 'city_id':
-                    $mapped[] = $row->city->city_name ?? '-';
+                    $mapped[] = $row->city_name ?? '-';
                     break;
 
                 case 'zone_id':
-                    $mapped[] = $row->zone->name ?? '-';
+                    $mapped[] = $row->zone_name ?? '-';
                     break;
 
                 default:
@@ -140,11 +150,16 @@ class B2BAgentExport implements FromCollection, WithHeadings, WithMapping
             'created_at'            => 'Created At',
             
         ];
-
         foreach ($this->selectedFields as $key) {
             $headers[] = $customHeadings[$key] ?? ucfirst(str_replace('_', ' ', $key));
         }
 
         return $headers;
     }
+    
+     public function chunkSize(): int
+    {
+        return 1000;
+    }
+
 }

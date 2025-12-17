@@ -10,6 +10,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB; //updated by Mugesh.B
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Mail\QualityCheckMail; //updated by Mugesh.B
 use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
@@ -511,8 +512,11 @@ public function quality_check_list(Request $request)
     {
 
           try{
-         $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
-         $selectedFields = json_decode($request->query('fields'), true);
+        //  $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
+        //  $selectedFields = json_decode($request->query('fields'), true);
+         $selectedIds = $request->query('selected_ids', []);
+      
+         $selectedFields = $request->query('fields');
          
          
         
@@ -593,12 +597,27 @@ public function quality_check_list(Request $request)
       
             
         
-         return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location , $zone , $customer , $accountability_type,$vehicle_type,$vehicle_model,$vehicle_make), $fileName);
-          
+        //  return Excel::download(new QualityCheckExport($status , $from_date  , $to_date ,$timeline , $selectedIds , $selectedFields ,$location , $zone , $customer , $accountability_type,$vehicle_type,$vehicle_model,$vehicle_make), $fileName);
+      return Excel::download(
+    new QualityCheckExport(
+        $status, $from_date, $to_date, $timeline,
+        $selectedIds, $selectedFields, $location,
+        $zone, $customer, $accountability_type,
+        $vehicle_type, $vehicle_model, $vehicle_make
+    ),
+    'quality_check-' . date('d-m-Y') . '.xlsx'
+);
         }catch(\Exception $e){
-            dd($e->getMessage);
+            // dd($e->getMessage);
+             Log::error('Export Failed', [
+        'error' => $e->getMessage(),
+        'line'  => $e->getLine(),
+        'file'  => $e->getFile(),
+    ]);
         }
     }
+
+
     
     public function Quality_Check_Excel_download(Request $request){
         return Excel::download(new QualityCheckBulkExport, 'Qualit_check_import.xlsx');

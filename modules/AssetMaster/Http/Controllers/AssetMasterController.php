@@ -8323,7 +8323,7 @@ class AssetMasterController extends Controller
             $vehicle_make
         );
 
-        $fileName = 'Asset_Master_Vehicles-' . date('d-m-Y') . '.xlsx';
+        $fileName = 'Asset_Master_Vehicles-' . date('d-m-Y') . '.csv';
 
         // ✅ Minimal log: just record that an export was done
         audit_log_after_commit([
