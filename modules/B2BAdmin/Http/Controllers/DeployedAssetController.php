@@ -405,9 +405,6 @@ class DeployedAssetController extends Controller
             ->first()->inventory_location->name ?? null;
             
         
-        
-    
-        
         return view('b2badmin::deployed_asset.view',compact('data' ,'current_status'));
     }
 
@@ -1145,7 +1142,7 @@ class DeployedAssetController extends Controller
         ];
 
         if (isset($manual[$clean])) {
-            $clean = $manual[$clean];
+            $clean = $manual[$clean]; 
         }
 
         $formattedFields[] = $clean;
@@ -1190,7 +1187,7 @@ class DeployedAssetController extends Controller
     // -------------------------------
     // AUDIT LOG
     // -------------------------------
-    $fileName = 'Deployment-request-list-' . date('d-m-Y') . '.xlsx';
+    $fileName = 'Deployment-request-list-' . date('d-m-Y') . '.csv';
     $user = Auth::user();
     $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
 
@@ -1227,115 +1224,127 @@ class DeployedAssetController extends Controller
         $fileName
     );
 }
+        
+        // public function export_deploymet_request(Request $request)
+        //     {
+            
+        //     $filters = $request->all();
     
+        //     return Excel::download(
+        //         new B2BAdminDeploymentRequestExport($filters),
+        //         'deployment_requests.xlsx'
+        //     );
+        //     }
+        
     public function export_deployed_list(Request $request)
-{
-    $user     = Auth::user();
-    $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
-
-    // Ensure ALL multiple filters are arrays
-    $fields              = (array) $request->input('fields', []);
-    $from_date           = $request->input('from_date');
-    $to_date             = $request->input('to_date');
-    $zone                = (array) $request->input('zone_id', []);
-    $status              = (array) $request->input('status', []);
-    $city                = (array) $request->input('city_id', []);
-    $customer_id         = (array) $request->input('customer_id', []);
-    $accountability_type = (array) $request->input('accountability_type', []);
-    $vehicle_type        = (array) $request->input('vehicle_type', []);
-    $vehicle_model       = (array) $request->input('vehicle_model', []);
-    $vehicle_make        = (array) $request->input('vehicle_make', []);
-    $selectedIds         = (array) $request->input('selected_ids', []);
-    $date_filter         = $request->input('date_filter') ?? null;
-
-    // Validation
-    if (empty($fields)) {
-        return back()->with('error', 'Please select at least one field to export.');
+    {
+    
+        $user     = Auth::user();
+        $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
+    
+        // Ensure ALL multiple filters are arrays
+        $fields              = (array) $request->input('fields', []);
+        $from_date           = $request->input('from_date');
+        $to_date             = $request->input('to_date');
+        $zone                = (array) $request->input('zone_id', []);
+        $status              = (array) $request->input('status', []);
+        $city                = (array) $request->input('city_id', []);
+        $customer_id         = (array) $request->input('customer_id', []);
+        $accountability_type = (array) $request->input('accountability_type', []);
+        $vehicle_type        = (array) $request->input('vehicle_type', []);
+        $vehicle_model       = (array) $request->input('vehicle_model', []);
+        $vehicle_make        = (array) $request->input('vehicle_make', []);
+        $selectedIds         = (array) $request->input('selected_ids', []);
+        $date_filter         = $request->input('date_filter') ?? null;
+    
+        // Validation
+        if (empty($fields)) {
+            return back()->with('error', 'Please select at least one field to export.');
+        }
+    
+        // -----------------------------------------
+        // GET FRIENDLY NAMES FOR FILTER VALUES
+        // -----------------------------------------
+        $zoneNames = Zones::whereIn('id', $zone)->pluck('name')->toArray();
+        $cityNames = City::whereIn('id', $city)->pluck('city_name')->toArray();
+        $customerNames = CustomerMaster::whereIn('id', $customer_id)->pluck('trade_name')->toArray();
+        $accountabilityNames = EvTblAccountabilityType::whereIn('id', $accountability_type)->pluck('name')->toArray();
+        $vehicleTypeNames = VehicleType::whereIn('id', $vehicle_type)->pluck('name')->toArray();
+        $vehicleModelNames = VehicleModelMaster::whereIn('id', $vehicle_model)->pluck('vehicle_model')->toArray();
+        $vehicleMakeNames  = VehicleModelMaster::whereIn('make', $vehicle_make)->pluck('make')->toArray();
+    
+        // -----------------------------------------
+        // BUILD FILTER SUMMARY (HUMAN READABLE)
+        // -----------------------------------------
+        $appliedFilters = [];
+    
+        if ($from_date) $appliedFilters[] = "From Date: $from_date";
+        if ($to_date)   $appliedFilters[] = "To Date: $to_date";
+    
+        if (!empty($status))        $appliedFilters[] = "Status: " . implode(", ", $status);
+        if (!empty($cityNames))     $appliedFilters[] = "City: " . implode(", ", $cityNames);
+        if (!empty($zoneNames))     $appliedFilters[] = "Zone: " . implode(", ", $zoneNames);
+        if (!empty($customerNames)) $appliedFilters[] = "Customer: " . implode(", ", $customerNames);
+        if (!empty($accountabilityNames)) $appliedFilters[] = "Accountability Type: " . implode(", ", $accountabilityNames);
+        if (!empty($vehicleTypeNames))  $appliedFilters[] = "Vehicle Type: " . implode(", ", $vehicleTypeNames);
+        if (!empty($vehicleModelNames)) $appliedFilters[] = "Vehicle Model: " . implode(", ", $vehicleModelNames);
+        if (!empty($vehicleMakeNames))  $appliedFilters[] = "Vehicle Make: " . implode(", ", $vehicleMakeNames);
+    
+        if (!empty($date_filter)) $appliedFilters[] = "Date Range: $date_filter";
+    
+        $filtersList = empty($appliedFilters) ? "None" : implode("; ", $appliedFilters);
+    
+        // -----------------------------------------
+        // CLEAN FIELD LIST
+        // -----------------------------------------
+        $cleanFields = array_map(function ($f) {
+            return ucwords(str_replace('_', ' ', $f));
+        }, $fields);
+    
+        $fieldsList = implode(', ', $cleanFields);
+    
+        // -----------------------------------------
+        // AUDIT LOG ENTRY
+        // -----------------------------------------
+        $longDescription = "{$user->name} ({$roleName}) exported the deployed asset list. "
+            . "Fields: {$fieldsList}. "
+            . "Filters: {$filtersList}.";
+    
+        audit_log_after_commit([
+            'module_id'         => 5,
+            'short_description' => "Exported deployed asset list",
+            'long_description'  => $longDescription,
+            'role'              => $roleName,
+            'user_id'           => $user->id,
+            'user_type'         => 'gdc_admin_dashboard',
+            'dashboard_type'    => 'web',
+            'page_name'         => 'b2badmin.export_deployed_asset_list',
+            'ip_address'        => $request->ip(),
+            'user_device'       => $request->userAgent()
+        ]);
+    
+        // -----------------------------------------
+        // DOWNLOAD EXCEL
+        // -----------------------------------------
+        return Excel::download(
+            new B2BAdminDeployedAssetExport(
+                $from_date,
+                $to_date,
+                $selectedIds,
+                $fields,
+                $city,
+                $zone,
+                $status,
+                $accountability_type,
+                $customer_id,
+                $vehicle_type,
+                $vehicle_model,
+                $vehicle_make,
+                $date_filter
+            ),
+            'Deployed-asset-list-' . date('d-m-Y') . '.csv'
+        );
     }
-
-    // -----------------------------------------
-    // GET FRIENDLY NAMES FOR FILTER VALUES
-    // -----------------------------------------
-    $zoneNames = Zones::whereIn('id', $zone)->pluck('name')->toArray();
-    $cityNames = City::whereIn('id', $city)->pluck('city_name')->toArray();
-    $customerNames = CustomerMaster::whereIn('id', $customer_id)->pluck('trade_name')->toArray();
-    $accountabilityNames = EvTblAccountabilityType::whereIn('id', $accountability_type)->pluck('name')->toArray();
-    $vehicleTypeNames = VehicleType::whereIn('id', $vehicle_type)->pluck('name')->toArray();
-    $vehicleModelNames = VehicleModelMaster::whereIn('id', $vehicle_model)->pluck('vehicle_model')->toArray();
-    $vehicleMakeNames  = VehicleModelMaster::whereIn('make', $vehicle_make)->pluck('make')->toArray();
-
-    // -----------------------------------------
-    // BUILD FILTER SUMMARY (HUMAN READABLE)
-    // -----------------------------------------
-    $appliedFilters = [];
-
-    if ($from_date) $appliedFilters[] = "From Date: $from_date";
-    if ($to_date)   $appliedFilters[] = "To Date: $to_date";
-
-    if (!empty($status))        $appliedFilters[] = "Status: " . implode(", ", $status);
-    if (!empty($cityNames))     $appliedFilters[] = "City: " . implode(", ", $cityNames);
-    if (!empty($zoneNames))     $appliedFilters[] = "Zone: " . implode(", ", $zoneNames);
-    if (!empty($customerNames)) $appliedFilters[] = "Customer: " . implode(", ", $customerNames);
-    if (!empty($accountabilityNames)) $appliedFilters[] = "Accountability Type: " . implode(", ", $accountabilityNames);
-    if (!empty($vehicleTypeNames))  $appliedFilters[] = "Vehicle Type: " . implode(", ", $vehicleTypeNames);
-    if (!empty($vehicleModelNames)) $appliedFilters[] = "Vehicle Model: " . implode(", ", $vehicleModelNames);
-    if (!empty($vehicleMakeNames))  $appliedFilters[] = "Vehicle Make: " . implode(", ", $vehicleMakeNames);
-
-    if (!empty($date_filter)) $appliedFilters[] = "Date Range: $date_filter";
-
-    $filtersList = empty($appliedFilters) ? "None" : implode("; ", $appliedFilters);
-
-    // -----------------------------------------
-    // CLEAN FIELD LIST
-    // -----------------------------------------
-    $cleanFields = array_map(function ($f) {
-        return ucwords(str_replace('_', ' ', $f));
-    }, $fields);
-
-    $fieldsList = implode(', ', $cleanFields);
-
-    // -----------------------------------------
-    // AUDIT LOG ENTRY
-    // -----------------------------------------
-    $longDescription = "{$user->name} ({$roleName}) exported the deployed asset list. "
-        . "Fields: {$fieldsList}. "
-        . "Filters: {$filtersList}.";
-
-    audit_log_after_commit([
-        'module_id'         => 5,
-        'short_description' => "Exported deployed asset list",
-        'long_description'  => $longDescription,
-        'role'              => $roleName,
-        'user_id'           => $user->id,
-        'user_type'         => 'gdc_admin_dashboard',
-        'dashboard_type'    => 'web',
-        'page_name'         => 'b2badmin.export_deployed_asset_list',
-        'ip_address'        => $request->ip(),
-        'user_device'       => $request->userAgent()
-    ]);
-
-    // -----------------------------------------
-    // DOWNLOAD EXCEL
-    // -----------------------------------------
-    return Excel::download(
-        new B2BAdminDeployedAssetExport(
-            $from_date,
-            $to_date,
-            $selectedIds,
-            $fields,
-            $city,
-            $zone,
-            $status,
-            $accountability_type,
-            $customer_id,
-            $vehicle_type,
-            $vehicle_model,
-            $vehicle_make,
-            $date_filter
-        ),
-        'Deployed-asset-list-' . date('d-m-Y') . '.xlsx'
-    );
-}
 
 
     //  public function export_deploymet_request(Request $request)

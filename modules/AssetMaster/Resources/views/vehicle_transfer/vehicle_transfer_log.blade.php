@@ -446,6 +446,27 @@
           </div>
         </div>
         
+        
+        <!--Export Loader-->
+        
+          <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+              <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+        
+                <div class="modal-header border-0">
+                  <h5 class="modal-title w-100">Export in progress</h5>
+                </div>
+        
+                <div class="modal-body d-flex justify-content-center">
+                  <img src="{{ asset('admin-assets/export_excel.gif') }}"
+                    alt="Loading..."
+                    style="width:350px; height:auto; object-fit:contain;">
+                </div>
+        
+              </div>
+            </div>
+          </div>
+        
       
 
 @section('script_js')
@@ -648,46 +669,85 @@ function getStatusBadge(status) {
         }
     
         // Create form
-        var form = $('<form>', {
-            method: 'POST',
-            action: "{{ route('admin.asset_management.vehicle_transfer.export_detail') }}"
-        });
+        // var form = $('<form>', {
+        //     method: 'POST',
+        //     action: "{{ route('admin.asset_management.vehicle_transfer.export_detail') }}"
+        // });
     
         // CSRF Token
-        form.append($('<input>', {
-            type: 'hidden',
-            name: '_token',
-            value: '{{ csrf_token() }}'
-        }));
+        // form.append($('<input>', {
+        //     type: 'hidden',
+        //     name: '_token',
+        //     value: '{{ csrf_token() }}'
+        // }));
     
         // Append selected IDs
-        req_ids.forEach(function (id) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: 'get_ids[]',
-                value: id
-            }));
-        });
+        // req_ids.forEach(function (id) {
+        //     form.append($('<input>', {
+        //         type: 'hidden',
+        //         name: 'get_ids[]',
+        //         value: id
+        //     }));
+        // });
     
         // Append selected export labels
-        get_export_labels.forEach(function (label) {
-            form.append($('<input>', {
-                type: 'hidden',
-                name: 'get_export_labels[]',
-                value: label
-            }));
-        });
+        // get_export_labels.forEach(function (label) {
+        //     form.append($('<input>', {
+        //         type: 'hidden',
+        //         name: 'get_export_labels[]',
+        //         value: label
+        //     }));
+        // });
     
         // Append filter values
-        form.append($('<input>', { type: 'hidden', name: 'status', value: status }));
-        form.append($('<input>', { type: 'hidden', name: 'timeline', value: timeline }));
-        form.append($('<input>', { type: 'hidden', name: 'from_date', value: from_date }));
-        form.append($('<input>', { type: 'hidden', name: 'to_date', value: to_date }));
-         form.append($('<input>', { type: 'hidden', name: 'chassis_number', value: chassis_no })); // ✅ Added
-        form.append($('<input>', { type: 'hidden', name: 'customer_id', value: customer_id }));
+        // form.append($('<input>', { type: 'hidden', name: 'status', value: status }));
+        // form.append($('<input>', { type: 'hidden', name: 'timeline', value: timeline }));
+        // form.append($('<input>', { type: 'hidden', name: 'from_date', value: from_date }));
+        // form.append($('<input>', { type: 'hidden', name: 'to_date', value: to_date }));
+        //  form.append($('<input>', { type: 'hidden', name: 'chassis_number', value: chassis_no })); // ✅ Added
+        // form.append($('<input>', { type: 'hidden', name: 'customer_id', value: customer_id }));
             
-        // Submit form
-        form.appendTo('body').submit();
+        // // Submit form
+        // form.appendTo('body').submit();
+        
+        const data={
+            _token: "{{ csrf_token() }}",
+            status:status,
+            from_date:from_date,
+            to_date:to_date,
+            timeline:timeline,
+            chassis_no:chassis_no,
+            customer_id:customer_id,
+            get_ids: req_ids,                   
+            get_export_labels: get_export_labels ,
+        }
+        
+          $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+ 
+    $.ajax({
+        url: "{{ route('admin.asset_management.vehicle_transfer.export_detail') }}",
+        method: "POST",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+ 
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "Vehicle_Transfers-" + new Date().toISOString().split('T')[0] + ".xlsx";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+ 
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
+        
     }
 
 

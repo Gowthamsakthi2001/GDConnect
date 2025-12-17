@@ -1224,6 +1224,26 @@
             </div>
           </div>
         </div>
+        
+        <!--Export Loader-->
+        
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+<div class="modal-dialog modal-dialog-centered modal-lg">
+<div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+ 
+      <div class="modal-header border-0">
+<h5 class="modal-title w-100">Export in progress</h5>
+</div>
+ 
+      <div class="modal-body d-flex justify-content-center">
+<img src="{{ asset('admin-assets/export_excel.gif') }}"
+             alt="Loading..."
+             style="width:350px; height:auto; object-fit:contain;">
+</div>
+ 
+    </div>
+</div>
+</div>
     
 
 @section('script_js')
@@ -1670,12 +1690,12 @@ function ExportAssetMasterData() {
         return val.filter(v => v !== 'all');
     }
 
-    const city = JSON.stringify(cleanArray($('#city_id').val() || []));
-    const vehicle_type = JSON.stringify(cleanArray($('#v_type').val() || []));
-    const vehicle_model = JSON.stringify(cleanArray($('#v_model').val() || []));
-    const vehicle_make = JSON.stringify(cleanArray($('#v_make').val() || []));
-    const zone = JSON.stringify(cleanArray($('#zone_id').val() || []));
-    const customer = JSON.stringify(cleanArray($('#customer_id').val() || []));
+    const city = cleanArray($('#city_id').val() || []);
+    const vehicle_type = cleanArray($('#v_type').val() || []);
+    const vehicle_model = cleanArray($('#v_model').val() || []);
+    const vehicle_make = cleanArray($('#v_make').val() || []);
+    const zone = cleanArray($('#zone_id').val() || []);
+    const customer = cleanArray($('#customer_id').val() || []);
     const accountability_type = document.getElementById('accountability_type_id').value;
 
     let req_ids = [];
@@ -1693,50 +1713,115 @@ function ExportAssetMasterData() {
         return;
     }
 
-    var form = $('<form>', {
-        method: 'POST',
-        action: "{{ route('admin.asset_management.asset_master.export.vehicle_detail') }}"
-    });
+    // var form = $('<form>', {
+    //     method: 'POST',
+    //     action: "{{ route('admin.asset_management.asset_master.export.vehicle_detail') }}"
+    // });
 
-    form.append($('<input>', {
-        type: 'hidden',
-        name: '_token',
-        value: '{{ csrf_token() }}'
-    }));
+    // form.append($('<input>', {
+    //     type: 'hidden',
+    //     name: '_token',
+    //     value: '{{ csrf_token() }}'
+    // }));
 
-    req_ids.forEach(function (id) {
-        form.append($('<input>', {
-            type: 'hidden',
-            name: 'get_ids[]',
-            value: id
-        }));
-    });
+    // req_ids.forEach(function (id) {
+    //     form.append($('<input>', {
+    //         type: 'hidden',
+    //         name: 'get_ids[]',
+    //         value: id
+    //     }));
+    // });
 
-    get_export_labels.forEach(function (label) {
-        form.append($('<input>', {
-            type: 'hidden',
-            name: 'get_export_labels[]',
-            value: label
-        }));
-    });
+    // get_export_labels.forEach(function (label) {
+    //     form.append($('<input>', {
+    //         type: 'hidden',
+    //         name: 'get_export_labels[]',
+    //         value: label
+    //     }));
+    // });
 
-    form.append($('<input>', { type: 'hidden', name: 'status', value: status }));
-    form.append($('<input>', { type: 'hidden', name: 'timeline', value: timeline }));
-    form.append($('<input>', { type: 'hidden', name: 'from_date', value: from_date }));
-    form.append($('<input>', { type: 'hidden', name: 'to_date', value: to_date }));
-    form.append($('<input>', { type: 'hidden', name: 'city', value: city }));
-    form.append($('<input>', { type: 'hidden', name: 'vehicle_type', value: vehicle_type }));
+    // form.append($('<input>', { type: 'hidden', name: 'status', value: status }));
+    // form.append($('<input>', { type: 'hidden', name: 'timeline', value: timeline }));
+    // form.append($('<input>', { type: 'hidden', name: 'from_date', value: from_date }));
+    // form.append($('<input>', { type: 'hidden', name: 'to_date', value: to_date }));
+    // form.append($('<input>', { type: 'hidden', name: 'city', value: city }));
+    // form.append($('<input>', { type: 'hidden', name: 'vehicle_type', value: vehicle_type }));
 
-    form.append($('<input>', { type: 'hidden', name: 'vehicle_model', value: vehicle_model }));
+    // form.append($('<input>', { type: 'hidden', name: 'vehicle_model', value: vehicle_model }));
 
     
     
-    form.append($('<input>', { type: 'hidden', name: 'zone', value: zone }));
-    form.append($('<input>', { type: 'hidden', name: 'customer', value: customer }));
-    form.append($('<input>', { type: 'hidden', name: 'accountability_type', value: accountability_type }));
+    // form.append($('<input>', { type: 'hidden', name: 'zone', value: zone }));
+    // form.append($('<input>', { type: 'hidden', name: 'customer', value: customer }));
+    // form.append($('<input>', { type: 'hidden', name: 'accountability_type', value: accountability_type }));
     
-    form.appendTo('body').submit();
+    
+    // form.appendTo('body').submit();
+    
+    
+     // DATA OBJECT FOR AJAX
+    const data = {
+        _token: "{{ csrf_token() }}",
+
+        status: status,
+        from_date: from_date,
+        to_date: to_date,
+        timeline: timeline,
+
+        city: city,
+        vehicle_type: vehicle_type,
+        vehicle_model: vehicle_model,
+        vehicle_make: vehicle_make,
+        zone: zone,
+        customer: customer,
+        accountability_type: accountability_type,
+
+        get_ids: req_ids,
+        get_export_labels: get_export_labels
+    };
+
+    // SHOW LOADING MODAL
+    $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+
+    // AJAX EXPORT
+    $.ajax({
+        url: "{{ route('admin.asset_management.asset_master.export.vehicle_detail') }}",
+        method: "POST",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+
+        success: function (blob, status, xhr) {
+
+            let filename = "Asset_Master_Vehicle-" + new Date().toISOString().split('T')[0] + ".csv";
+
+            const header = xhr.getResponseHeader("Content-Disposition");
+            if (header && header.indexOf("filename=") !== -1) {
+                filename = header.split("filename=")[1].replace(/"/g, '');
+            }
+
+            // TRIGGER FILE DOWNLOAD
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+
+        error: function () {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
+
 }
+
+
+
 
 function BulkApproveorReject() {
     let req_ids = [];

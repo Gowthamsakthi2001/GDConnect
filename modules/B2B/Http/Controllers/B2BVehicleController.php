@@ -345,7 +345,13 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         
                     // }
                 
-                
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Something went wrong: ' . $e->getMessage()
+                ], 500);
+            }
                 // ProcessRiderCreationJob::dispatchAfterResponse($rider->id, $request->submission_type);
                 // ProcessRiderCreationJob::dispatch($rider->id, $request->submission_type);
                 ProcessB2BRiderCreationJob::dispatch($rider->id, $request->submission_type);
@@ -358,13 +364,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 ]);
                 
 
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Something went wrong: ' . $e->getMessage()
-                ], 500);
-            }
+            
         }
         
         
@@ -975,9 +975,6 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                                 $to   = Carbon::now()->endOfYear()->toDateString();
                                 break;
                     
-                            case 'custom':
-                            default:
-                                break;
                         }
                     }
         
@@ -1220,7 +1217,9 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 ->whereIn('id', $accountability_Types)
                 ->get();
             
-            
+            DB::beginTransaction();
+            try{
+                
              $rider = B2BRider::find($request->rider_id);
 
             
@@ -1356,7 +1355,14 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             ]);
             
             
-    
+             DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Something went wrong: ' . $e->getMessage()
+                ], 500);
+            }
 
             
             // Start Mail Section
@@ -1404,7 +1410,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 $agent_Arr,
                 $acTypeName
             );
-    
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Vehicle request created successfully!',
@@ -2160,10 +2166,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         $from = Carbon::now()->startOfYear()->toDateString();
                         $to   = Carbon::now()->endOfYear()->toDateString();
                         break;
-                    
-                    case 'custom':
-                        default:
-                        break;
+              
                         }
                 
                 if(!empty($from) && !empty($to)){
@@ -2643,10 +2646,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         $from = Carbon::now()->startOfYear()->toDateString();
                         $to   = Carbon::now()->endOfYear()->toDateString();
                         break;
-                    
-                    case 'custom':
-                        default:
-                        break;
+               
                         }
                 
                 if(!empty($from) && !empty($to)){
@@ -2982,6 +2982,17 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 ], 404);
             }
 
+
+            $existingService = B2BServiceRequest::where('assign_id', $request->assign_id)
+                ->where('status', '!=', 'closed')
+                ->first();
+            
+            if ($existingService) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'A service request is already active for this vehicle assignment. Please close the existing request before creating a new one.',
+                ], 409); 
+            }
             
             $ticket_id = CustomHandler::GenerateTicketId($request->city);
            
@@ -3223,23 +3234,6 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             // ServiceTicketHandler::AutoSendServiceRequestEmail($ticket_id,$riderID,$vehicleId,$repairInfo,'customer_create_ticket','create_by_customer'); //email
             // ServiceTicketHandler::AutoSendServiceRequestWhatsApp($ticket_id,$riderID,$vehicleId,$repairInfo,'customer_create_ticket','create_by_customer');//whatsapp
             
-            
-           ProcessB2BServiceRequestCreationJob::dispatch(
-                $ticket_id,
-                $riderData,
-                $vehicleId,
-                $repairInfo,
-                $tc_create_type,
-                $customerName
-            );
-            
-            DB::commit();
-    
-            return response()->json([
-                'success' => true,
-                'message' => 'Service request submitted successfully.',
-            ]);
-    
         } catch (\Exception $e) {
             DB::rollBack();
             
@@ -3258,6 +3252,23 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'message' => 'Something went wrong: '.$e->getMessage(),
             ], 500);
         }
+           ProcessB2BServiceRequestCreationJob::dispatch(
+                $ticket_id,
+                $riderData,
+                $vehicleId,
+                $repairInfo,
+                $tc_create_type,
+                $customerName
+            );
+            
+            DB::commit();
+    
+            return response()->json([
+                'success' => true,
+                'message' => 'Service request submitted successfully.',
+            ]);
+    
+        
     }
     
     
@@ -3292,7 +3303,10 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
            
              
             // dd("hii");
- 
+            
+            DB::beginTransaction();
+            try{
+                
         $returnRequest=B2BReturnRequest::create([
             'assign_id'            => $request->id ,
             'return_reason'        => $validated['return_reason'],
@@ -3356,7 +3370,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             'request_type'  => 'return_request',
             'request_type_id'=>$vehicle_request->id?? null
         ]);
-        
+         
        $rider = $vehicle_request->rider ?? null; //updated by Gowtham.s
        $requestId = $assignment->req_id;
        $selectReason = $request->selected_reason ?? null;
@@ -3373,7 +3387,14 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         // $this->pushRiderReturnRequestNotificationSent($rider, $requestId, $selectReason, $returnDescription); //done
         // $this->pushAgentReturnRequestNotificationSent($agent_Arr, $requestId, $selectReason, $returnDescription); //done
         // $this->AutoAgentReturnRequestSendWhatsApp($agent_Arr, $rider->id, $selectReason, $returnDescription); //done
-        
+            DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Something went wrong: ' . $e->getMessage()
+                ], 500);
+            }
         ProcessB2BReturnRequestCreationJob::dispatch($requestId, $rider->id, $vehicleData->id,$selectReason,$returnDescription ,$agent_Arr);
             
         return response()->json([
@@ -4071,7 +4092,11 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         // Detect logged-in guard
         $guard = Auth::guard('master')->check() ? 'master' : 'zone';
         $user = Auth::guard($guard)->user();
-    
+        
+        DB::beginTransaction();
+
+        try {
+        
         // Save into DB using JSON encode
         DB::table('b2b_tbl_report_accident')->insert([
              'assign_id'            => $request->id ,
@@ -4150,6 +4175,19 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             'request_type_id'=>$vehicle_request->id??null
         ]);
         
+        DB::commit();
+
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed: ' . $e->getMessage(),
+        ], 500);
+    }
+    
         return response()->json([
             'status'  => 'success',
             'message' => 'Accident Report submitted successfully!',
@@ -4289,6 +4327,18 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'recovery_reason' => $request->reason_for_recovery_txt,
                 'recovery_description' => $request->description
             ];
+       
+           
+           } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error('Recovery Request Error: '.$e->getMessage());
+        
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Something went wrong while submitting the recovery request.',
+                    'error'   => $e->getMessage(),
+                ], 500);
+            }
             if(!empty($requestID)){
                 $requestID = $assignment->req_id;
                 $riderId   = $assignment->rider_id;
@@ -4322,34 +4372,25 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'data'    => $recovery
             ], 200);
     
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Recovery Request Error: '.$e->getMessage());
-    
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Something went wrong while submitting the recovery request.',
-                'error'   => $e->getMessage(),
-            ], 500);
-        }
+        
     }
     
     
     public function export_vehicle_request(Request $request){
         
        
-        $selectedIds = json_decode($request->query('selected_ids', '[]'), true);
-        $selectedFields = json_decode($request->query('fields'), true);
+        $selectedIds = $request->query('selected_ids') ?? [];
+        $selectedFields = $request->query('fields') ?? [];
          
-        
-        $status = $request->status;
+        $datefilter = $request->datefilter??'';
+        $status = $request->status??'';
         $from_date = $request->from_date;
         $to_date = $request->to_date;
         $accountability_type = $request->accountability_type ?? [];
-        $zone_id = $request->zone_id ?? [];
+        $zone_id = $request->zone ?? [];
         
         
-        return Excel::download(new B2BVehicleRequestExport($status , $from_date  , $to_date , $selectedIds , $selectedFields , $accountability_type,$zone_id), 'vehicle-requests-' . date('d-m-Y') . '.xlsx');
+        return Excel::download(new B2BVehicleRequestExport($status ,$datefilter, $from_date  , $to_date , $selectedIds , $selectedFields , $accountability_type,$zone_id), 'vehicle-requests-' . date('d-m-Y') . '.csv');
         
     }
       
@@ -4358,6 +4399,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
        
         $selectedFields  = $request->input('fields', []);  
         $from_date = $request->input('from_date');
+        $datefilter = $request->input('datefilter');
         $to_date   = $request->input('to_date');
         $zone = $request->input('zone_id')?? [];
         // $status = $request->input('status')?? [];
@@ -4374,6 +4416,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         }
         
         return Excel::download(new B2BVehicleListExport(
+                $datefilter,
                 $from_date,      // 1. from_date
                 $to_date,        // 2. to_date
                 $selectedIds,    // 3. selected IDs
@@ -4385,7 +4428,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 $vehicle_type,
                 $vehicle_make,
                 $accountability_type         // 7. status
-            ), 'vehicle-list-' . date('d-m-Y') . '.xlsx');
+            ), 'vehicle-list-' . date('d-m-Y') . '.csv');
         
     }  
         
@@ -4409,14 +4452,13 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
          $datefilter = $request->input('datefilter');
          $zone = (array) $request->input('zone');
 
-    
         if (empty($fields)) {
             return back()->with('error', 'Please select at least one field to export.');
         }
     
         return Excel::download(
             new B2BRiderExport($from_date, $to_date, $selectedIds, $fields, $datefilter ,$zone),
-            'rider_list-' . date('d-m-Y') . '.xlsx'
+            'rider_list-' . date('d-m-Y') . '.csv'
         );
     }
         
@@ -4530,10 +4572,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         $from = Carbon::now()->startOfYear()->toDateString();
                         $to   = Carbon::now()->endOfYear()->toDateString();
                         break;
-                    
-                    case 'custom':
-                        default:
-                        break;
+              
                         }
                 
                 if(!empty($from) && !empty($to)){
@@ -4785,7 +4824,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         
             return Excel::download(
                 new B2BReturnedListExport($from_date, $to_date,$datefilter, $selectedIds, $fields,$city,$zone , $accountability_type,$status,$vehicle_model,$vehicle_type,$vehicle_make),
-                'returned-list-' . date('d-m-Y') . '.xlsx'
+                'returned-list-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -4900,9 +4939,6 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         $to   = Carbon::now()->endOfYear()->toDateString();
                         break;
                     
-                    case 'custom':
-                        default:
-                        break;
                         }
                 
                 if(!empty($from) && !empty($to)){
@@ -5185,7 +5221,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         
             return Excel::download(
                 new B2BAccidentReportExport($from_date, $to_date,$datefilter, $selectedIds, $fields,$city,$zone,$accountability_type,$status,$vehicle_model,$vehicle_type,$vehicle_make),
-                'accident-report-' . date('d-m-Y') . '.xlsx'
+                'accident-report-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -5309,17 +5345,18 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         $from = Carbon::now()->startOfYear()->toDateString();
                         $to   = Carbon::now()->endOfYear()->toDateString();
                         break;
-                    
-                    case 'custom':
-                        default:
-                        break;
+                   
                         }
                 
                 if(!empty($from) && !empty($to)){
                     $query->whereBetween('created_at', [$from, $to]);
 
                 }
-                      
+                   if ($request->filled('from_date') && $request->filled('to_date')) {
+                $query->whereDate('created_at', '>=', $request->from_date)
+                      ->whereDate('created_at', '<=', $request->to_date);
+            }
+               
                     }
 
                     // Search filters
@@ -5648,7 +5685,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         
             return Excel::download(
                 new B2BRecoveryRequestExport($from_date, $to_date ,$datefilter, $selectedIds, $fields,$city,$zone, $accountability_type,$status,$vehicle_model,$vehicle_type,$vehicle_make),
-                'recovery-request-list-' . date('d-m-Y') . '.xlsx'
+                'recovery-request-list-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -5763,10 +5800,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                         $from = Carbon::now()->startOfYear()->toDateString();
                         $to   = Carbon::now()->endOfYear()->toDateString();
                         break;
-                    
-                    case 'custom':
-                        default:
-                        break;
+
                         }
                 
                 if(!empty($from) && !empty($to)){
@@ -6097,7 +6131,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
         }
         return Excel::download(
             new B2BServiceRequestExport($from_date, $to_date,$datefilter,$selectedIds, $fields,$city,$zone,$status , $accountability_type,$vehicle_model,$vehicle_type,$vehicle_make),
-            'service-request-list-' . date('d-m-Y') . '.xlsx'
+            'service-request-list-' . date('d-m-Y') . '.csv'
         );
     }
     

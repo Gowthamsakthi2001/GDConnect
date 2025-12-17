@@ -551,7 +551,14 @@
                     <!--    </div>-->
                     <!--  </div>-->
                     <!--</div>-->
-                    
+                    <div class="col-md-3 col-12 mb-3">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-check-label mb-0" for="field12">Created By</label>
+                        <div class="form-check form-switch m-0">
+                          <input class="form-check-input export-field-checkbox" type="checkbox" id="created_by" name="created_by">
+                        </div>
+                      </div>
+                    </div>
                     
                         <div class="col-md-3 col-12 mb-3">
                       <div class="d-flex justify-content-between align-items-center">
@@ -672,7 +679,38 @@
     </div>
   </div>
 </div>
-    
+
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+
+      <div class="modal-header border-0">
+        <h5 class="modal-title w-100">Export in progress</h5>
+      </div>
+
+      <div class="modal-body d-flex justify-content-center">
+        <img src="{{ asset('admin-assets/export_excel.gif') }}"
+             alt="Loading..."
+             style="width:350px; height:auto; object-fit:contain;">
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+ <!-- Export Loading Modal -->
+<!--<div id="exportModal" -->
+<!--     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;-->
+<!--     background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">-->
+     
+<!--    <div style="background:#fff; padding:20px; border-radius:8px; text-align:center;width:60%;height:50%">-->
+<!--        <img src="{{ asset('admin-assets/export_excel.gif') }}" -->
+<!--             alt="Loading..." -->
+<!--             style="width:100%; height:100%;background-size:cover">-->
+<!--    </div>-->
+<!--</div>-->
+
 @endsection
 
 @section('js')
@@ -938,57 +976,71 @@ function clearRiderFilter() {
 });
 
 
-  document.getElementById('export_download').addEventListener('click', function () {
- 
-      
+ document.getElementById('export_download').addEventListener('click', function () {
+
     const selected = [];
     const selectedFields = [];
-    
-    document.querySelectorAll('#export_select_fields_modal .export-field-checkbox:checked').forEach(cb => {
-            selectedFields.push(cb.name);
-        });
-    
-    document.querySelectorAll('.sr_checkbox:checked').forEach(cb => {
-      selected.push(cb.value);
-    });
 
-   
+    document.querySelectorAll('#export_select_fields_modal .export-field-checkbox:checked')
+        .forEach(cb => selectedFields.push(cb.name));
+
+    document.querySelectorAll('.sr_checkbox:checked')
+        .forEach(cb => selected.push(cb.value));
+
     if (selectedFields.length === 0) {
         toastr.error("Please select at least one export field.");
         return;
     }
-    
-    
 
-   
     const fromDate = document.getElementById('FromDate').value;
     const toDate   = document.getElementById('ToDate').value;
-    const datefilter   = document.getElementById('quick_date_filter').value;
+    const datefilter = document.getElementById('quick_date_filter').value;
     const zone_id = getMultiValues('#zone_id');
 
-    // ✅ Build query params
-    const params = new URLSearchParams();
- 
-    if (fromDate) params.append('from_date', fromDate);
-    if (toDate) params.append('to_date', toDate);
-    if (datefilter) params.append('datefilter', datefilter);
-    if (zone_id) params.append('zone', zone_id);
+    const data = {
+        from_date: fromDate,
+        to_date: toDate,
+        datefilter: datefilter,
+        zone: zone_id,
+        selected_ids: selected,
+        fields: selectedFields
+    };
 
-    // append IDs
-    selected.forEach(id => params.append('selected_ids[]', id));
+    // Show Bootstrap modal
+    $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
 
-    // append fields
-    selectedFields.forEach(f => params.append('fields[]', f));
-    
-    
-    const url = `{{ route('b2b.rider_export') }}?${params.toString()}`;
-    window.location.href = url;
-  });
-    
-    function getMultiValues(selector) {
+    $.ajax({
+        url: "{{ route('b2b.rider_export') }}",
+        method: "GET",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "rider_list-" + new Date().toISOString().split('T')[0] + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
+});
+
+function getMultiValues(selector) {
     return Array.from(document.querySelectorAll(selector + ' option:checked'))
                 .map(option => option.value);
-    }
+}
+
+
+
 
 document.addEventListener('DOMContentLoaded', function () {
     var vehicleModal = document.getElementById('vehicleRequestModal');

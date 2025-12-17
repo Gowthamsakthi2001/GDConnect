@@ -12,8 +12,6 @@ use Modules\City\Entities\City;
 class B2BRider extends Authenticatable
 {
     use HasApiTokens, Notifiable;
-    
-    
     protected $table = 'b2b_tbl_riders';
     protected $guard = 'rider';
     public $timestamps = true;
@@ -48,7 +46,6 @@ class B2BRider extends Authenticatable
         'created_at',
         'updated_at'
     ];
-    
 
     protected $hidden = ['remember_token'];
     

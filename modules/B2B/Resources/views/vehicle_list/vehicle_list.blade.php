@@ -774,7 +774,23 @@
     </div>
     
     
-    
+   <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+
+      <div class="modal-header border-0">
+        <h5 class="modal-title w-100">Export in progress</h5>
+      </div>
+
+      <div class="modal-body d-flex justify-content-center">
+        <img src="{{ asset('admin-assets/export_excel.gif') }}"
+             alt="Loading..."
+             style="width:350px; height:auto; object-fit:contain;">
+      </div>
+
+    </div>
+  </div>
+</div> 
     
 @endsection
 
@@ -936,11 +952,11 @@ function RightSideFilerOpen() {
     const vehicle_type  = getMultiValues('#v_type');
     const accountability_type = getMultiValues('#accountability_type');
     const zone_id = getMultiValues('#zone_id_1');
-    
-    const params = new URLSearchParams();
+    const datefilter   = document.getElementById('quick_date_filter').value;
+    // const params = new URLSearchParams();
  
-    if (fromDate) params.append('from_date', fromDate);
-    if (toDate) params.append('to_date', toDate);
+    // if (fromDate) params.append('from_date', fromDate);
+    // if (toDate) params.append('to_date', toDate);
     // if (vehicle_model) params.append('vehicle_model', vehicle_model);
     // if (vehicle_make) params.append('vehicle_make', vehicle_make);
     // if (vehicle_type) params.append('vehicle_type', vehicle_type);
@@ -949,27 +965,68 @@ function RightSideFilerOpen() {
     // if (zone_id) params.append('zone_id', zone_id);
     
     // status
-        appendMultiSelect(params, 'status', status);
+    //     appendMultiSelect(params, 'status', status);
         
-        // vehicle filters
-        appendMultiSelect(params, 'vehicle_model', vehicle_model);
-        appendMultiSelect(params, 'vehicle_make', vehicle_make);
-        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+    //     // vehicle filters
+    //     appendMultiSelect(params, 'vehicle_model', vehicle_model);
+    //     appendMultiSelect(params, 'vehicle_make', vehicle_make);
+    //     appendMultiSelect(params, 'vehicle_type', vehicle_type);
         
-        // others
-        appendMultiSelect(params, 'accountability_type', accountability_type);
-        appendMultiSelect(params, 'zone_id', zone_id);
+    //     // others
+    //     appendMultiSelect(params, 'accountability_type', accountability_type);
+    //     appendMultiSelect(params, 'zone_id', zone_id);
         
 
-    // append IDs
-    selected.forEach(id => params.append('selected_ids[]', id));
+    // // append IDs
+    // selected.forEach(id => params.append('selected_ids[]', id));
 
-    // append fields
-    selectedFields.forEach(f => params.append('fields[]', f));
+    // // append fields
+    // selectedFields.forEach(f => params.append('fields[]', f));
     
     
-    const url = `{{ route('b2b.export_vehicle_details') }}?${params.toString()}`;
-    window.location.href = url;
+    // const url = `{{ route('b2b.export_vehicle_details') }}?${params.toString()}`;
+    // window.location.href = url;
+    
+    const data = {
+        from_date: fromDate,
+        to_date: toDate,
+        datefilter: datefilter,
+        vehicle_model:vehicle_model,
+        vehicle_make:vehicle_make,
+        vehicle_type:vehicle_type,
+        zone_id: zone_id,
+        accountability_type:accountability_type,
+        selected_ids: selected,
+        fields: selectedFields,
+        status:status
+    };
+
+    // Show Bootstrap modal
+    $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+
+    $.ajax({
+        url: "{{ route('b2b.export_vehicle_details') }}",
+        method: "GET",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "vehicle_list-" + new Date().toISOString().split('T')[0] + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
   });
     
     function appendMultiSelect(params, key, values) {
@@ -1155,6 +1212,8 @@ $('#zone_id_1').val(null).trigger('change');
                 $('.date-container').show();
             } else {
                 $('.date-container').hide();
+                $('#FromDate').val('');
+                $('#ToDate').val('');
             }
         }
 

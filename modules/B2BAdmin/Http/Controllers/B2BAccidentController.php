@@ -526,7 +526,7 @@ public function export(Request $request)
             // -----------------------
             // Prepare audit log
             // -----------------------
-            $fileName = 'accident-report-list-' . date('d-m-Y') . '.xlsx';
+            $fileName = 'accident-report-list-' . date('d-m-Y') . '.csv';
             $user = Auth::user();
             $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
         
@@ -563,7 +563,7 @@ public function export(Request $request)
     
             return Excel::download(
                 new B2BAdminAccidentReportExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id, $vehicle_type , $vehicle_model,$vehicle_make, $date_filter),
-                'accident-report-list-' . date('d-m-Y') . '.xlsx'
+                'accident-report-list-' . date('d-m-Y') . '.csv'
             );
         }
         

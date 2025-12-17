@@ -696,6 +696,15 @@
             
           </div>
         </div>
+        
+        @php
+        
+        $chartLabels = $returnData->keys();     // ["Contract End", "Performance Issue", ...]
+        $chartValues = $returnData->values();   // [12, 5, 3, 9]
+        $accidentLabels = $accidentData->keys();     // ["Collision", "Fall", "Fire", "Other"]
+        $accidentValues = $accidentData->values();   // [8, 3, 1, 2]
+
+        @endphp
 @endsection
   
 @section('js')
@@ -769,9 +778,11 @@
             type: 'bar',
             data: {
                 labels: ['Collision', 'Fall', 'Fire', 'Other'],
+                // labels: {!! json_encode($accidentLabels) !!},
                 datasets: [{
                     label: 'Cases',
                     data: [{{ $collision }}, {{ $fall }}, {{ $fire }}, {{ $other }}],
+                    // data: {!! json_encode($accidentValues) !!},
                     backgroundColor: '#D6CAED'
                 }]
             },
@@ -792,9 +803,11 @@
             type: 'bar',
             data: {
                 labels: ['Contract End', 'Performance Issue', 'Vehicle Issue', 'No Longer Needed'],
+                // labels: {!! json_encode($chartLabels) !!},
                 datasets: [{
                     label: 'Returns',
                     data: [{{ $contractEnd }}, {{ $performanceIssue }}, {{ $vehicleIssue }}, {{ $noLongerNeeded }}],
+                    // data: {!! json_encode($chartValues) !!},  // dynamic data
                     backgroundColor: '#EECACB'
                 }]
             },
@@ -1094,6 +1107,17 @@
             data.vehicleIssue, data.noLongerNeeded
         ];
         returnTypeChart.update();
+        
+        // // ===== Accident Case Chart =====
+        // accidentCaseChart.data.labels = data.accidentLabels;     // Dynamic labels
+        // accidentCaseChart.data.datasets[0].data = data.accidentValues; // Dynamic values
+        // accidentCaseChart.update();
+        
+        // // ===== Return Type Chart =====
+        // returnTypeChart.data.labels = data.returnLabels;     // Dynamic labels
+        // returnTypeChart.data.datasets[0].data = data.returnValues; // Dynamic values
+        // returnTypeChart.update();
+
     }
 
     // ✅ Clear filters

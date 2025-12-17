@@ -41,7 +41,7 @@
                             <div class="form-group">
                                 <label class="input-label mb-2 ms-1" for="return_reason">Reason for return</label>
                                 <select class="form-select custom-select2-field form-control-sm" id="return_reason" name="return_reason">
-                                    <option value="Select Reason for Return">Select Reason for Return</option>
+                                    <option value="">Select Reason for Return</option>
                                     <option value="Contract End">Contract End</option>
                                     <option value="Performance Issue">Performance Issue</option>
                                     <option value="Vehicle Issue">Vehicle Issue</option>
@@ -147,8 +147,16 @@ $(document).ready(function () {
         let form = $(this);
         let formData = new FormData(this);
         let btn = $('#submitBtn');
-        let selected_reason = $("#return_reason option:selected").text();
-        formData.append('selected_reason',selected_reason);
+        let selectedOption = $("#return_reason option:selected");
+        let selected_reason = selectedOption.text().trim();
+        
+        // Check if no option is selected
+        if (!selectedOption.val()) {
+            toastr.error("Please select a return reason.");
+            return; // stop execution
+        }
+        
+        formData.append('selected_reason', selected_reason);
         // Change button text & disable
         btn.prop('disabled', true).text('Submitting...');
 

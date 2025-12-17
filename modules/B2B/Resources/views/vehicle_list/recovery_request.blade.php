@@ -389,6 +389,12 @@ $(document).ready(function() {
         var get_recovery_reason_val = get_recovery_reason.val();
         var reason_for_recovery_txt = 'N/A';
         
+        if (!get_recovery_reason_val || get_recovery_reason_val.trim() === "") {
+            toastr.error("Please select a recovery reason.");
+            $('.btn-submit').prop('disabled', false).html('Submit');
+            return; // stop form submit / AJAX call
+        }
+
         if (get_recovery_reason_val !== "") {
             reason_for_recovery_txt = get_recovery_reason.find("option:selected").text();
         }

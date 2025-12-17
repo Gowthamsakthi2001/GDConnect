@@ -518,6 +518,30 @@
           </div>
         </div>
         
+          <!--Export Loader-->
+        
+          <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+              <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+        
+                <div class="modal-header border-0">
+                  <h5 class="modal-title w-100">Export in progress</h5>
+                </div>
+        
+                <div class="modal-body d-flex justify-content-center">
+                  <img src="{{ asset('admin-assets/export_excel.gif') }}"
+                    alt="Loading..."
+                    style="width:350px; height:auto; object-fit:contain;">
+                </div>
+        
+              </div>
+            </div>
+          </div>
+        
+        
+      
+
+        
         
         
 
@@ -924,10 +948,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectedFields = [];
     
     document.querySelectorAll('#export_select_fields_modal .export-field-checkbox:checked').forEach(cb => {
-      selectedFields.push({
-        name: cb.name,
-        value: cb.value
-      });
+      selectedFields.push(cb.name);
     });
 
 
@@ -935,6 +956,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.sr_checkbox:checked').forEach(cb => {
       selected.push(cb.value);
     });
+    
+    // document.querySelectorAll('#export_select_fields_modal .export-field-checkbox:checked').forEach(cb => {
+    //   selectedFields.push(cb.name); 
+    // });
+
 
     if (selectedFields.length === 0) {
         toastr.error("Please select at least one export field.");
@@ -952,29 +978,78 @@ document.addEventListener('DOMContentLoaded', function () {
         timeline = '';
     }
 
-    const params = new URLSearchParams();
-    params.append('status', $('#status').val() || '');
-    params.append('from_date', from_date);
-    params.append('to_date', to_date);
-    params.append('timeline', timeline);
+    // const params = new URLSearchParams();
+    // params.append('status', $('#status').val() || '');
+    // params.append('from_date', from_date);
+    // params.append('to_date', to_date);
+    // params.append('timeline', timeline);
     
-    params.append('location', JSON.stringify(cleanArray($('#location_id').val() || [])));
-    params.append('zone', JSON.stringify(cleanArray($('#zone_id').val() || [])));
-    params.append('vehicle_type', JSON.stringify(cleanArray($('#v_type').val() || [])));
-    params.append('vehicle_model', JSON.stringify(cleanArray($('#v_model').val() || [])));
-    params.append('vehicle_make', JSON.stringify(cleanArray($('#v_make').val() || [])));
-    params.append('customer', JSON.stringify(cleanArray($('#customer_id').val() || [])));
-    params.append('accountability_type', $('#accountability_type_id').val() || '');
+    // params.append('location', JSON.stringify(cleanArray($('#location_id').val() || [])));
+    // params.append('zone', JSON.stringify(cleanArray($('#zone_id').val() || [])));
+    // params.append('vehicle_type', JSON.stringify(cleanArray($('#v_type').val() || [])));
+    // params.append('vehicle_model', JSON.stringify(cleanArray($('#v_model').val() || [])));
+    // params.append('vehicle_make', JSON.stringify(cleanArray($('#v_make').val() || [])));
+    // params.append('customer', JSON.stringify(cleanArray($('#customer_id').val() || [])));
+    // params.append('accountability_type', $('#accountability_type_id').val() || '');
 
-    if (selected.length > 0) {
-      params.append('selected_ids', JSON.stringify(selected));
-    }
-    if (selectedFields.length > 0) {
-      params.append('fields', JSON.stringify(selectedFields));
-    }
+    // if (selected.length > 0) {
+    //   params.append('selected_ids', JSON.stringify(selected));
+    // }
+    // if (selectedFields.length > 0) {
+    //   params.append('fields', JSON.stringify(selectedFields));
+    // }
 
-    const url = `{{ route('admin.asset_management.quality_check.export_quality_check') }}?${params.toString()}`;
-    window.location.href = url;
+    // const url = `{{ route('admin.asset_management.quality_check.export_quality_check') }}?${params.toString()}`;
+    // window.location.href = url;
+    
+    
+     const data = {
+        _token: "{{ csrf_token() }}",
+
+        status: $('#status').val() || '',
+        from_date: from_date,
+        to_date: to_date,
+        timeline: timeline,
+
+        location: cleanArray($('#location_id').val() || []),
+        zone: cleanArray($('#zone_id').val() || []),
+        vehicle_type: cleanArray($('#v_type').val() || []),
+        vehicle_model: cleanArray($('#v_model').val() || []),
+        vehicle_make: cleanArray($('#v_make').val() || []),
+        customer: cleanArray($('#customer_id').val() || []),
+        accountability_type: $('#accountability_type_id').val() || '',
+
+        selected_ids: selected,
+        fields: selectedFields
+    };
+
+    // Show Export Loading Modal
+    $("#export_select_fields_modal").modal("hide");
+    var exportmodal = new bootstrap.Modal(document.getElementById("exportModal"));
+    exportmodal.show();
+
+   $.ajax({
+        url: "{{ route('admin.asset_management.quality_check.export_quality_check') }}",
+        method: "GET",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+ 
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "quality_check-" + new Date().toISOString().split('T')[0] + ".xlsx";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+ 
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
+
   });
 </script>
 
@@ -1127,6 +1202,11 @@ function getZones(CityID) {
 
 
 </script>
+
+</script>
+
+
+
 
 @endsection
 </x-app-layout>
