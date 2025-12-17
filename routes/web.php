@@ -27,9 +27,12 @@ Route::get('/', [DashboardController::class, 'redirectToDashboard'])->name('home
 Route::post('rider-onboard-filter/data', [DashboardController::class, 'RiderOnboardfilterData'])->name('RiderOnboardfilter.data')->middleware('auth');
 Route::post('filter/data', [DashboardController::class, 'filterData'])->name('filter.data')->middleware('auth'); //updated by Gowtham.S
 Route::post('filter/hrdata', [DashboardController::class, 'filterhrData'])->name('filter.hrdata')->middleware('auth');
+Route::get('get-deliverymans', [DashboardController::class, 'getDeliveryMans'])->name('global.get_deliverymans');
+Route::get('get-deliverymans-ids', [DashboardController::class, 'getDeliveryMans_Ids'])->name('global.getDeliveryMans_Ids');
 Route::get('/get-city-list/{state_id}', [DashboardController::class, 'getCities'])->name('global.get_cities')->middleware('auth');//updated by Gowtham.S
 Route::get('/get-zone-list/{city_id}', [GetZoneController::class, 'getZones'])->name('global.get_zones');//updated by Gowtham.s - Zone Map
 Route::get('/get-multi-city-zone', [GetZoneController::class, 'getMultiCityZones'])->name('global.get_multi_city_zones');//updated by Logesh - Zone Map
+Route::get('/get-multi-city-area', [GetZoneController::class, 'getMultiCityArea'])->name('global.get_multi_city_areas');
 Route::get('/admin', [DashboardController::class, 'redirectToDashboard'])->middleware('auth');
 Route::get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard')->middleware('auth');
 Route::get('/admin/tracking', [MobitraApiController::class, 'mobitra_tracking'])->name('admin.tracking')->middleware('auth');

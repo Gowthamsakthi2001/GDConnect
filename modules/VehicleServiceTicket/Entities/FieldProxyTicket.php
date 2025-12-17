@@ -61,6 +61,7 @@ class FieldProxyTicket extends Model
         'chassis_number',
         'category',
         'battery',
+        'audit_status',
         'assignment_info',
         'assigned_technician_id',
         'assigned_by',

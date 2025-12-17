@@ -58,21 +58,27 @@
                 </div>
 
                     <div class="row mb-3">
+                        
+                     <!-- Chassis Number -->
+                        <div class="col-md-4 col-12 mb-3">
+                            <label for="chassisNumber" class="form-label">Chassis Number <span style="color:red;">*</span></label>
+                            <input type="text" id="chassisNumber" name="chassis_number" class="form-control"
+                                   placeholder="e.g., MH12AB3456CD789012" required>
+                                   
+                             <div class="text-danger small" id="chassisnumberError"></div>
+                        </div>
+                        
+                        
                         <!-- Vehicle Number -->
                        <div class="col-md-4 col-12 mb-3">
-                            <label for="vehicleNumber" class="form-label">Vehicle Number *</label>
+                            <label for="vehicleNumber" class="form-label">Vehicle Number</label>
                             <input type="text" id="vehicleNumber" name="vehicle_no" class="form-control"
                                    oninput="this.value = this.value.toUpperCase(); validateVehicleFormat(this.value);"
                                    placeholder="e.g., KA01AB1234">
                             <div class="text-danger small" id="vehicleNumberError"></div>
                         </div>
                         
-                             <!-- Chassis Number -->
-                        <!--<div class="col-md-4 col-12 mb-3">-->
-                        <!--    <label for="chassisNumber" class="form-label">Chassis Number *</label>-->
-                        <!--    <input type="text" id="chassisNumber" name="chassis_number" class="form-control"-->
-                        <!--           placeholder="e.g., MH12AB3456CD789012" required>-->
-                        <!--</div>-->
+
                         
                         <!-- Battery Number -->
                         <!--<div class="col-md-4 col-12 mb-3">-->
@@ -90,7 +96,7 @@
 
                         <!-- City -->
                         <div class="col-md-4 col-12 mb-3">
-                            <label for="city" class="form-label">City *</label>
+                            <label for="city" class="form-label">City <span style="color:red;">*</span></label>
                             <select id="city" name="city_id" class="form-control custom-select2-field" onchange="getZones(this.value)">
                                 <option value="">Select city</option>
                                  @if(isset($cities))
@@ -105,16 +111,16 @@
                 
                         <!-- State -->
                         <div class="col-md-4 col-12 mb-3">
-                            <label for="state" class="form-label">Select Zone</label>
+                            <label for="state" class="form-label">Select Zone <span style="color:red;">*</span></label>
                             <select id="state" name="area_id" class="form-control">
-                                <option value="">Select Zone</option>
+                                <option value="">Please select city first</option>
                             </select>
                             <div class="text-danger small" id="stateError"></div>
                         </div>
                 
                         <!-- Vehicle Type -->
                         <div class="col-md-4 col-12 mb-3">
-                            <label for="vehicleType" class="form-label">Vehicle Type *</label>
+                            <label for="vehicleType" class="form-label">Vehicle Type <span style="color:red;">*</span></label>
                             <select id="vehicleType" name="vehicle_type" class="form-control" >
                                 <option value="">Select vehicle type</option>
                                 @if($vehicle_types)
@@ -128,7 +134,7 @@
                 
                         <!-- POC Name -->
                         <div class="col-md-4 col-12 mb-3">
-                            <label for="pocName" class="form-label">Driver Name *</label>
+                            <label for="pocName" class="form-label">Driver Name <span style="color:red;">*</span></label>
                             <input type="text" id="pocName" name="poc_name" class="form-control" placeholder="Driver name">
                             <div class="text-danger small" id="pocNameError"></div>
                         </div>
@@ -141,7 +147,7 @@
                         <!--    <div class="text-danger small" id="contactNumberError"></div>-->
                         <!--</div>-->
                         <div class="col-md-4 col-12 mb-3">
-                            <label for="contactNumber" class="form-label">Driver Mobile Number *</label>
+                            <label for="contactNumber" class="form-label">Driver Mobile Number <span style="color:red;">*</span></label>
                             <input type="text" id="contactNumber" name="poc_contact_no" class="form-control" placeholder="10-digit mobile number" oninput="sanitizeAndValidatePhone(this)">
                             <div class="text-danger small" id="contactNumberError"></div>
                         </div>
@@ -150,14 +156,14 @@
                 
                     <!-- Issue Description -->
                     <div class="form-group mb-3">
-                        <label for="issueDescription" class="form-label">Issue Description *</label>
+                        <label for="issueDescription" class="form-label">Issue Description <span style="color:red;">*</span></label>
                         <textarea id="issueDescription" class="form-control" name="issue_remarks" rows="4" placeholder="Describe the issue..."></textarea>
                         <div class="text-danger small" id="issueDescriptionError"></div>
                     </div>
                 
                     <!-- Repair Type -->
                     <div class="form-group mb-3">
-                        <label class="form-label">Repair Type *</label><br>
+                        <label class="form-label">Repair Type <span style="color:red;">*</span></label><br>
                         
                         @foreach($repair_types as $type)
                             <div class="form-check form-check-inline">
@@ -260,18 +266,21 @@
 
 
         function validateVehicleFormat(value) {
-            // const pattern = /^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$/;
-            const pattern = /^[A-Z]{2}\d{2}[A-Z]{2,3}\d{4}$/;
-            if (!pattern.test(value)) {
-                $("#vehicleNumber").addClass('is-invalid');
-                $("#vehicleNumberError").text('Invalid format. Use: KA01AB1234');
-                return false;
-            } else {
-                $("#vehicleNumberError").text('');
-                $("#vehicleNumber").removeClass('is-invalid');
-                return true;
-            }
+            const pattern = /^[A-Z]{2}\d{1,2}[A-Z]{1,3}\d{4}$/;
+        
+            // if (!pattern.test(value)) {
+            //     $("#vehicleNumberError").text('Invalid vehicle number. Example: DL9EV8374 / KA01AB1234');
+            //     $("#vehicleNumber").addClass('is-invalid');
+            //     return false;
+            // } else {
+            //     $("#vehicleNumberError").text('');
+            //     $("#vehicleNumber").removeClass('is-invalid');
+            //     return true;
+            // }
+            return true;
         }
+
+
         
         // $('#contactNumber').on('input', function () {
         //     let value = $(this).val().replace(/\D/g, '').slice(0, 10); 
@@ -306,18 +315,38 @@
         const issueDescription = $('#issueDescription').val().trim();
         // const address = $('#address').val().trim();
         const repairType = $('input[name="repairType"]:checked').val();
+        const chassisNumber = $('#chassisNumber').val().trim();
+        
+        
+        const chassisRegex = /^[A-HJ-NPR-Z0-9]{17}$/;
 
-        if (!vehicleNumber) {
-            $('#vehicleNumberError').text('Vehicle number is required');
-            $('#vehicleNumber').addClass('is-invalid');
-            if (!firstErrorField) firstErrorField = '#vehicleNumber';
-            isValid = false;
-        } else if (!validateVehicleFormat(vehicleNumber)) {
-            $('#vehicleNumber').addClass('is-invalid');
-            if (!firstErrorField) firstErrorField = '#vehicleNumber';
-            isValid = false;
-        }
+        // if (!vehicleNumber) {
+        //     $('#vehicleNumberError').text('Vehicle number is required');
+        //     $('#vehicleNumber').addClass('is-invalid');
+        //     if (!firstErrorField) firstErrorField = '#vehicleNumber';
+        //     isValid = false;
+        // } 
+            // if (vehicleNumber !== '' && !validateVehicleFormat(vehicleNumber)) {
+            //     $('#vehicleNumber').addClass('is-invalid');
+            //     $('#vehicleNumberError').text('Enter valid vehicle number');
+            //     if (!firstErrorField) firstErrorField = '#vehicleNumber';
+            //     isValid = false;
+            // }
     
+            if (!chassisNumber) {
+            $('#chassisnumberError').text('Chassis number is required');
+            $('#chassisNumber').addClass('is-invalid');
+            if (!firstErrorField) firstErrorField = '#chassisNumber';
+            isValid = false;
+        } 
+        // else if (!chassisRegex.test(chassisNumber)) {
+        //     $('#chassisnumberError').text('Enter valid 17-digit chassis number (only A-Z0-9, no I O Q)');
+        //     $('#chassisNumber').addClass('is-invalid');
+        //     if (!firstErrorField) firstErrorField = '#chassisNumber';
+        //     isValid = false;
+        // }
+
+
         if (!city) {
             $('#cityError').text('City is required');
             $('#city').addClass('is-invalid');
@@ -326,7 +355,7 @@
         }
     
         if (!state) {
-            $('#stateError').text('State is required');
+            $('#stateError').text('Zone is required');
             $('#state').addClass('is-invalid');
             if (!firstErrorField) firstErrorField = '#state';
             isValid = false;
@@ -402,7 +431,7 @@
                     },1000);
                     
                 } else {
-                    toastr.error('Ticket creation failed. please try again');
+                    toastr.error(response.message || 'Ticket creation failed. Please try again');
                 }
             },
             error: function (xhr) {
@@ -422,6 +451,10 @@
         });
     });
 
+
+    $('#chassisNumber').on('input', function() {
+        this.value = this.value.toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+    });
 
     </script>
     

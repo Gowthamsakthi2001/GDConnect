@@ -7,6 +7,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Carbon\Carbon;
+use Modules\City\Entities\City;
+use Modules\City\Entities\Area;
+use Modules\Deliveryman\Entities\Deliveryman;
 use Modules\LeaveManagement\Entities\LeaveType; 
 use Modules\LeaveManagement\Entities\LeaveRequest; 
 use Modules\LeaveManagement\DataTables\LeaveDataTable;
@@ -16,7 +19,9 @@ use Modules\LeaveManagement\DataTables\PermissionRequestDataTable;
 use Modules\LeaveManagement\DataTables\LeaveLogDataTable;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth; //updated by Mugesh.B
-
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\AttendanceReport;
 class LeaveManagementController extends Controller
 {
     /**
@@ -429,4 +434,277 @@ class LeaveManagementController extends Controller
             ], 500);
         }
     }
+    
+    public function attendance_report(Request $request){
+        if(!view()->exists('leavemanagement::attendance_report')){
+            return back()->with('error','view not found');
+        }
+        $cities = DB::table('ev_tbl_city')->select('id','city_name')->get();
+        return view('leavemanagement::attendance_report',compact('cities'));
+        
+    }
+    
+    public function get_attendance_report_data(Request $request){
+        if ($request->ajax()) {
+            try {
+                   
+                $start  = (int) $request->input('start', 0);
+                $length = (int) $request->input('length', 25);
+                $search = trim($request->input('search.value', ''));
+                $draw   = (int) $request->input('draw', 1);
+
+                $city_ids   = (array) $request->input('city', []);
+                $zone_ids   = (array) $request->input('area', []);
+                $user_types = (array) $request->input('user_type', []);
+                $user_ids   = (array) $request->input('user_id', []);
+    
+                $dateRange = $request->input('date_filter', 'today');
+                $from = $request->input('from_date');
+                $to   = $request->input('to_date');
+
+                switch ($dateRange) {
+                    case 'today':
+                        $from = $to = now()->toDateString();
+                        break;
+                    case 'yesterday':
+                        $from = $to = now()->subDay()->toDateString();
+                        break;
+                    case 'this_week':
+                        $from = now()->startOfWeek()->toDateString();
+                        $to   = now()->endOfWeek()->toDateString();
+                        break;
+                    case 'last_week':
+                        $from = now()->subWeek()->startOfWeek()->toDateString();
+                        $to   = now()->subWeek()->endOfWeek()->toDateString();
+                        break;
+                    case 'this_month':
+                        $from = now()->startOfMonth()->toDateString();
+                        $to   = now()->endOfMonth()->toDateString();
+                        break;
+                    case 'last_month':
+                        $from = now()->subMonthNoOverflow()->startOfMonth()->toDateString();
+                        $to   = now()->subMonthNoOverflow()->endOfMonth()->toDateString();
+                        break;
+                    case 'custom':
+                        // keep passed from/to
+                        break;
+                    default:
+                        $from = $to = now()->toDateString();
+                }
+                $baseQuery = DB::table('ev_delivery_man_logs as dml')
+                    ->join('ev_tbl_delivery_men as dm', 'dm.id', '=', 'dml.user_id')
+                    ->leftJoin('ev_tbl_city as c', 'c.id', '=', 'dm.current_city_id')
+                    ->leftJoin('ev_tbl_area as area', 'area.id', '=', 'dm.interested_city_id')
+                    ->select(
+                        'dml.id as log_id',
+                        'dm.emp_id',
+                        DB::raw("CONCAT(dm.first_name,' ',dm.last_name) as deliveryman_name"),
+                        'dm.mobile_number',
+                        'c.city_name',
+                        'area.Area_name',
+                        'dml.punched_in',
+                        'dml.punched_out',
+                        'dml.punchin_latitude',
+                        'dml.punchin_longitude',
+                        'dml.punchout_latitude',
+                        'dml.punchedout_longitude',
+                        'dml.punchin_address',
+                        'dml.punchout_address'
+                    );
+
+                    if (!empty($city_ids) && !in_array('all', $city_ids)) {
+                        $baseQuery->whereIn('dm.current_city_id', $city_ids);
+                    }
+                    if (!empty($zone_ids) && !in_array('all', $zone_ids)) {
+                        $baseQuery->whereIn('dm.interested_city_id', $zone_ids);
+                    }
+                    if (!empty($user_types) && !in_array('all', $user_types)) {
+                        $baseQuery->whereIn('dm.work_type', $user_types);
+                    }
+                    if (!empty($user_ids) && !in_array('all', $user_ids)) {
+                        $baseQuery->whereIn('dm.id', $user_ids);
+                    }
+
+                    if ($from && $to) {
+                        $baseQuery->whereDate('dml.punched_in', '>=', $from)
+                                  ->whereDate('dml.punched_in', '<=', $to);
+                    }
+            
+                    if (!empty($search)) {
+                        $baseQuery->where(function($q) use ($search) {
+                            $q->where('dm.first_name', 'like', "%{$search}%")
+                              ->orWhere('dm.last_name', 'like', "%{$search}%")
+                              ->orWhere('dm.emp_id', 'like', "%{$search}%")
+                              ->orWhere('dm.mobile_number', 'like', "%{$search}%");
+                        });
+                    }
+                    $totalRecords = (clone $baseQuery)->count();
+                    // dd($baseQuery->toSql(),$baseQuery->getBindings(),$totalRecords);
+                    if ($length == -1) $length = $totalRecords;
+
+                    $datas = $baseQuery->orderBy('dml.id', 'asc')->skip($start)->take($length)->get();
+                    $formattedData = $datas->map(function ($data, $key) use ($start) {
+
+                        return [
+                            $start + $key + 1,
+                            $data->emp_id ?? '-',
+                            $data->deliveryman_name ?? '-',
+                            $data->city_name ?? '-',
+                            $data->punched_in ? date('d-m-Y', strtotime($data->punched_in)) : '-',
+                            $data->punched_in ? date('h:i:s A', strtotime($data->punched_in)) : '-',
+                            $data->punched_out ? date('h:i:s A', strtotime($data->punched_out)) : 'Not Punched Out',
+                            $this->calculateDuration($data->punched_in, $data->punched_out),
+                            '<a href="javascript:void(0)" 
+                                class="btn btn-sm btn-outline-primary view-attendance"
+                                data-emp_id="'.$data->emp_id.'"
+                                data-name="'.$data->deliveryman_name.'"
+                                data-city="'.$data->city_name.'"
+                                data-area="'.$data->Area_name.'"
+                                data-date="'.($data->punched_in ? date('d-m-Y', strtotime($data->punched_in)) : '-').'"
+                                data-punchin="'.($data->punched_in ? date('h:i:s A', strtotime($data->punched_in)) : '-').'"
+                                data-punchout="'.($data->punched_out ? date('h:i:s A', strtotime($data->punched_out)) : 'Not Punched Out').'"
+                                data-punchin_location="'.($data->punchin_address ?? '-').'"
+                                data-punchout_location="'.($data->punchout_address ?? '-').'"
+                                data-duration="'.$this->calculateDuration($data->punched_in, $data->punched_out).'"
+                                title="View Details">
+                                <i class="fa fa-eye"></i>
+                            </a>'
+                        ];
+                    });
+
+
+                    return response()->json([
+                        'draw' => intval($request->input('draw')),
+                        'recordsTotal' => $totalRecords,
+                        'recordsFiltered' => $totalRecords,
+                        'data' => $formattedData
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Deployment Report Error: ' . $e->getMessage());
+                    return response()->json([
+                        'draw' => intval($request->input('draw')),
+                        'recordsTotal' => 0,
+                        'recordsFiltered' => 0,
+                        'data' => [],
+                        'error' => $e->getMessage(),
+                    ], 500);
+                }
+            }
+    }
+    
+    // protected function calculateDuration($in, $out)
+    // {
+    //     if (!$in || !$out) return '00:00:00';
+    
+    //     $start = \Carbon\Carbon::parse($in);
+    //     $end   = \Carbon\Carbon::parse($out);
+    
+    //     return $start->diff($end)->format('%H:%I:%S');
+    // }
+    
+    protected function calculateDuration($in, $out)
+    {
+        if (!$in || !$out) {
+            return '00:00:00';
+        }
+    
+        $start = \Carbon\Carbon::parse($in);
+        $end   = \Carbon\Carbon::parse($out);
+    
+        $seconds = $start->diffInSeconds($end);
+    
+        $hours   = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        $secs    = $seconds % 60;
+    
+        return sprintf('%02d:%02d:%02d', $hours, $minutes, $secs);
+    }
+    
+    public function export_attendance_report(Request $request)
+    {
+        $date_range = $request->input('date_range') ?? 'today';
+        $from_date  = $request->input('from_date');
+        $to_date    = $request->input('to_date');
+    
+        $city     = (array) $request->input('city_id', []);
+        $area     = (array) $request->input('area', []);
+        $user_type = $request->input('user_type',[]);
+        $user_id  = (array) $request->input('user_id', []);
+        $emp_id = (array) $request->input('emp_id',[]);
+        $fields = (array) $request->input('fields',[]);
+
+        $fileName = 'attendance-report-' . date('d-m-Y') . '.csv';
+    
+        /* -------- Filter Names -------- */
+    
+        $cityName = !empty($city)
+            ? City::whereIn('id', $city)->pluck('city_name')->implode(', ')
+            : null;
+    
+        $zoneName = !empty($area)
+            ? Area::whereIn('id', $area)->pluck('Area_name')->implode(', ')
+            : null;
+    
+        $userId = !empty($user_id)
+            ? Deliveryman::whereIn('id', $user_id)->pluck('emp_id')->implode(', ')
+            : null;
+        $empId = !empty($emp_id)
+            ? Deliveryman::whereIn('id', $emp_id)->pluck('emp_id')->implode(', ')
+            : null;
+    
+        /* -------- Applied Filters -------- */
+    
+        $appliedFilters = [];
+    
+        if ($date_range) $appliedFilters[] = "Date Range: {$date_range}";
+        if ($from_date)  $appliedFilters[] = "From: {$from_date}";
+        if ($to_date)    $appliedFilters[] = "To: {$to_date}";
+        if ($cityName)   $appliedFilters[] = "City: {$cityName}";
+        if ($zoneName)   $appliedFilters[] = "Zone: {$zoneName}";
+        if ($userId)     $appliedFilters[] = "Emp ID: {$userId}";
+    
+        $filtersText = empty($appliedFilters)
+            ? 'No filters applied'
+            : implode('; ', $appliedFilters);
+    
+        /* -------- Audit Log -------- */
+    
+        $user = Auth::user();
+        $roleName = optional(
+            \Modules\Role\Entities\Role::find(optional($user)->role)
+        )->name ?? 'Unknown';
+    
+        // audit_log_after_commit([
+        //     'module_id'         => 5,
+        //     'short_description' => 'HR Module Attendance Export Initiated',
+        //     'long_description'  => "Attendance export triggered. File: {$fileName}. Filters: {$filtersText}.",
+        //     'role'              => $roleName,
+        //     'user_id'           => Auth::id(),
+        //     'user_type'         => 'gdc_admin_dashboard',
+        //     'dashboard_type'    => 'web',
+        //     'page_name'         => 'hr_management.attendance_export',
+        //     'ip_address'        => $request->ip(),
+        //     'user_device'       => $request->userAgent(),
+        // ]);
+    
+        /* -------- Excel Export -------- */
+   
+        return Excel::download(
+            new AttendanceReport(
+                $from_date,
+                $to_date,
+                $date_range,
+                $city,
+                $area,
+                $user_type,
+                $user_id,
+                $emp_id,
+                $fields
+                
+            ),
+            $fileName
+        );
+    }
+
+
 }
