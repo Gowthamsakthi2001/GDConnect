@@ -573,6 +573,20 @@
                             </x-admin.nav-link> 
                         @endif
                         
+                        @php
+                            $AttendanceReportActive = request()->routeIs('admin.Green-Drive-Ev.leavemanagement.attendance_report');
+                            $fillColor_AttendanceReport = $AttendanceReportActive ? '#52c552' : '#bbbfc4';
+                        @endphp
+                         
+                         @if (can('sidebar_modules'))
+                            <li class="{{ $AttendanceReportActive ? 'mm-active' : '' }}">
+                                <a class="text-capitalize {{ $AttendanceReportActive == true ? 'submenu-activeclass' : '' }}" style="color:{{$AttendanceReportActive == true ? '#52c552' : '#8a8e91'}}" href="{{route('admin.Green-Drive-Ev.leavemanagement.attendance_report')}}" target="_self">
+                                   
+                                   Attendance Report
+                                </a>
+                            </li>
+                         @endif
+                        
                     </x-admin.multi-nav>
                 @endif
                 

@@ -1,8 +1,18 @@
 <x-app-layout>
 @section('style_css')
+<style>
+.report-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.report-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+</style>
 @endsection
 
-<div class="container-fluid">
+<div class="container-fluid mt-3">
     <!-- First Row -->
     <div class="row g-2 g-md-3 mb-3">
         <div class="col-md-4 d-flex">

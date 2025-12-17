@@ -32,6 +32,7 @@ use Illuminate\Support\Facades\Mail;
 use Modules\VehicleServiceTicket\Entities\VehicleTicket;
 use App\Helpers\CustomHandler;
 use Modules\City\Entities\City;
+use App\Jobs\AutomaticServiceTicketCreation;
 
 class VehicleServiceTicketController extends Controller
 {
@@ -70,14 +71,14 @@ class VehicleServiceTicketController extends Controller
      
      
             $validator = Validator::make($request->all(), [
-                'vehicle_no'        => 'required|string|max:100|regex:/^[A-Z0-9\- ]+$/i',
+                'vehicle_no'        => 'nullable|string|max:100|regex:/^[A-Z0-9\- ]+$/i',
                 'city_id'           => 'required|exists:ev_tbl_city,id',
                 'area_id'           => 'required|exists:ev_tbl_area,id',
                 'vehicle_type'      => 'required|string|max:50',
                 'poc_name'          => 'required|string|max:255',
                 'poc_contact_no'    => 'required|string|max:20',
                 'issue_remarks'     => 'required|string',
-                // 'chassis_number'     => 'required|string',
+                'chassis_number'     => 'required|string',
                 // 'battery_number'     => 'required|string',
                 // 'telematics_number'     => 'required|string',
                 'repairType'        => 'required|exists:ev_tbl_repair_types,id',
@@ -120,6 +121,16 @@ class VehicleServiceTicketController extends Controller
         if ($ticket_id == "" || $ticket_id == null) {
             return response()->json(['success' => false,'message'  =>'Ticket ID creation failed']);
         }
+        $is_ticket_not_closed = FieldProxyTicket::where('chassis_number', $request->chassis_number)
+            ->where('ticket_status', '!=', 'closed')
+            ->first();
+        
+        if ($is_ticket_not_closed) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A ticket is already open for this chassis number. Please wait until the existing ticket is resolved.'
+            ]);
+        }
 
         $imagePath = null;
         $imageUrl = null;
@@ -142,11 +153,11 @@ class VehicleServiceTicketController extends Controller
         }
         
         
-        
+         $vehicle = AssetMasterVehicle::where('chassis_number' , $request->chassis_number)->first();
           // Store record
             $ticket = VehicleTicket::create([
                 'ticket_id'         => $ticket_id,
-                'vehicle_no'        => $request->vehicle_no,
+                'vehicle_no'        => !empty($vehicle->permanent_reg_number) ? $vehicle->permanent_reg_number : (!empty($request->vehicle_no) ? $request->vehicle_no : null),
                 'city_id'           => $request->city_id,
                 'area_id'           => $request->area_id,
                 'vehicle_type'      => $request->vehicle_type,
@@ -168,7 +179,7 @@ class VehicleServiceTicketController extends Controller
                 'ticket_status'     => 0,
             ]);
         
-           $city = City::with('state')->find($request->city_id);
+          $city = City::with('state')->find($request->city_id);
           
 
             $state_name = $city && $city->state ? $city->state->state_name : '';
@@ -188,15 +199,15 @@ class VehicleServiceTicketController extends Controller
                 ? null
                 : $request->latitude;
             
-             $vehicle = AssetMasterVehicle::where('permanent_reg_number' , $request->vehicle_no)->first();
+
              
              $repair_type =  RepairTypeMaster::find($request->repairType);
 
              $ticketData = [
-                "vehicle_number" => $request->vehicle_no,
+              "vehicle_number" => !empty($vehicle->permanent_reg_number) ? $vehicle->permanent_reg_number : (!empty($request->vehicle_no) ? $request->vehicle_no : null),
                 "updatedAt" => $createdDatetime,
                 "ticket_status" => "unassigned",
-                "chassis_number" => $vehicle->chassis_number ?? null,
+                "chassis_number" => $request->chassis_number ?? null,
                 "telematics" => $vehicle->telematics_imei_number ?? null,
                 "battery" => $vehicle->battery_serial_no ?? null,
                 "vehicle_type" => $vehicle->vehicle_type_relation->name ?? null,
@@ -234,6 +245,29 @@ class VehicleServiceTicketController extends Controller
                 'type'       => 'web-portal-user',
             ]);
             
+            
+            if($vehicle->id){
+                $inventory = AssetVehicleInventory::where('asset_vehicle_id' ,$vehicle->id)->first();
+                $from_location_source  = $inventory->transfer_status;
+                
+                $inventory->transfer_status = 2;
+                $inventory->save();
+                
+                $remarks = "Inventory status updated to 'Under Maintenance' due to service request.";
+        
+                // // Log this inventory action
+                VehicleTransferChassisLog::create([
+                    'chassis_number' => $vehicle->chassis_number,
+                    'from_location_source' => $from_location_source,
+                    'to_location_destination' => 2,
+                    'vehicle_id'     => $vehicle->id,
+                    'status'         => 'updated',
+                    'remarks'        => $remarks,
+                    'created_by'     => null,
+                    'type'           => 'ticket-web-portal'
+                ]);
+            }
+            
             $apiTicketData = $ticketData;
             $apiTicketData['image'] = $imageUrl ? [$imageUrl] : [];
             $apiTicketData['driver_number'] = preg_replace('/^\+91/', '', $ticketData['driver_number']);
@@ -246,8 +280,9 @@ class VehicleServiceTicketController extends Controller
             $fieldproxy_base_url = BusinessSetting::where('key_name', 'fieldproxy_base_url')->value('value');
             $fieldproxy_create_endpoint = BusinessSetting::where('key_name', 'fieldproxy_create_enpoint')->value('value');
             $apiUrl = $fieldproxy_base_url . $fieldproxy_create_endpoint;
-            $apiKey = env('FIELDPROXY_API_KEY', null); // set in .env
-    
+            $apiKey = env('FIELDPROXY_API_KEY'); // set in .env
+            
+
             $ch = curl_init($apiUrl);
             $payload = json_encode($apiData);
     
@@ -373,8 +408,7 @@ class VehicleServiceTicketController extends Controller
                 
                     // Fetch the filtered tickets
                     $localTickets = $localTickets->get();
-                    
-     
+                
                     
 
                     // Initialize query conditions
@@ -680,10 +714,6 @@ class VehicleServiceTicketController extends Controller
     // }
     
     
-    
-    
-
-
     public function updateStatus(Request $request)
     {
         
@@ -691,6 +721,7 @@ class VehicleServiceTicketController extends Controller
             'greendrive_ticketid' => 'required|string',
             'ticket_status'       => 'nullable|string',
             'current_status'      => 'nullable|string',
+            'audit_status'      => 'nullable|string',
         ]);
     
         if ($validator->fails()) {
@@ -716,6 +747,7 @@ class VehicleServiceTicketController extends Controller
                 'open'             => 'Open',
                 'assigned'         => 'Assigned',
                 'work_in_progress' => 'Work In Progress',
+                'estimate_approved' => 'Estimate Approved',
                 'spare_requested'  => 'Spare Requested',
                 'spare_approved'   => 'Spare Approved',
                 'hold'             => 'Hold' ,
@@ -726,6 +758,8 @@ class VehicleServiceTicketController extends Controller
             $ticket_id          = $request->greendrive_ticketid;
             $new_ticket_status  = $request->ticket_status ? strtolower($request->ticket_status) : null;
             $new_current_status = $request->current_status ? strtolower($request->current_status) : null;
+            
+            $audit_status = $request->audit_status ? strtolower($request->audit_status) : null;
     
             $fieldproxy = FieldProxyTicket::where('greendrive_ticketid', $ticket_id)->first();
     
@@ -734,6 +768,13 @@ class VehicleServiceTicketController extends Controller
                     'success' => false,
                     'message' => 'Ticket not found',
                 ], 404);
+            }
+            
+            if (strtolower($fieldproxy->ticket_status) === 'closed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ticket has already been closed. No further updates are allowed.',
+                ], 409); 
             }
     
             // Get last log for comparison
@@ -764,7 +805,13 @@ class VehicleServiceTicketController extends Controller
     
             // Save main FieldProxyTicket table if changed
             if (!empty($logData)) {
+                
+                if(!empty($audit_status)){
+                    
+                    $fieldproxy->audit_status = $audit_status;
+                }
                 $fieldproxy->save();
+     
     
                 // Create log for FieldProxy
                 FieldProxyLog::create([
@@ -798,17 +845,60 @@ class VehicleServiceTicketController extends Controller
                 if (!empty($service_changes)) {
                     $service->save();
                     
-                    // Update assignment log if linked
                     $assignment = B2BVehicleAssignment::where('id', $service->assign_id)->first();
                     
                     if (isset($assignment) && !in_array($assignment->status, ['returned', 'return_request', 'recovery_request' , 'recovered'])) {
                         
                         if($new_ticket_status == "closed"){
-                             $assignment->status = "running";
-                             $assignment->save();
+                            
+                            if(!empty($audit_status) && $audit_status == 'fail'){
+                                
+                                 $assignment->status = "under_maintenance";
+                                 $assignment->save();
+                                
+                            }
+                            else{
+                                
+                                $assignment->status = "running";
+                                $assignment->save();
+                                 
+                            }
+
                         }
                         
                     }
+                    else if(isset($assignment) && in_array($assignment->status, ['returned', 'return_request', 'recovery_request' , 'recovered'])){
+                        
+                        if($new_ticket_status == "closed"){
+                            
+                            if(!empty($audit_status) && $audit_status == 'fail'){
+                                
+                                 $assignment->status = "under_maintenance";
+                                 $assignment->save();
+                                
+                            }
+                            else{
+                                
+                                $statusLog = B2BVehicleAssignmentLog::where('assignment_id', $assignment->id)
+                                    ->whereIn('status', ['returned', 'recovered'])
+                                    ->orderBy('created_at', 'desc')
+                                    ->first();
+                                    
+                                if ($statusLog) {
+                                    
+                                    $assignment->status = $statusLog->status;
+                                    $assignment->save();
+                                }
+
+                                 
+                            }
+
+                        }
+                        
+                    }
+                    
+                    
+                    
                     
                     if ($assignment) {
                         B2BVehicleAssignmentLog::create([
@@ -830,6 +920,7 @@ class VehicleServiceTicketController extends Controller
                 $vehicleNumber = $fieldproxy->vehicle_number ?? null;
                 $chassis_number = $fieldproxy->chassis_number ?? null;
                 
+                
                 if(!empty($chassis_number)){
                     
                 $vehicle = AssetMasterVehicle::where('chassis_number', $chassis_number)->first();
@@ -849,21 +940,53 @@ class VehicleServiceTicketController extends Controller
                             ->latest('created_at')
                             ->first();
             
-                        if ($service) {
-                            // ---- SCENARIO 1: Ticket belongs to a Service Request ----
-                            if ($activeAssignment && in_array($activeAssignment->status, ['returned', 'return_request' , 'recovery_request' , 'recovered'])) {
-                                // Vehicle was returned/requested → mark as RFD
-                                $inventory->transfer_status = 3; // Ready for Deployment
-                                $remarks = "Vehicle status changed to Ready for Deployment after service completion, due to FieldProxy ticket closure.";
+                        if(!empty($audit_status) && $audit_status == 'pass'){
+            
+                            if ($service) {
+
+                                if ($activeAssignment && in_array($activeAssignment->status, ['returned', 'return_request' , 'recovery_request' , 'recovered'])) {
+
+                                    $inventory->transfer_status = 3; // Ready for Deployment
+                                    $remarks = "Vehicle status changed to Ready for Deployment after service completion, due to FieldProxy ticket closure.";
+                                } else {
+
+                                    $inventory->transfer_status = 1; // On Rent
+                                    $remarks = "Vehicle remains On Rent after service completion, due to FieldProxy ticket closure.";
+                                }
                             } else {
-                                // Vehicle still actively assigned → keep On Rent
-                                $inventory->transfer_status = 1; // On Rent
-                                $remarks = "Vehicle remains On Rent after service completion, due to FieldProxy ticket closure.";
+                                // ---- SCENARIO 2: Ticket only exists in FieldProxy (no service request) ----
+                                $inventory->transfer_status = 3; // RFD
+                                $remarks = "Vehicle moved to Ready for Deployment (RFD) as the ticket is closed in FieldProxy.";
                             }
-                        } else {
-                            // ---- SCENARIO 2: Ticket only exists in FieldProxy (no service request) ----
-                            $inventory->transfer_status = 3; // RFD
-                            $remarks = "Vehicle moved to Ready for Deployment (RFD) as the ticket is closed in FieldProxy.";
+                            
+                        }
+                        elseif(!empty($audit_status) && $audit_status == 'fail'){
+                            
+                                $inventory->transfer_status = 2; 
+                                $remarks = "Vehicle moved to Under Maintenance as the ticket is closed in FieldProxy and audit has failed.";
+                                
+                                AutomaticServiceTicketCreation::dispatch($ticket_id);
+                                
+                                
+                        }
+                        else{
+                            
+                             if ($service) {
+                                
+                                if ($activeAssignment && in_array($activeAssignment->status, ['returned', 'return_request' , 'recovery_request' , 'recovered'])) {
+                                    
+                                    $inventory->transfer_status = 3; // Ready for Deployment
+                                    $remarks = "Vehicle status changed to Ready for Deployment after service completion, due to FieldProxy ticket closure.";
+                                } else {
+                                   
+                                    $inventory->transfer_status = 1; // On Rent
+                                    $remarks = "Vehicle remains On Rent after service completion, due to FieldProxy ticket closure.";
+                                }
+                            } else {
+                               
+                                $inventory->transfer_status = 3; // RFD
+                                $remarks = "Vehicle moved to Ready for Deployment (RFD) as the ticket is closed in FieldProxy.";
+                            }
                         }
             
                         $inventory->save();

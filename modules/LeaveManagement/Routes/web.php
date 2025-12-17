@@ -26,6 +26,9 @@ Route::prefix('admin/Green-Drive-Ev/leavemanagement')->as('admin.Green-Drive-Ev.
     Route::post('approve-or-reject', 'leave_approve_or_reject')->name('leave_approve_or_reject');
     Route::get('leave-logs', 'leave_log_report')->name('leave_log_report');
     Route::get('get-leave-count', 'get_leave_count')->name('get-leave-count');
+    Route::get('attendance-report', 'attendance_report')->name('attendance_report');
+    Route::get('attendance-report-render','get_attendance_report_data')->name('attendance_report_render');
+    Route::post('export-attendance-report','export_attendance_report')->name('export_attendance_report');
 });
 
 Route::prefix('admin/Green-Drive-Ev/leavemanagement')->as('admin.Green-Drive-Ev.leavemanagement.')->controller(HolidayManagementController::class)->middleware('auth')->group(function () {

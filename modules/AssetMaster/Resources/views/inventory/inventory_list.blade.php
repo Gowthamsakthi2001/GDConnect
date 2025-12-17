@@ -1235,6 +1235,27 @@
             
           </div>
         </div>
+        
+        
+        <!--Export Loader-->
+        
+        <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+             
+                  <div class="modal-header border-0">
+            <h5 class="modal-title w-100">Export in progress</h5>
+            </div>
+             
+            <div class="modal-body d-flex justify-content-center">
+                <img src="{{ asset('admin-assets/export_excel.gif') }}"
+                         alt="Loading..."
+                         style="width:350px; height:auto; object-fit:contain;">
+            </div>
+             
+                </div>
+            </div>
+    </div>
     
 
 @section('script_js')
@@ -1653,8 +1674,8 @@ function clearInventoryFilter() {
 <script>
 
     function ExportInventoryData() {
-        var $btn = $(".InventoryExportBtn"); 
-        $btn.html('<i class="bi bi-hourglass-split"></i> Downloading...').prop("disabled", true);
+        // var $btn = $(".InventoryExportBtn"); 
+        // $btn.html('<i class="bi bi-hourglass-split"></i> Downloading...').prop("disabled", true);
 
         var get_export_labels = [];
         $('.get-export-label:checked').each(function () {
@@ -1694,6 +1715,10 @@ function clearInventoryFilter() {
         const zone = JSON.stringify(cleanArray($('#zone_id').val() || []));
         const customer = JSON.stringify(cleanArray($('#customer_id').val() || []));
         const accountability_type = document.getElementById('accountability_type_id').value;
+        
+           $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
     
         $.ajax({
             url: "{{ route('admin.asset_management.asset_master.export.inventory_detail') }}",
@@ -1726,7 +1751,8 @@ function clearInventoryFilter() {
                 link.click();
                 document.body.removeChild(link);
     
-                $btn.html('Download').prop("disabled", false);
+                // $btn.html('Download').prop("disabled", false);
+                   exportmodal.hide();
             },
             error: function () {
                 toastr.error("Network connection failed. Please try again.");

@@ -204,8 +204,8 @@
 @endsection
 
 
-<div class="container-fluid">
-    <div class="card p-4 shadow-sm rounded">
+<div class="container-fluid ">
+    <div class="card p-4 shadow-sm rounded mt-3">
 
         <!-- Header -->
         <!--<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">-->
@@ -441,7 +441,23 @@
     </div>
 </div>
 
-
+        <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+        
+              <div class="modal-header border-0">
+                <h5 class="modal-title w-100">Export in progress</h5>
+              </div>
+        
+              <div class="modal-body d-flex justify-content-center">
+                <img src="{{ asset('admin-assets/export_excel.gif') }}"
+                     alt="Loading..."
+                     style="width:350px; height:auto; object-fit:contain;">
+              </div>
+        
+            </div>
+          </div>
+        </div>
 @section('script_js')
 
 <script>
@@ -736,7 +752,7 @@ $(document).ready(function () {
     
     
     document.querySelector('.btn-export').addEventListener('click', function () {
-        const params = new URLSearchParams();
+        // const params = new URLSearchParams();
     
         // Date range
         const dateRange = document.getElementById('filter-date-range').value;
@@ -758,9 +774,9 @@ $(document).ready(function () {
         const city_id = getMultiValues('#city_id');
         const customer_id = getMultiValues('#customer_id');
         
-        if (dateRange) params.append('date_range', dateRange);
-        if (fromDate)  params.append('from_date', fromDate);
-        if (toDate)    params.append('to_date', toDate);
+        // if (dateRange) params.append('date_range', dateRange);
+        // if (fromDate)  params.append('from_date', fromDate);
+        // if (toDate)    params.append('to_date', toDate);
         // if (status)    params.append('status', status);
     
         // Vehicle type
@@ -774,29 +790,72 @@ $(document).ready(function () {
         // City
         // const city = document.getElementById('city_id').value;
         // if (city) params.append('city', city);
-        appendMultiSelect(params, 'status', status);
+        // appendMultiSelect(params, 'status', status);
         
-        // vehicle filters
-        appendMultiSelect(params, 'vehicle_model', vehicle_model);
-        appendMultiSelect(params, 'vehicle_make', vehicle_make);
-        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+        // // vehicle filters
+        // appendMultiSelect(params, 'vehicle_model', vehicle_model);
+        // appendMultiSelect(params, 'vehicle_make', vehicle_make);
+        // appendMultiSelect(params, 'vehicle_type', vehicle_type);
         
-        // others
-        appendMultiSelect(params, 'accountability_type', accountability_type);
-        appendMultiSelect(params, 'zone_id', zone_id);
-        appendMultiSelect(params, 'city_id', city_id);
-        appendMultiSelect(params, 'customer_id', customer_id);
+        // // others
+        // appendMultiSelect(params, 'accountability_type', accountability_type);
+        // appendMultiSelect(params, 'zone_id', zone_id);
+        // appendMultiSelect(params, 'city_id', city_id);
+        // appendMultiSelect(params, 'customer_id', customer_id);
         
         // Vehicle No
         const vehicleSelect = document.getElementById('vehicle_no');
-        if (vehicleSelect) {
-            const selectedVehicles = Array.from(vehicleSelect.selectedOptions).map(opt => opt.value);
-            selectedVehicles.forEach(v => params.append('vehicle_no[]', v));
-        }
+        // if (vehicleSelect) {
+        const vehicle_no = Array.from(vehicleSelect.selectedOptions).map(opt => opt.value);
+        //     selectedVehicles.forEach(v => params.append('vehicle_no[]', v));
+        // }
     
         // Build URL and redirect
-        const url = `{{ route('b2b.admin.report.export_service_report') }}?${params.toString()}`;
-        window.location.href = url;
+        // const url = `{{ route('b2b.admin.report.export_service_report') }}?${params.toString()}`;
+        // window.location.href = url;
+        
+        const data = {
+        from_date: fromDate,
+        to_date: toDate,
+        date_range: dateRange,
+        zone_id: zone_id,
+        city_id: city_id,
+        customer_id:customer_id,
+        accountability_type:accountability_type,
+        vehicle_type:vehicle_type,
+        vehicle_model:vehicle_model,
+        vehicle_make:vehicle_make,
+        status:status,
+        vehicle_no:vehicle_no
+        
+    };
+
+    // Show Bootstrap modal
+    $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+
+    $.ajax({
+        url: "{{ route('b2b.admin.report.export_service_report') }}",
+        method: "GET",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "service_report-" + new Date().toISOString().split('T')[0] + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
     });
     
         function appendMultiSelect(params, key, values) {
