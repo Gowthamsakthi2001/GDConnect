@@ -406,7 +406,7 @@ class B2BReportController extends Controller
             
             return Excel::download(
                 new B2BDeploymentReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $status , $accountability_type,$vehicle_model,$vehicle_make),
-                'deployment-report-' . date('d-m-Y') . '.xlsx'
+                'deployment-report-' . date('d-m-Y') . '.csv'
             );
         }
    
@@ -725,17 +725,19 @@ class B2BReportController extends Controller
             $date_range = $request->date_range ?? null;
             $from_date = $request->from_date ?? null;
             $to_date = $request->to_date ?? null;
-            $vehicle_type = $request->vehicle_type ?? null;
-            $zone = $request->zone ?? null;
+            $vehicle_type = $request->vehicle_type ?? [];
+            $vehicle_model        = $request->input('vehicle_model', []);        
+            $vehicle_make         = $request->input('vehicle_make', []);  
+            $zone = $request->zone ?? [];
             $city = $request->city ?? null;
-            $vehicle_no = $request->vehicle_no ?? null;
-            $accountability_type = $request->accountability_type ?? null;
-            $status = $request->status ?? null;
+            $vehicle_no = $request->vehicle_no ?? [];
+            $accountability_type = $request->accountability_type ?? [];
+            $status = $request->status ?? [];
             
             
             return Excel::download(
-                new B2BServiceReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $accountability_type , $status),
-                'service-report-' . date('d-m-Y') . '.xlsx'
+                new B2BServiceReportExport($date_range , $from_date , $to_date , $vehicle_type ,$vehicle_model,$vehicle_make, $city , $zone , $vehicle_no , $accountability_type , $status),
+                'service-report-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -1018,7 +1020,7 @@ class B2BReportController extends Controller
             $vehicle_make      = $request->vehicle_make ?? [];
             return Excel::download(
                 new B2BReturnReportExport($date_range , $from_date , $to_date , $vehicle_type , $city , $zone , $vehicle_no , $accountability_type,$status,$vehicle_model,$vehicle_make),
-                'return-report-' . date('d-m-Y') . '.xlsx'
+                'return-report-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -1323,7 +1325,7 @@ class B2BReportController extends Controller
                     $request->vehicle_model ?? [],
                     $request->vehicle_make ?? []
                 ),
-                'accident-report-' . date('d-m-Y') . '.xlsx'
+                'accident-report-' . date('d-m-Y') . '.csv'
             );
         }
 
@@ -1641,7 +1643,7 @@ class B2BReportController extends Controller
                     $vehicle_model,
                     $vehicle_make
                 ),
-                'recovery-report-' . date('d-m-Y') . '.xlsx'
+                'recovery-report-' . date('d-m-Y') . '.csv'
             );
         }
 

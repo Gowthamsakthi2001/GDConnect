@@ -241,7 +241,7 @@ class B2BAgentController extends Controller
         }
     
         // ******** LOG PREPARATION ********
-        $fileName = 'agent_list-' . date('d-m-Y') . '.xlsx';
+        $fileName = 'agent_list-' . date('d-m-Y') . '.csv';
         $user     = Auth::user();
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
     

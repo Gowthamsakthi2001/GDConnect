@@ -463,7 +463,7 @@ class B2BReportController extends Controller
             $vehicle_model = (array) $request->input('vehicle_model', []);
             $vehicle_make = (array) $request->input('vehicle_make', []);
             
-            $fileName = 'deployment-report-' . date('d-m-Y') . '.xlsx';
+            $fileName = 'deployment-report-' . date('d-m-Y') . '.csv';
             
              // ZONE
             if (is_array($zone)) {
@@ -573,7 +573,7 @@ class B2BReportController extends Controller
     
             return Excel::download(
                 new B2BAdminDeploymentReportExport($date_range , $from_date , $to_date , $vehicle_type ,$vehicle_model,$vehicle_make, $city , $zone , $vehicle_no , $status , $customer_id ,$accountability_type),
-                'deployment-report-' . date('d-m-Y') . '.xlsx'
+                'deployment-report-' . date('d-m-Y') . '.csv'
             );
     }
     
@@ -856,7 +856,7 @@ class B2BReportController extends Controller
             $vehicle_type = (array) $request->input('vehicle_type', []);
             $vehicle_model = (array) $request->input('vehicle_model', []);
             $vehicle_make = (array) $request->input('vehicle_make', []);
-            $fileName = 'service-report-' . date('d-m-Y') . '.xlsx';
+            $fileName = 'service-report-' . date('d-m-Y') . '.csv';
             
              // ZONE
             if (is_array($zone)) {
@@ -959,7 +959,7 @@ class B2BReportController extends Controller
     
             return Excel::download(
                 new B2BAdminServiceReportExport($date_range , $from_date , $to_date , $vehicle_type ,$vehicle_model,$vehicle_make, $city , $zone , $vehicle_no , $accountability_type , $customer_id ,$status),
-                'service-report-' . date('d-m-Y') . '.xlsx'
+                'service-report-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -1241,7 +1241,7 @@ class B2BReportController extends Controller
             $vehicle_model = (array) $request->input('vehicle_model', []);
             $vehicle_make = (array) $request->input('vehicle_make', []);
             
-            $fileName = 'accident-report-' . date('d-m-Y') . '.xlsx';
+            $fileName = 'accident-report-' . date('d-m-Y') . '.csv';
             
              // ZONE
             if (is_array($zone)) {
@@ -1345,7 +1345,7 @@ class B2BReportController extends Controller
     
             return Excel::download(
                 new B2BAdminAccidentSummaryExport($date_range , $from_date , $to_date , $vehicle_type  ,$vehicle_model,$vehicle_make, $city , $zone , $vehicle_no , $status ,$accountability_type ,$customer_id),
-                'accident-report-' . date('d-m-Y') . '.xlsx'
+                'accident-report-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -1601,7 +1601,7 @@ class B2BReportController extends Controller
             $vehicle_type = (array) $request->input('vehicle_type', []);
             $vehicle_model = (array) $request->input('vehicle_model', []);
             $vehicle_make = (array) $request->input('vehicle_make', []);
-            $fileName = 'return-report-' . date('d-m-Y') . '.xlsx';
+            $fileName = 'return-report-' . date('d-m-Y') . '.csv';
             
             
              // ZONE
@@ -1707,7 +1707,7 @@ class B2BReportController extends Controller
 
             return Excel::download(
                 new B2BAdminReturnReportExport($date_range , $from_date , $to_date , $vehicle_type ,$vehicle_model,$vehicle_make, $city , $zone , $vehicle_no  ,$accountability_type ,$customer_id,$status),
-                'return-report-' . date('d-m-Y') . '.xlsx'
+                'return-report-' . date('d-m-Y') . '.csv'
             );
         }
         
@@ -1993,7 +1993,7 @@ class B2BReportController extends Controller
             $vehicle_model = (array) $request->input('vehicle_model', []);
             $vehicle_make = (array) $request->input('vehicle_make', []);
             
-            $fileName = 'recovery-report-' . date('d-m-Y') . '.xlsx';
+            $fileName = 'recovery-report-' . date('d-m-Y') . '.csv';
             
              // ZONE
             if (is_array($zone)) {
@@ -2097,7 +2097,7 @@ class B2BReportController extends Controller
     
             return Excel::download(
                 new B2BAdminRecoveryReportExport($date_range , $from_date , $to_date , $vehicle_type ,$vehicle_model,$vehicle_make, $city , $zone , $vehicle_no , $status , $customer_id ,$accountability_type),
-                'recovery-report-' . date('d-m-Y') . '.xlsx'
+                'recovery-report-' . date('d-m-Y') . '.csv'
             );
         }
 }

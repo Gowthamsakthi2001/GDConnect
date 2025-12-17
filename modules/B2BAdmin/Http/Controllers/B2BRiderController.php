@@ -207,27 +207,7 @@ public function list(Request $request)
         return view('b2badmin::rider.view', compact('rider'));
     }
     
-    //  public function rider_export(Request $request)
-    // {
-        
-    //     $fields    = $request->input('fields', []);  
-    //     $from_date = $request->input('from_date');
-    //     $to_date   = $request->input('to_date');
-    //     $zone = $request->input('zone_id')?? null;
-    //     $city = $request->input('city_id')?? null;
-    //      $selectedIds = $request->input('selected_ids', []);
-
-    
-    //     if (empty($fields)) {
-    //         return back()->with('error', 'Please select at least one field to export.');
-    //     }
-    
-    //     return Excel::download(
-    //         new B2BAdminRiderExport($from_date, $to_date, $selectedIds, $fields,$city,$zone),
-    //         'rider_list-' . date('d-m-Y') . '.xlsx'
-    //     );
-    // }
-    
+ 
 public function rider_export(Request $request)
 {
     $fields = $request->input('fields', []);
@@ -334,7 +314,7 @@ public function rider_export(Request $request)
     // -----------------------------------------
     // AUDIT LOG
     // -----------------------------------------
-    $fileName = 'rider_list-' . date('d-m-Y') . '.xlsx';
+    $fileName = 'rider_list-' . date('d-m-Y') . '.csv';
     $user = Auth::user();
     $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
 

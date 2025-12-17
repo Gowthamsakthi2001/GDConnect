@@ -429,7 +429,23 @@
           </div>
         </div>
         
-
+        <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+        
+              <div class="modal-header border-0">
+                <h5 class="modal-title w-100">Export in progress</h5>
+              </div>
+        
+              <div class="modal-body d-flex justify-content-center">
+                <img src="{{ asset('admin-assets/export_excel.gif') }}"
+                     alt="Loading..."
+                     style="width:350px; height:auto; object-fit:contain;">
+              </div>
+        
+            </div>
+          </div>
+        </div>
 @section('script_js')
 
 <script>
@@ -885,24 +901,62 @@ $(document).ready(function () {
     const zone_id = getMultiValues('#zone_id_1');
     const city_id = getMultiValues('#city_id_1');
     // ✅ Build query params
-    const params = new URLSearchParams();
+    // const params = new URLSearchParams();
  
-    if (datefilter) params.append('datefilter', datefilter);
-     if (fromDate) params.append('from_date', fromDate);
-    if (toDate) params.append('to_date', toDate);
+    // if (datefilter) params.append('datefilter', datefilter);
+    //  if (fromDate) params.append('from_date', fromDate);
+    // if (toDate) params.append('to_date', toDate);
     // if (zone_id) params.append('zone_id', zone_id);
     // if (city_id) params.append('city_id', city_id);
-    appendMultiSelect(params, 'zone_id', zone_id);
-    appendMultiSelect(params, 'city_id', city_id);
-    // append IDs
-    selected.forEach(id => params.append('selected_ids[]', id));
+    // appendMultiSelect(params, 'zone_id', zone_id);
+    // appendMultiSelect(params, 'city_id', city_id);
+    // // append IDs
+    // selected.forEach(id => params.append('selected_ids[]', id));
 
-    // append fields
-    selectedFields.forEach(f => params.append('fields[]', f));
+    // // append fields
+    // selectedFields.forEach(f => params.append('fields[]', f));
     
     
-    const url = `{{ route('b2b.admin.agent.agent_export') }}?${params.toString()}`;
-    window.location.href = url;
+    // const url = `{{ route('b2b.admin.agent.agent_export') }}?${params.toString()}`;
+    // window.location.href = url;
+    
+    const data = {
+        from_date: fromDate,
+        to_date: toDate,
+        datefilter: datefilter,
+        zone_id: zone_id,
+        city_id: city_id,
+        selected_ids: selected,
+        fields: selectedFields
+        
+    };
+
+    // Show Bootstrap modal
+    $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+
+    $.ajax({
+        url: "{{ route('b2b.admin.agent.agent_export') }}",
+        method: "GET",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "agent_list-" + new Date().toISOString().split('T')[0] + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
   });
 
     function appendMultiSelect(params, key, values) {

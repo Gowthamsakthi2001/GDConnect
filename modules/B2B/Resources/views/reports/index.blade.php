@@ -1,12 +1,22 @@
 @extends('layouts.b2b')
 
 @section('css')
+<style>
+.report-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.report-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+</style>
 @endsection
 
 @section('content')
 <div class="container-fluid">
     <!-- First Row -->
-    <div class="row g-2 g-md-3 mb-3"> <!-- gutter = 8px on small, 16px on md+ -->
+    <div class="row g-2 g-md-3 mb-3 "> <!-- gutter = 8px on small, 16px on md+ -->
     
         <!--<div class="col-md-4">-->
         <!--    <div class="d-flex align-items-center p-3" style="border-radius:8px; background-color:#FFFFFF;">-->
@@ -23,7 +33,7 @@
 
         <div class="col-md-4">
             <a href="{{route('b2b.reports.deployment_report')}}" style="color: black; text-decoration: none;">
-            <div class="d-flex align-items-center p-3" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 report-card" style="border-radius:8px; background-color:#FFFFFF;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon1.svg') }}" width="20" height="20" alt="icon">
                 </div>
@@ -38,7 +48,7 @@
 
         <div class="col-md-4">
             <a href="{{route('b2b.reports.service_report')}}" style="color: black; text-decoration: none;">
-            <div class="d-flex align-items-center p-3" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 report-card" style="border-radius:8px; background-color:#FFFFFF;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon1.svg') }}" width="20" height="20" alt="icon">
                 </div>
@@ -52,7 +62,7 @@
         
         <div class="col-md-4">
             <a href="{{route('b2b.reports.accident_report')}}" style="color: black; text-decoration: none;">
-            <div class="d-flex align-items-center p-3" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 report-card" style="border-radius:8px; background-color:#FFFFFF;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
                 </div>
@@ -74,7 +84,7 @@
         
         <div class="col-md-4">
             <a href="{{route('b2b.reports.recovery_report')}}" style="color: black; text-decoration: none;">
-            <div class="d-flex align-items-center p-3" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 report-card" style="border-radius:8px; background-color:#FFFFFF;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
                 </div>
@@ -88,7 +98,7 @@
 
         <div class="col-md-4">
             <a href="{{route('b2b.reports.return_report')}}" style="color: black; text-decoration: none;">
-            <div class="d-flex align-items-center p-3" style="border-radius:8px; background-color:#FFFFFF;">
+            <div class="d-flex align-items-center p-3 report-card" style="border-radius:8px; background-color:#FFFFFF;">
                 <div class="d-flex align-items-center justify-content-center me-2" style="width:40px; height:40px;">
                     <img src="{{ asset('b2b/img/report_icon2.svg') }}" width="20" height="20" alt="icon">
                 </div>

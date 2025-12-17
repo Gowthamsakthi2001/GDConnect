@@ -469,6 +469,24 @@
 
     </div>
 </div>
+
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+
+      <div class="modal-header border-0">
+        <h5 class="modal-title w-100">Export in progress</h5>
+      </div>
+
+      <div class="modal-body d-flex justify-content-center">
+        <img src="{{ asset('admin-assets/export_excel.gif') }}"
+             alt="Loading..."
+             style="width:350px; height:auto; object-fit:contain;">
+      </div>
+
+    </div>
+  </div>
+</div>
 @endsection
 
 
@@ -677,20 +695,14 @@ $(document).ready(function () {
     
     
     document.querySelector('.btn-export').addEventListener('click', function () {
-    const params = new URLSearchParams();
 
     // Date Range
     const dateRange = document.getElementById('filter-date-range').value;
     const fromDate  = document.getElementById('from-date').value;
     const toDate    = document.getElementById('to-date').value;
 
-    if (dateRange) params.append('date_range', dateRange);
-    if (fromDate)  params.append('from_date', fromDate);
-    if (toDate)    params.append('to_date', toDate);
-
     // City
-    const city = document.getElementById('city_id').value;
-    if (city) params.append('city', city);
+    const city_id = document.getElementById('city_id').value;
 
     // Multi-select helper
     const getMultiValues = (selector) =>
@@ -698,30 +710,63 @@ $(document).ready(function () {
 
     // Multi-select values
     const status   = getMultiValues('#recovery_status');
-    const vmake    = getMultiValues('#v_make');
-    const vmodel   = getMultiValues('#v_model');
-    const vtype    = getMultiValues('#vehicle_type');
-    const accType  = getMultiValues('#accountability_type');
-    const zones    = getMultiValues('#zone_id');
-
-    // Append multi-values as array[]
-    status.forEach(v  => params.append('status[]', v));
-    vmake.forEach(v   => params.append('vehicle_make[]', v));
-    vmodel.forEach(v  => params.append('vehicle_model[]', v));
-    vtype.forEach(v   => params.append('vehicle_type[]', v));
-    accType.forEach(v => params.append('accountability_type[]', v));
-    zones.forEach(v   => params.append('zone[]', v));
+    const vehicle_make    = getMultiValues('#v_make');
+    const vehicle_model   = getMultiValues('#v_model');
+    const vehicle_type    = getMultiValues('#vehicle_type');
+    const accountability_type  = getMultiValues('#accountability_type');
+    const zone_id    = getMultiValues('#zone_id');
 
     // Vehicle No
     const vehicleSelect = document.getElementById('vehicle_no');
-    if (vehicleSelect) {
-        const selectedVehicles = Array.from(vehicleSelect.selectedOptions).map(opt => opt.value);
-        selectedVehicles.forEach(v => params.append('vehicle_no[]', v));
-    }
+    const vehicle_no = vehicleSelect 
+        ? Array.from(vehicleSelect.selectedOptions).map(v => v.value)
+        : [];
+ 
+    const data = {
+        from_date: fromDate,
+        to_date: toDate,
+        date_range: dateRange,
 
-    // Build and redirect
-    const url = `{{ route('b2b.reports.export_recovery_report') }}?${params.toString()}`;
-    window.location.href = url;
+        vehicle_model: vehicle_model,
+        vehicle_make: vehicle_make,
+        vehicle_type: vehicle_type,
+        zone_id: zone_id,
+        city_id: city_id,
+        accountability_type: accountability_type,
+        vehicle_no: vehicle_no,  // FIXED
+        status: status
+    };
+
+    // Show export "processing" modal
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+
+    // -----------------------------
+    // AJAX download request
+    // -----------------------------
+    $.ajax({
+        url: "{{ route('b2b.reports.export_recovery_report') }}",
+        method: "GET",
+        data: data, 
+        xhrFields: { responseType: 'blob' },
+
+        success: function(blob) {
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "recovery_report-" + new Date().toISOString().split('T')[0] + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
 });
     
     function getMultiValues(selector) {

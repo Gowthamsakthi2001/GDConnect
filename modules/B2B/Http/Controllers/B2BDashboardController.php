@@ -351,7 +351,41 @@ public function index(Request $request)
     $vehicleIssue = $returnCounts['Vehicle Issue'];
     $noLongerNeeded = $returnCounts['No Longer Needed'];
     
+    $returnData = $applyFilter(
+        B2BReturnRequest::select('return_reason', DB::raw('COUNT(*) as total'))
+            ->whereHas('assignment.vehicle.quality_check', function ($query) use ($customerId, $accountability_Type, $user, $guard) {
+                $query->where('customer_id', $customerId)
+                      ->where('accountability_type', $accountability_Type);
     
+                if ($guard === 'master') {
+                    $query->where('location', $user->city_id);
+                } elseif ($guard === 'zone') {
+                    $query->where('location', $user->city_id)
+                          ->where('zone_id', $user->zone_id);
+                }
+            })
+            ->groupBy('return_reason'),
+        'request'
+    )->pluck('total', 'return_reason');
+
+    $accidentData = $applyFilter(
+        B2BReportAccident::select('accident_type', DB::raw('COUNT(*) as total'))
+            ->whereHas('assignment.vehicle.quality_check', function ($query) use ($customerId, $accountability_Type, $user, $guard) {
+                // Filter by customer
+                $query->where('customer_id', $customerId)
+                      ->where('accountability_type', $accountability_Type);
+    
+                if ($guard === 'master') {
+                    $query->where('location', $user->city_id);
+                } elseif ($guard === 'zone') {
+                    $query->where('location', $user->city_id)
+                          ->where('zone_id', $user->zone_id);
+                }
+            })
+            ->groupBy('accident_type'),
+        'request'
+    )->pluck('total', 'accident_type');
+
 
     // === Accident Types ===
     $accidentTypes = ['Collision', 'Fall', 'Fire', 'Other'];
@@ -502,7 +536,9 @@ public function index(Request $request)
         'vehicle_types',
         'vehicle_models',
         'vehicle_makes',
-        'totalRecovered'
+        'totalRecovered',
+        'returnData',
+        'accidentData'
         
     ));
 }
@@ -865,7 +901,32 @@ public function dashboard_data(Request $request)
         ->whereBetween('created_at', [$start_date, $end_date])->where('accident_type', 'Fire')->count();
     $other = $applyFilter(B2BReportAccident::query(), 'request')
         ->whereBetween('created_at', [$start_date, $end_date])->where('accident_type', 'Other')->count();
+    
+    //updated for dynamic bar chart
+    $returnData = $applyFilter(
+        B2BReturnRequest::select('return_reason', DB::raw('COUNT(*) as total'))
+            ->whereBetween('created_at', [$start_date, $end_date])
+            ->groupBy('return_reason'),
+        'request'
+    )
+    ->pluck('total', 'return_reason');
+    
+    $returnLabels = $returnData->keys();     // ["Contract End", "Performance Issue", ...]
+    $returnValues = $returnData->values();   // [10, 5, 2, 1]
+    
+    //updated for dynamic bar chart
+    $accidentData = $applyFilter(
+        B2BReportAccident::select('accident_type', DB::raw('COUNT(*) as total'))
+            ->whereBetween('created_at', [$start_date, $end_date])
+            ->groupBy('accident_type'),
+        'request'
+    )
+    ->pluck('total', 'accident_type');   // ['Collision' => 8, ...]
+    
+    $accidentLabels = $accidentData->keys();   // ["Collision", "Fall", ...]
+    $accidentValues = $accidentData->values(); // [8, 3, 1, 2]
 
+    
     // === Service Chart Data ===
     $serviceStatuses = ['unassigned', 'inprogress', 'closed'];
     $serviceChartData = [];
@@ -917,7 +978,13 @@ public function dashboard_data(Request $request)
         'total_vehicles' => $total_vehicles,
         'total_rfd_vehicles' => $total_rfd,
         'totalRecovered' => $totalRecovered,
-        'accountability_Type' => $accountability_Type
+        'accountability_Type' => $accountability_Type,
+        
+        'accidentLabels' => $accidentLabels,
+        'accidentValues' => $accidentValues,
+    
+        'returnLabels' => $returnLabels,
+        'returnValues' => $returnValues
     ]);
 }
 

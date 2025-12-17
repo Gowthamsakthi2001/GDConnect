@@ -488,7 +488,7 @@ class B2BServiceController extends Controller
     /* -------------------------------------
         BUILD AUDIT LOG TEXT
     -------------------------------------- */
-    $fileName = 'service-request-list-' . date('d-m-Y') . '.xlsx';
+    $fileName = 'service-request-list-' . date('d-m-Y') . '.csv';
     $user = Auth::user();
     $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';
 

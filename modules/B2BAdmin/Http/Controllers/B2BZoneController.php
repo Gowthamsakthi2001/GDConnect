@@ -349,7 +349,7 @@ public function export(Request $request)
         ? 'ALL'
         : implode(', ', array_map('strval', (array)$selectedIds));
 
-    $fileName = 'zones-list-' . date('d-m-Y') . '.xlsx';
+    $fileName = 'zones-list-' . date('d-m-Y') . '.csv';
 
     $user = Auth::user();
     $roleName = optional(\Modules\Role\Entities\Role::find(optional($user)->role))->name ?? 'Unknown';

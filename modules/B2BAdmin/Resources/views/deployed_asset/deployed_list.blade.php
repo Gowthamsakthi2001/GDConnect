@@ -498,7 +498,23 @@
           </div>
         </div>
         
-
+       <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content text-center p-3" style="border-radius:12px;background-color: #f8f9fa;">
+        
+              <div class="modal-header border-0">
+                <h5 class="modal-title w-100">Export in progress</h5>
+              </div>
+        
+              <div class="modal-body d-flex justify-content-center">
+                <img src="{{ asset('admin-assets/export_excel.gif') }}"
+                     alt="Loading..."
+                     style="width:350px; height:auto; object-fit:contain;">
+              </div>
+        
+            </div>
+          </div>
+        </div>
 @section('script_js')
 
 <script>
@@ -786,42 +802,84 @@ function clearRequestFilter() {
 
     const vehicle_type  = getMultiValues('#vehicle_type_id');
     const accountability_type = getMultiValues('#accountability_type_1');
-    const zone = getMultiValues('#zone_id');
-    const city = getMultiValues('#city_id');
+    const zone_id = getMultiValues('#zone_id');
+    const city_id = getMultiValues('#city_id');
     const customer_id = getMultiValues('#customer_master');
-    const params = new URLSearchParams();
+    // const params = new URLSearchParams();
  
-    if (fromDate) params.append('from_date', fromDate);
+    // if (fromDate) params.append('from_date', fromDate);
     // if (vehicle_type) params.append('vehicle_type', vehicle_type);
-    if (datefilter) params.append('datefilter', datefilter);
-    if (toDate) params.append('to_date', toDate);
+    // if (datefilter) params.append('datefilter', datefilter);
+    // if (toDate) params.append('to_date', toDate);
     // if (status) params.append('status', status);
     // if (city) params.append('city', city);
     // if (zone) params.append('zone', zone);
     // if (customer_id) params.append('customer_id', customer_id);
     // if (accountability_type) params.append('accountability_type', accountability_type);
     
-    appendMultiSelect(params, 'status', status);
+    // appendMultiSelect(params, 'status', status);
     
-        appendMultiSelect(params, 'vehicle_type', vehicle_type);
+    //     appendMultiSelect(params, 'vehicle_type', vehicle_type);
         
-        // others
-        appendMultiSelect(params, 'accountability_type', accountability_type);
-        appendMultiSelect(params, 'zone', zone);
-        appendMultiSelect(params, 'city', city);
-        appendMultiSelect(params, 'customer_id', customer_id);
+    //     // others
+    //     appendMultiSelect(params, 'accountability_type', accountability_type);
+    //     appendMultiSelect(params, 'zone', zone);
+    //     appendMultiSelect(params, 'city', city);
+    //     appendMultiSelect(params, 'customer_id', customer_id);
         
     // append IDs
-    selected.forEach(id => params.append('selected_ids[]', id));
+    // selected.forEach(id => params.append('selected_ids[]', id));
 
-    // append fields
-    selectedFields.forEach(f => params.append('fields[]', f));
+    // // append fields
+    // selectedFields.forEach(f => params.append('fields[]', f));
     
     
-    const url = `{{ route('b2b.admin.deployment_request.export') }}?${params.toString()}`;
-    window.location.href = url;
+    // const url = `{{ route('b2b.admin.deployment_request.export') }}?${params.toString()}`;
+    // window.location.href = url;
+    
+    const data = {
+        from_date: fromDate,
+        to_date: toDate,
+        datefilter: datefilter,
+        zone: zone_id,
+        city: city_id,
+        selected_ids: selected,
+        fields: selectedFields,
+        customer_id:customer_id,
+        accountability_type:accountability_type,
+        vehicle_type:vehicle_type,
+        status:status
+        
+    };
+
+    // Show Bootstrap modal
+    $("#export_select_fields_modal").modal('hide');
+    var exportmodal = new bootstrap.Modal(document.getElementById('exportModal'));
+    exportmodal.show();
+
+    $.ajax({
+        url: "{{ route('b2b.admin.deployment_request.export') }}",
+        method: "GET",
+        data: data,
+        xhrFields: { responseType: 'blob' },
+        success: function(blob) {
+
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = "deployment_request_list-" + new Date().toISOString().split('T')[0] + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            exportmodal.hide();
+        },
+        error: function() {
+            toastr.error("Network connection failed. Please try again.");
+            exportmodal.hide();
+        }
+    });
   });
-    
+     
         function appendMultiSelect(params, key, values) {
             if (values && values.length > 0) {
                 values.forEach(v => params.append(key + '[]', v));

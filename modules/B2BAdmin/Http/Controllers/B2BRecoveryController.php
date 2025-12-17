@@ -598,7 +598,7 @@ class B2BRecoveryController extends Controller
 
             return Excel::download(
                 new B2BAdminRecoveryRequestExport($from_date, $to_date, $selectedIds, $fields,$city,$zone,$status,$accountability_type,$customer_id , $vehicle_type , $vehicle_model, $vehicle_make, $date_filter),
-                'recovery-request-list-' . date('d-m-Y') . '.xlsx'
+                'recovery-request-list-' . date('d-m-Y') . '.csv'
             );
         }
     
