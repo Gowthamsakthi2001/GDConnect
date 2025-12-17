@@ -1,14 +1,14 @@
 <?php
-
 namespace App\Exports;
-
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Modules\B2B\Entities\B2BRider;
 use Illuminate\Support\Facades\Auth;
 use Modules\MasterManagement\Entities\CustomerLogin;
-class B2BAdminRiderExport implements FromCollection, WithHeadings, WithMapping
+class B2BAdminRiderExport implements FromQuery, WithHeadings, WithMapping, WithChunkReading
 {
     protected $from_date;
     protected $to_date;
@@ -28,97 +28,78 @@ class B2BAdminRiderExport implements FromCollection, WithHeadings, WithMapping
         $this->datefilter           = $datefilter;
         $this->customer           = (array) $customer;
     }
-
-    public function collection()
+    
+     public function query()
     {
-    //     $guard = Auth::guard('master')->check() ? 'master' : 'zone';
-    // $user  = Auth::guard($guard)->user();
-    // $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
-
-    // $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
-    //     ->where('city_id', $user->city_id)
-    //     ->pluck('id');
-        $query = B2BRider::with('customerLogin','vehicleRequest' , 'customerLogin.customer_relation');
+        $query = DB::table('b2b_tbl_riders as rider')
+            ->leftJoin('ev_tbl_customer_logins as cml', 'cml.id', '=', 'rider.created_by')
+            ->leftJoin('ev_tbl_customer_master as cm', 'cm.id', '=', 'cml.customer_id')
+            ->select('rider.*');
 
         if (!empty($this->selectedIds)) {
-            $query->whereIn('id', $this->selectedIds);
+            $query->whereIn('rider.id', $this->selectedIds);
         } else {
-            
-            // if ($customerLoginIds->isNotEmpty()) {
-            //         $query->whereIn('created_by', $customerLoginIds);
-            //     }
-            
-            // if ($guard === 'master') {
-            //     $query->where('createdby_city', $user->city_id);
-            // }
 
-            // if ($guard === 'zone') {
-            //     $query->where('createdby_city', $user->city_id)
-            //       ->where('assign_zone_id', $user->zone_id);
-            // }
-            
-            
             if (!empty($this->city)) {
-                // Zone: filter by city + zone
-            $query->whereIn('createdby_city', $this->city);
+                $query->whereIn('rider.createdby_city', $this->city);
             }
-                    
+
             if (!empty($this->zone)) {
-                // Zone: filter by city + zone
-                $query->whereIn('assign_zone_id', $this->zone);
+                $query->whereIn('rider.assign_zone_id', $this->zone);
             }
-            
+
             if (!empty($this->customer)) {
-                $query->whereHas('customerLogin.customer_relation', function ($q) {
-                    $q->whereIn('id', $this->customer);
-                });
+                $query->whereIn('cm.id', $this->customer);
             }
-            
+
             if (!empty($this->datefilter)) {
-            switch ($this->datefilter) {
+                switch ($this->datefilter) {
 
-                case 'today':
-                    $query->whereDate('created_at', today());
-                    break;
+                    case 'today':
+                        $query->whereDate('rider.created_at', today());
+                        break;
 
-                case 'week':
-                    $query->whereBetween('created_at', [
-                        now()->startOfWeek(),
-                        now()->endOfWeek(),
-                    ]);
-                    break;
+                    case 'week':
+                        $query->whereBetween('rider.created_at', [
+                            now()->startOfWeek(),
+                            now()->endOfWeek()
+                        ]);
+                        break;
+                     case 'last_15_days':
+                        $query->whereBetween('rider.created_at', [
+                            now()->subDays(14)->startOfDay(),
+                            now()->endOfDay()
+                        ]);
+                        break;
+                    case 'month':
+                        $query->whereMonth('rider.created_at', now()->month)
+                              ->whereYear('rider.created_at', now()->year);
+                        break;
 
-                case 'month':
-                    $query->whereMonth('created_at', now()->month)
-                          ->whereYear('created_at', now()->year);
-                    break;
+                    case 'year':
+                        $query->whereYear('rider.created_at', now()->year);
+                        break;
 
-                case 'year':
-                    $query->whereYear('created_at', now()->year);
-                    break;
-
-                case 'custom':
-                    if ($this->from_date) {
-                            $query->whereDate('created_at', '>=', $this->from_date);
+                    case 'custom':
+                        if ($this->from_date) {
+                            $query->whereDate('rider.created_at', '>=', $this->from_date);
                         }
-            
                         if ($this->to_date) {
-                            $query->whereDate('created_at', '<=', $this->to_date);
+                            $query->whereDate('rider.created_at', '<=', $this->to_date);
                         }
-                    break;
+                        break;
+                }
             }
         }
 
-        }
-
-        return $query->orderBy('id', 'desc')->get();
+        return $query->orderBy('rider.id', 'desc');
     }
 
         public function map($row): array
     {
         $mapped = [];
     
-        foreach ($this->selectedFields as $key) {  // now $key is just "email", "dob", etc.
+        foreach ($this->selectedFields as $key) {  
             switch ($key) {
                 case 'adhar_front':
                     $mapped[] = $row->adhar_front ? asset('b2b/aadhar_images/' . $row->adhar_front) : '-';
@@ -185,6 +166,11 @@ class B2BAdminRiderExport implements FromCollection, WithHeadings, WithMapping
         }
     
         return $headers;
+    }
+    
+    public function chunkSize(): int
+    {
+        return 1000;
     }
 
     

@@ -1,17 +1,19 @@
 <?php
-
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Modules\B2B\Entities\B2BVehicleRequests;
 use Modules\B2B\Entities\B2BVehicleAssignment;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Modules\MasterManagement\Entities\CustomerLogin;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Carbon\Carbon;
 
-class B2BAdminDeployedAssetExport implements FromCollection, WithHeadings, WithMapping
+class B2BAdminDeployedAssetExport implements FromQuery,WithMapping,WithHeadings, WithChunkReading
 {
     protected $from_date;
     protected $to_date;
@@ -45,315 +47,311 @@ class B2BAdminDeployedAssetExport implements FromCollection, WithHeadings, WithM
         
     }
 
-public function collection()
-{
-    // Base query using VehicleAssignment
-    // $query = B2BVehicleAssignment::where('status','!=','returned')->with([
-    $query = B2BVehicleAssignment::with([ // updated by Gowtham.S
-        'rider',
-        'vehicle.vehicle_type_relation',
-        'vehicle.vehicle_model_relation',
-        'VehicleRequest',       
-        'vehicle.quality_check',
-        'VehicleRequest.city', 
-        'VehicleRequest.zone',// eager load city through request
-        'VehicleRequest.rider.customerLogin.customer_relation',
-        'agent_relation',
-    ]);
-
-    if (!empty($this->selectedIds)) {
-        $query->whereIn('id', $this->selectedIds);
-    } else {
-        
-        $query->whereHas('VehicleRequest', function ($q) {
-
-            if (!empty($this->city) && !in_array('all',$this->city)) {
-                $q->whereIn('city_id', $this->city);
-            }
-
-            if (!empty($this->zone) && !in_array('all',$this->zone)) {
-                $q->whereIn('zone_id', $this->zone);
-            }
-
-            // if (!empty($this->city) && !in_array('all',$this->city)) {
-            //     $q->where('status', $this->status);
-            // }
-
-
-        });
-    }
-
-    //  if ($this->from_date != "" && $this->to_date != "") {
-    //     $query->whereDate('created_at', '>=', $this->from_date)
-    //           ->whereDate('created_at', '<=', $this->to_date);
-    // }
+    public function query()
+    {
+        $query = \DB::table('b2b_tbl_vehicle_assignments as ass')
+            ->join('ev_tbl_asset_master_vehicles as vh', 'vh.id', '=', 'ass.asset_vehicle_id')
+            ->leftJoin('b2b_tbl_vehicle_requests as vhr', 'vhr.req_id', '=', 'ass.req_id')
+            ->leftJoin('ev_tbl_accountability_types as actype', 'actype.id', '=', 'vhr.account_ability_type')
+            ->leftJoin('vehicle_qc_check_lists as qc', 'qc.id', '=', 'vh.qc_id')
+            ->leftJoin('ev_tbl_vehicle_models as vm', 'vm.id', '=', 'vh.model')
+            ->leftJoin('vehicle_types as vt', 'vt.id', '=', 'vh.vehicle_type')
+            ->leftJoin('ev_tbl_city as cty', 'cty.id', '=', 'qc.location')
+            ->leftJoin('zones as zn', 'zn.id', '=', 'qc.zone_id')
+            ->leftJoin('b2b_tbl_riders as rider', 'rider.id', '=', 'ass.rider_id')
+            ->leftJoin('users as agent', 'agent.id', '=', 'ass.assigned_agent_id')
+            ->leftJoin('ev_tbl_customer_logins as cml', 'cml.id', '=', 'vhr.created_by')
+            ->leftJoin('ev_tbl_customer_master as cm', 'cm.id', '=', 'cml.customer_id')
+            ->where('vh.is_status', 'accepted');
     
-            if ($this->date_filter) {
-        
-            switch ($this->date_filter) {
-                
-                case 'today':
-                    $query->whereDate('created_at', now()->toDateString());
-                    break;
-        
-                case 'week':
-                    $query->whereDate('created_at', '>=', now()->startOfWeek())
-                          ->whereDate('created_at', '<=', now()->endOfWeek());
-                    break;
-                
-                case 'last_15_days':
-                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
-                              ->whereYear('created_at', now()->endOfDay());
-                        break;
-                case 'month':
-                    $query->whereDate('created_at', '>=', now()->startOfMonth())
-                          ->whereDate('created_at', '<=', now()->endOfMonth());
-                    break;
-        
-                case 'year':
-                    $query->whereDate('created_at', '>=', now()->startOfYear())
-                          ->whereDate('created_at', '<=', now()->endOfYear());
-                    break;
-        
-                case 'custom':
-
-                    if ($this->from_date && $this->to_date) {
-                        $query->whereDate('created_at', '>=', $this->from_date)
-                              ->whereDate('created_at', '<=', $this->to_date);
-                    }
-                    break;
-            }
+        if (!empty($this->selectedIds)) {
+            $query->whereIn('ass.id', $this->selectedIds);
         }
-
-        if (!empty($this->vehicle_type) && !in_array('all',$this->vehicle_type)) {
-            $query->whereHas('vehicle.quality_check', function ($q) {
-                $q->where('vehicle_type', $this->vehicle_type);
-            });
+    
+        if (!empty($this->city) && !in_array('all', $this->city)) {
+            $query->whereIn('cty.id', $this->city);
         }
-
-        // Vehicle Model Filter
-        if (!empty($this->vehicle_model) && !in_array('all',$this->vehicle_model)) {
-            $query->whereHas('vehicle.quality_check', function ($q) {
-                $q->where('vehicle_model', $this->vehicle_model);
-            });
+    
+        if (!empty($this->zone) && !in_array('all', $this->zone)) {
+            $query->whereIn('zn.id', $this->zone);
         }
-        
-        if (!empty($this->vehicle_make) && !in_array('all',$this->vehicle_make)) {
-            $query->whereHas('vehicle.quality_check.vehicle_model_relation', function ($q) {
-                $q->where('make', $this->vehicle_make);
-            });
+    
+        if (!empty($this->status) && !in_array('all', $this->status)) {
+            $query->whereIn('ass.status', $this->status);
         }
-        
-        if (!empty($this->accountability_type) && !in_array('all',$this->accountability_type)) {
-            $query->whereHas('vehicle.quality_check', function ($q) {
-                $q->where('accountability_type', $this->accountability_type);
-            });
+    
+        if (!empty($this->vehicle_type) && !in_array('all', $this->vehicle_type)) {
+            $query->whereIn('qc.vehicle_type', $this->vehicle_type);
         }
-        
-        if (!empty($this->customer_id) && !in_array('all',$this->customer_id)) {
-            $customer_id = $this->customer_id;
-        
-            if (in_array(1,$this->accountability_type)) {
-        
-                // Accountability = 1 → Filter using vehicle.client
-                $query->whereHas('vehicle', function ($q) use ($customer_id) {
-                    $q->whereIn('client', $customer_id);
-                });
-        
+    
+        if (!empty($this->vehicle_model) && !in_array('all', $this->vehicle_model)) {
+            $query->whereIn('qc.vehicle_model', $this->vehicle_model);
+        }
+    
+        if (!empty($this->vehicle_make) && !in_array('all', $this->vehicle_make)) {
+            $query->whereIn('vm.make', $this->vehicle_make);
+        }
+    
+        if (!empty($this->accountability_type) && !in_array('all', $this->accountability_type)) {
+            $query->whereIn('qc.accountability_type', $this->accountability_type);
+        }
+    
+        if (!empty($this->customer_id) && !in_array('all', $this->customer_id)) {
+            if (in_array(1, $this->accountability_type)) {
+                $query->whereIn('vh.client', $this->customer_id);
             } else {
-        
-                // Accountability = 2 → Filter using quality_check.customer_id
-                $query->whereHas('vehicle.quality_check', function ($q) use ($customer_id) {
-                    $q->whereIn('customer_id', $customer_id);
-                });
-        
+                $query->whereIn('qc.customer_id', $this->customer_id);
             }
         }
-        if(!empty($this->status) && !in_array('all',$this->status)){
-             $query->whereIn('status',$this->status);
-        }
-       
-      $data = $query->orderBy('id', 'desc')
-                      ->get()
-                      ->unique('asset_vehicle_id')
-                      ->values(); // reset array keys
-    return $data;
     
-}
+        if ($this->date_filter && $this->date_filter !== 'all') {
+            switch ($this->date_filter) {
+                case 'today':
+                    $query->whereDate('ass.created_at', now());
+                    break;
+    
+                case 'week':
+                    $query->whereBetween('ass.created_at', [now()->startOfWeek(), now()->endOfWeek()]);
+                    break;
+                    
+                case 'last_15_days':
+                    $query->whereBetween('ass.created_at', [now()->subDays(14)->startOfDay(),now()->endOfDay()]);
+                    break;
+    
+                case 'month':
+                    $query->whereBetween('ass.created_at', [now()->startOfMonth(), now()->endOfMonth()]);
+                    break;
+    
+                case 'year':
+                    $query->whereBetween('ass.created_at', [now()->startOfYear(), now()->endOfYear()]);
+                    break;
+            }
+            if ($this->from_date) {
+                $query->whereDate('ass.created_at', '>=', $this->from_date);
+            }
 
+            if ($this->to_date) {
+                $query->whereDate('ass.created_at', '<=', $this->to_date);
+            }
+        }
+    
+        return $query
+            ->whereIn('ass.id', function ($q) {
+                $q->selectRaw('MAX(id)')
+                  ->from('b2b_tbl_vehicle_assignments')
+                  ->groupBy('asset_vehicle_id');
+            })
+            ->orderBy('ass.id', 'desc')
+            ->select([
+                'ass.id',
+                'ass.req_id',
+                'ass.asset_vehicle_id',
+                'ass.handover_type',
+                'ass.created_at',
+                'ass.status',
+                'actype.name as accountability_type',
+                'vh.chassis_number',
+    
+                'vt.name as vehicle_type_name',
+                'vm.vehicle_model',
+                'vm.make',
+    
+                'cty.city_name',
+                'zn.name as zone_name',
+    
+                'agent.name as agent_name',
+                'agent.email as agent_email',
+                'agent.address as agent_address',
+    
+                'rider.name as rider_name',
+                'rider.mobile_no',
+                'rider.email',
+                'rider.dob',
+                'rider.adhar_front',
+                'rider.adhar_back',
+                'rider.adhar_number',
+                'rider.pan_front',
+                'rider.pan_back',
+                'rider.pan_number',
+                'rider.driving_license_front',
+                'rider.driving_license_back',
+                'rider.driving_license_number',
+                'rider.llr_image',
+                'rider.llr_number',
+    
+                'cm.trade_name as client_name',
+                'cm.phone as client_contact',
+                'cm.email as client_email',
+                'cm.start_date',
+                'cm.end_date',
+            ]);
+    }
 
     public function map($row): array
     {
         $mapped = [];
-
+    
         foreach ($this->selectedFields as $key) {
+    
             switch ($key) {
+    
                 case 'request_id':
                     $mapped[] = $row->req_id ?? '-';
                     break;
-
+                 case 'ac_type':
+                    $mapped[] = $row->accountability_type ?? '-';
+                    break;
+    
                 case 'vehicle_id':
                     $mapped[] = $row->asset_vehicle_id ?? '-';
                     break;
-
+    
                 case 'chassis_number':
-                    $mapped[] = $row->vehicle->chassis_number ?? '-';
+                    $mapped[] = $row->chassis_number ?? '-';
                     break;
-
+    
                 case 'vehicle_type':
-                    $mapped[] = $row->vehicle->vehicle_type_relation->name ?? '-';
+                    $mapped[] = $row->vehicle_type_name ?? '-';
                     break;
-                
+    
                 case 'vehicle_model':
-                    $mapped[] = $row->vehicle->vehicle_model_relation->vehicle_model ?? '-';
+                    $mapped[] = $row->vehicle_model ?? '-';
                     break;
-                
+    
                 case 'vehicle_make':
-                    $mapped[] = $row->vehicle->vehicle_model_relation->make ?? '-';
+                    $mapped[] = $row->make ?? '-';
                     break;
-                    
+    
                 case 'contract_start_date':
-                    
-                    $contract_start_date = $row->VehicleRequest->rider->customerlogin->customer_relation->start_date ?? '';
-                    $contract_start_date_format = 'N/A';
-                    
-                    if (!empty($contract_start_date)) {
-                        $contract_start_date_format = \Carbon\Carbon::parse($contract_start_date)->format('d M Y');
-                    }
-                    
-                    $mapped[] = $contract_start_date_format; //updated by Gowtham.S
+                    $mapped[] = $row->start_date 
+                        ? \Carbon\Carbon::parse($row->start_date)->format('d M Y') 
+                        : 'N/A';
                     break;
-                
+    
                 case 'contract_expiry_date':
-                    
-                    $contract_end_date = $row->VehicleRequest->rider->customerlogin->customer_relation->end_date ?? '';
-                    $contract_end_date_format = 'N/A';
-                    
-                    if (!empty($contract_end_date)) {
-                        $contract_end_date_format = \Carbon\Carbon::parse($contract_end_date)->format('d M Y');
-                    }
-                    
-                    $mapped[] = $contract_end_date_format;
+                    $mapped[] = $row->end_date 
+                        ? \Carbon\Carbon::parse($row->end_date)->format('d M Y') 
+                        : 'N/A';
                     break;
-                    
-
+    
                 case 'handover_type':
                     $mapped[] = $row->handover_type ?? '-';
                     break;
-
+    
                 case 'handover_time':
-                    $mapped[] = $row->created_at ? Carbon::parse($row->created_at)->format('d M Y, h:i A') : '-';
+                    $mapped[] = $row->created_at 
+                        ? \Carbon\Carbon::parse($row->created_at)->format('d M Y, h:i A') 
+                        : '-';
                     break;
-
+    
                 case 'city':
-                    $mapped[] = $row->VehicleRequest->city->city_name ?? '-';
+                    $mapped[] = $row->city_name ?? '-';
                     break;
-
-                case 'agent_name':
-                    $mapped[] = $row->agent_relation->name ?? '-';
-                    break;
-                    
-                case 'agent_email':
-                    $mapped[] = $row->agent_relation->email ?? '-';
-                    break;
-                    
-                case 'agent_address':
-                    $mapped[] = $row->agent_relation->address ?? '-';
-                    break;    
-                    
-                    
+    
                 case 'zone':
-                    $mapped[] = $row->VehicleRequest->zone->name ?? '-';
+                    $mapped[] = $row->zone_name ?? '-';
                     break;
-
+    
                 case 'status':
-                    $mapped[] = ucwords(str_replace('_', ' ', $row->status ?? '-'));
+                    $mapped[] = ucfirst(str_replace('_', ' ', $row->status ?? '-'));
                     break;
-                
+    
                 case 'client_name':
-                    $mapped[] = optional($row->VehicleRequest->rider->customerLogin->customer_relation)->trade_name ?? '-';
+                    $mapped[] = $row->client_name ?? '-';
                     break;
-                
+    
                 case 'client_contact':
-                    $mapped[] = optional($row->VehicleRequest->rider->customerLogin->customer_relation)->phone ?? '-';
+                    $mapped[] = $row->client_contact ?? '-';
                     break;
-                
+    
                 case 'client_email':
-                    $mapped[] = optional($row->VehicleRequest->rider->customerLogin->customer_relation)->email ?? '-';
+                    $mapped[] = $row->client_email ?? '-';
                     break;
-                    
+    
+                case 'agent_name':
+                    $mapped[] = $row->agent_name ?? '-';
+                    break;
+    
+                case 'agent_email':
+                    $mapped[] = $row->agent_email ?? '-';
+                    break;
+    
+                case 'agent_address':
+                    $mapped[] = $row->agent_address ?? '-';
+                    break;
+    
                 case 'name':
-                    $mapped[] = optional($row->rider)->name ?? '-';
+                    $mapped[] = $row->rider_name ?? '-';
                     break;
-
+    
                 case 'mobile_no':
-                    $mapped[] = optional($row->rider)->mobile_no ?? '-';
+                    $mapped[] = $row->mobile_no ?? '-';
                     break;
-
+    
                 case 'email':
-                    $mapped[] = optional($row->rider)->email ?? '-';
+                    $mapped[] = $row->email ?? '-';
                     break;
-
+    
                 case 'dob':
-                    $mapped[] = optional($row->rider)->dob ?? '-';
+                    $mapped[] = $row->dob ?? '-';
                     break;
-
+    
                 case 'adhar_front':
-                    $mapped[] = optional($row->rider)->adhar_front 
-                        ? asset('b2b/aadhar_images/' . $row->rider->adhar_front) : '-';
-                    break;
+                $mapped[] = $row->adhar_front
+                    ? asset('b2b/aadhar_images/' . $row->adhar_front) : '-';
+                break;
 
-                case 'adhar_back':
-                    $mapped[] = optional($row->rider)->adhar_back 
-                        ? asset('b2b/aadhar_images/' . $row->rider->adhar_back) : '-';
-                    break;
+            case 'adhar_back':
+                $mapped[] = $row->adhar_back
+                    ? asset('b2b/aadhar_images/' . $row->adhar_back) : '-';
+                break;
 
-                case 'adhar_number':
-                    $mapped[] = optional($row->rider)->adhar_number ?? '-';
-                    break;
+            case 'adhar_number':
+                $mapped[] = $row->adhar_number ?? '-';
+                break;
 
-                case 'pan_front':
-                    $mapped[] = optional($row->rider)->pan_front 
-                        ? asset('b2b/pan_images/' . $row->rider->pan_front) : '-';
-                    break;
+            case 'pan_front':
+                $mapped[] = $row->pan_front
+                    ? asset('b2b/pan_images/' . $row->pan_front) : '-';
+                break;
 
-                case 'pan_back':
-                    $mapped[] = optional($row->rider)->pan_back 
-                        ? asset('b2b/pan_images/' . $row->rider->pan_back) : '-';
-                    break;
+            case 'pan_back':
+                $mapped[] = $row->pan_back
+                    ? asset('b2b/pan_images/' . $row->pan_back) : '-';
+                break;
 
-                case 'pan_number':
-                    $mapped[] = optional($row->rider)->pan_number ?? '-';
-                    break;
+            case 'pan_number':
+                $mapped[] = $row->pan_number ?? '-';
+                break;
 
-                case 'driving_license_front':
-                    $mapped[] = optional($row->rider)->driving_license_front 
-                        ? asset('b2b/driving_license_images/' . $row->rider->driving_license_front) : '-';
-                    break;
+            case 'driving_license_front':
+                $mapped[] = $row->driving_license_front
+                    ? asset('b2b/driving_license_images/' . $row->driving_license_front) : '-';
+                break;
 
-                case 'driving_license_back':
-                    $mapped[] = optional($row->rider)->driving_license_back 
-                        ? asset('b2b/driving_license_images/' . $row->rider->driving_license_back) : '-';
-                    break;
+            case 'driving_license_back':
+                $mapped[] = $row->driving_license_back
+                    ? asset('b2b/driving_license_images/' . $row->driving_license_back) : '-';
+                break;
 
-                case 'driving_license_number':
-                    $mapped[] = optional($row->rider)->driving_license_number ?? '-';
-                    break;
+            case 'driving_license_number':
+                $mapped[] = $row->driving_license_number ?? '-';
+                break;
 
-                case 'llr_image':
-                    $mapped[] = optional($row->rider)->llr_image 
-                        ? asset('b2b/llr_images/' . $row->rider->llr_image) : '-';
-                    break;
+            case 'llr_image':
+                $mapped[] = $row->llr_image
+                    ? asset('b2b/llr_images/' . $row->llr_image) : '-';
+                break;
 
-                case 'llr_number':
-                    $mapped[] = optional($row->rider)->llr_number ?? '-';
-                    break;
+            case 'llr_number':
+                $mapped[] = $row->llr_number ?? '-';
+                break;
 
-                default:
-                    $mapped[] = $row->$key ?? '-';
+            default:
+                $mapped[] = $row->$key ?? '-';
             }
         }
-
+    
         return $mapped;
     }
 
@@ -363,6 +361,7 @@ public function collection()
 
         $customHeadings = [
             'request_id'             => 'Request ID',
+            'ac_type'                => 'Accountablity Type',
             'vehicle_id'             => 'Vehicle ID',
             'chassis_number'         => 'Chassis Number',
             'vehicle_type'           => 'Vehicle Type',
@@ -402,4 +401,10 @@ public function collection()
 
         return $headers;
     }
+    
+    public function chunkSize(): int
+    {
+        return 1000; 
+    }
+
 }

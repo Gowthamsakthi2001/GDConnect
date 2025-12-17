@@ -840,7 +840,7 @@ class EvDeliveryManAuthController extends Controller
             'apply_job_source' => 'required|string|max:255',
             'referral' => 'nullable|string|max:255',
             'job_agency' => 'nullable|string|max:255',
-            'photo' => 'required|image|max:1024', // //1MB Accept
+            'photo' => 'required|image', // //1MB Accept
             'aadhar_card_front' => 'required|image',//1MB Accept
             'aadhar_card_back' => 'required|image',
             'aadhar_number' => 'required|string|max:12',

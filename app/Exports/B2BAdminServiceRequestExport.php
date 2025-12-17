@@ -1,13 +1,14 @@
 <?php
-
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Modules\B2B\Entities\B2BServiceRequest;
-
-class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, WithMapping
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+class B2BAdminServiceRequestExport implements FromQuery,WithMapping,WithHeadings, WithChunkReading
 {
     protected $from_date;
     protected $to_date;
@@ -15,13 +16,13 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
     protected $selectedFields;
     protected $city=[];
     protected $zone=[];
-    protected $accountability_type=[]; //updated by logesh
-    protected $customer_id=[]; //updated by logesh
-    protected $status=[]; //updated by logesh
-    protected $vehicle_type=[]; //updated by logesh
-    protected $vehicle_model=[]; //updated by logesh
-    protected $vehicle_make=[]; //updated by logesh
-    protected $date_filter; //updated by logesh
+    protected $accountability_type=[];
+    protected $customer_id=[];
+    protected $status=[];
+    protected $vehicle_type=[];
+    protected $vehicle_model=[];
+    protected $vehicle_make=[];
+    protected $date_filter;
 
     public function __construct($from_date, $to_date, $selectedIds = [], $selectedFields = [], $city = [], $zone = [], $status =[] ,$accountability_type = [],$customer_id=[] , $vehicle_type=[] , $vehicle_model=[],$vehicle_make=[], $date_filter)
     {
@@ -31,247 +32,247 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
         $this->selectedFields = $selectedFields;
         $this->city           = (array)$city;
         $this->zone           = (array)$zone;
-        $this->accountability_type = (array)$accountability_type; //updated by logesh
-        $this->customer_id =(array) $customer_id; //updated by logesh
-        $this->status = (array)$status; //updated by logesh
-        $this->vehicle_type =(array) $vehicle_type; //updated by logesh
-        $this->vehicle_model = (array)$vehicle_model; //updated by logesh
-        $this->vehicle_make =(array) $vehicle_make; //updated by logesh
-        $this->date_filter = $date_filter; //updated by logesh
+        $this->accountability_type = (array)$accountability_type;
+        $this->customer_id =(array) $customer_id;
+        $this->status = (array)$status;
+        $this->vehicle_type =(array) $vehicle_type;
+        $this->vehicle_model = (array)$vehicle_model;
+        $this->vehicle_make =(array) $vehicle_make;
+        $this->date_filter = $date_filter;
     }
-
-    public function collection()
+    
+    public function query()
     {
-        $query = B2BServiceRequest::with([
-            'assignment.VehicleRequest.city',
-            'assignment.VehicleRequest.zone',
-            'assignment.vehicle',
-            'assignment.vehicle.quality_check',
-            'assignment.rider.customerlogin.customer_relation'
-        ]);
-
+        $query = DB::table('b2b_tbl_service_request as vsr')
+            ->leftJoin('b2b_tbl_vehicle_assignments as ass', 'vsr.assign_id', '=', 'ass.id')
+            ->leftJoin('b2b_tbl_vehicle_requests as vhr', 'vhr.req_id', '=', 'ass.req_id')
+            ->leftJoin('ev_tbl_asset_master_vehicles as vh', 'vh.id', '=', 'ass.asset_vehicle_id')
+            ->leftJoin('vehicle_qc_check_lists as vqc', 'vqc.id', '=', 'vh.qc_id')
+            ->leftJoin('ev_tbl_vehicle_models as vmd', 'vmd.id', '=', 'vqc.vehicle_model')
+            ->leftJoin('ev_tbl_accountability_types as actype', 'actype.id', '=', 'vhr.account_ability_type')
+            ->leftJoin('b2b_tbl_riders as rider', 'rider.id', '=', 'vhr.rider_id')
+            ->leftJoin('ev_tbl_city as cty', 'cty.id', '=', 'vhr.city_id')
+            ->leftJoin('zones as zn', 'zn.id', '=', 'vhr.zone_id')
+            ->leftJoin('vehicle_types as vt', 'vt.id', '=', 'vqc.vehicle_type')
+            ->leftJoin('ev_tbl_customer_logins as cml', 'cml.id', '=', 'vsr.created_by')
+            ->leftJoin('ev_tbl_customer_master as cm', 'cm.id', '=', 'cml.customer_id')
+            ->select([
+                'vsr.*',
+                'vhr.req_id as req_id',
+                'actype.name as accountability_name',
+                'rider.name as rider_name',
+                'rider.mobile_no as rider_mobile',
+                'cty.city_name as city_name',
+                'zn.name as zone_name',
+                'vt.name as vehicle_type_name',
+                'cm.trade_name as client_name',
+                'cm.id as client_id',
+                'ass.asset_vehicle_id',
+                'vh.permanent_reg_number',
+                'vh.chassis_number',
+                'vqc.vehicle_model',
+                'vmd.vehicle_model as vehicle_model_name',
+                'vmd.make as vehicle_make',
+            ]);
+    
         if (!empty($this->selectedIds)) {
-            $query->whereIn('id', $this->selectedIds);
-        } else {
-            if (!empty($this->city) && !in_array('all',$this->city)) {
-                $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->whereIn('city_id', $this->city);
-                });
+            $query->whereIn('vsr.id', $this->selectedIds);
+        }
+        else {
+    
+            if (!empty($this->city) && !in_array('all', $this->city)) {
+                $query->whereIn('vhr.city_id', $this->city);
             }
-
-            if (!empty($this->zone) && !in_array('all',$this->zone)) {
-                $query->whereHas('assignment.VehicleRequest', function ($q) {
-                    $q->whereIn('zone_id', $this->zone);
-                });
+        
+            if (!empty($this->zone) && !in_array('all', $this->zone)) {
+                $query->whereIn('vhr.zone_id', $this->zone);
             }
-            
             if (!empty($this->vehicle_model) && !in_array('all',$this->vehicle_model)) {
-                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
-                    $q->whereIn('vehicle_model', $this->vehicle_model);
-                });
+                $query->whereIn('vqc.vehicle_model', $this->vehicle_model);
+            }
+        
+            if (!empty($this->vehicle_type) && !in_array('all', $this->vehicle_type)) {
+                $query->whereIn('vqc.vehicle_type', $this->vehicle_type);
             }
             
-            if (!empty($this->vehicle_type) && !in_array('all',$this->vehicle_type)) {
-                $query->whereHas('assignment.vehicle.quality_check', function ($q) {
-                    $q->whereIn('vehicle_type', $this->vehicle_type);
-                });
+            if (!empty($this->vehicle_make) && !in_array('all', $this->vehicle_make)) {
+                $query->whereIn('vmd.make', $this->vehicle_make);
             }
-            
-            if (!empty($this->vehicle_make) && !in_array('all',$this->vehicle_make)) {
-                $query->whereHas('assignment.vehicle.quality_check.vehicle_model_relation', function ($q) {
-                    $q->whereIn('make', $this->vehicle_make);
-                });
+        
+            if (!empty($this->status) && !in_array('all', $this->status)) {
+                $query->whereIn('vsr.status', (array)$this->status);
+            }
+        
+            if (!empty($this->accountability_type) && !in_array('all', $this->accountability_type)) {
+                $query->whereIn('vhr.account_ability_type', $this->accountability_type);
+            }
+        
+            if (!empty($this->customer_id) && !in_array('all', $this->customer_id)) {
+                $query->whereIn('cm.id', $this->customer_id);
             }
             
             if (!empty($this->date_filter)) {
                 switch ($this->date_filter) {
             
                     case 'today':
-                        $query->whereDate('created_at', today());
+                        $query->whereDate('vsr.created_at', today());
                         break;
             
                     case 'week':
-                        $query->whereBetween('created_at', [
+                        $query->whereBetween('vsr.created_at', [
                             now()->startOfWeek(),
                             now()->endOfWeek(),
                         ]);
                         break;
+    
                     case 'last_15_days':
-                        $query->whereMonth('created_at', now()->subDays(14)->startOfDay())
-                              ->whereYear('created_at', now()->endOfDay());
+                        $query->whereBetween('vsr.created_at', [now()->subDays(14)->startOfDay(),now()->endOfDay()]);
                         break;
                     case 'month':
-                        $query->whereMonth('created_at', now()->month)
-                              ->whereYear('created_at', now()->year);
+                        $query->whereMonth('vsr.created_at', now()->month)
+                              ->whereYear('vsr.created_at', now()->year);
                         break;
             
                     case 'year':
-                        $query->whereYear('created_at', now()->year);
+                        $query->whereYear('vsr.created_at', now()->year);
                         break;
-            
-                    // custom handled outside
                 }
             }
-
-            if ($this->from_date) {
-                $query->whereDate('created_at', '>=', $this->from_date);
+        
+            if (!empty($this->from_date)) {
+                $query->whereDate('vsr.created_at', '>=', $this->from_date);
             }
-            
-            if (!empty($this->status) && !in_array('all',$this->status)) {
-                $query->where('status', $this->status);
-            }
-
-
-            if ($this->to_date) {
-                $query->whereDate('created_at', '<=', $this->to_date);
-            }
-            //updated by logesh
-            if (!empty($this->accountability_type) && !in_array('all',$this->accountability_type)) {
-                $query->wherehas('assignment.VehicleRequest', function ($p) {
-                     $p->where('account_ability_type', $this->accountability_type);
-                });
-            }
-            //updated by logesh
-            if (!empty($this->customer_id) && !in_array('all',$this->customer_id)) {
-                $query->wherehas('assignment.VehicleRequest.rider.customerLogin.customer_relation', function ($p) {
-                     $p->where('id', $this->customer_id);
-                });
+        
+            if (!empty($this->to_date)) {
+                $query->whereDate('vsr.created_at', '<=', $this->to_date);
             }
         }
-
-        return $query->orderBy('id', 'desc')->get();
+    
+        return $query
+            ->orderBy('vsr.id', 'desc'); 
     }
 
+    
     public function map($row): array
     {
         $mapped = [];
-
-
         if ($row->status === 'closed') {
             $created   = \Carbon\Carbon::parse($row->created_at);
             $completed = \Carbon\Carbon::parse($row->updated_at);
-            $diffInDays = $created->diffInDays($completed);
-            $diffInHours = $created->diffInHours($completed);
-            $diffInMinutes = $created->diffInMinutes($completed);
-        
-            if ($diffInDays > 0) {
-                $aging = $diffInDays . ' days';
-            } elseif ($diffInHours > 0) {
-                $aging = $diffInHours . ' hours';
-            } else {
-                $aging = $diffInMinutes . ' mins';
-            }
         } else {
             $created   = \Carbon\Carbon::parse($row->created_at);
-            $now       = now();
-            $diffInDays = $created->diffInDays($now);
-            $diffInHours = $created->diffInHours($now);
-            $diffInMinutes = $created->diffInMinutes($now);
-        
-            if ($diffInDays > 0) {
-                $aging = $diffInDays . ' days';
-            } elseif ($diffInHours > 0) {
-                $aging = $diffInHours . ' hours';
-            } else {
-                $aging = $diffInMinutes . ' mins';
-            }
+            $completed = now();
         }
-
+    
+        $diffInDays    = $created->diffInDays($completed);
+        $diffInHours   = $created->diffInHours($completed);
+        $diffInMinutes = $created->diffInMinutes($completed);
+    
+        if ($diffInDays > 0) {
+            $aging = $diffInDays . ' days';
+        } elseif ($diffInHours > 0) {
+            $aging = $diffInHours . ' hours';
+        } else {
+            $aging = $diffInMinutes . ' mins';
+        }
+    
         foreach ($this->selectedFields as $key) {
             switch ($key) {
+    
                 case 'req_id':
-                    $mapped[] = $row->assignment->VehicleRequest->req_id ?? '-';
+                    $mapped[] = $row->req_id ?? '-';
                     break;
-                
+    
                 case 'ticket_id':
                     $mapped[] = $row->ticket_id ?? '-';
                     break;
-                
-                //updated by logesh
+    
                 case 'accountability_type':
-                    $mapped[] = $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-';
+                    $mapped[] = $row->accountability_name ?? '-';
                     break;
-                    
+    
                 case 'rider_name':
-                    $mapped[] = $row->assignment->rider->name ?? '-';
+                    $mapped[] = $row->rider_name ?? '-';
                     break;
-
+    
                 case 'vehicle_no':
-                    $mapped[] = $row->assignment->vehicle->permanent_reg_number ?? '-';
+                    $mapped[] = $row->permanent_reg_number ?? '-';
                     break;
-
+    
                 case 'chassis_number':
-                    $mapped[] = $row->assignment->vehicle->chassis_number ?? '-';
+                    $mapped[] = $row->chassis_number ?? '-';
                     break;
-                
+    
                 case 'vehicle_type':
-                    $mapped[] = $row->assignment->vehicle->vehicle_type_relation->name?? '-';
+                    $mapped[] = $row->vehicle_type_name ?? '-';
                     break;
-                    
+    
                 case 'vehicle_model':
-                    $mapped[] = $row->assignment->vehicle->vehicle_model_relation->vehicle_model?? '-';
+                    $mapped[] = $row->vehicle_model_name ?? '-';
                     break;
-                    
+    
                 case 'vehicle_make':
-                    $mapped[] = $row->assignment->vehicle->vehicle_model_relation->make?? '-';
+                    $mapped[] = $row->vehicle_make ?? '-';
                     break;
+    
                 case 'mobile_no':
-                    $mapped[] = $row->assignment->rider->mobile_no ?? '-';
+                    $mapped[] = $row->rider_mobile ?? '-';
                     break;
-
+    
                 case 'client':
-                    $mapped[] = $row->assignment->rider->customerlogin->customer_relation->trade_name ?? '-';
+                    $mapped[] = $row->client_name ?? '-';
                     break;
-
+    
                 case 'city':
-                    $mapped[] = $row->assignment->VehicleRequest->city->city_name ?? '-';
+                    $mapped[] = $row->city_name ?? '-';
                     break;
-
+    
                 case 'zone':
-                    $mapped[] = $row->assignment->VehicleRequest->zone->name ?? '-';
+                    $mapped[] = $row->zone_name ?? '-';
                     break;
-
+    
                 case 'repair_type':
                     $mapped[] = $row->repair_type == 1
                         ? 'Breakdown Repair'
                         : ($row->repair_type == 2 ? 'Running Repair' : '-');
                     break;
-
+    
                 case 'location':
                     $mapped[] = $row->gps_pin_address ?? '-';
                     break;
-
+    
                 case 'created_by':
                     $mapped[] = ucfirst($row->type ?? '-');
                     break;
-
+    
                 case 'status':
                     $mapped[] = ucfirst($row->status ?? '-');
                     break;
-
+    
                 case 'created_at':
                     $mapped[] = $row->created_at
-                        ? $row->created_at->format('d M Y h:i A')
+                        ? \Carbon\Carbon::parse($row->created_at)->format('d M Y h:i A')
                         : '-';
                     break;
-                    
+    
                 case 'updated_at':
                     $mapped[] = $row->updated_at
-                        ? $row->updated_at->format('d M Y h:i A')
+                        ? \Carbon\Carbon::parse($row->updated_at)->format('d M Y h:i A')
                         : '-';
                     break;
-                    
+    
                 case 'aging':
                     $mapped[] = $aging ?? '-';
                     break;
-
+    
                 default:
                     $mapped[] = $row->$key ?? '-';
             }
         }
-
+    
         return $mapped;
     }
+
 
     public function headings(): array
     {
@@ -280,7 +281,7 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
         $customHeadings = [
             'req_id'        => 'Request ID',
             'ticket_id'     => 'Ticket ID',
-            'accountability_type'    => 'Accountablity Type', //updated by logesh
+            'accountability_type'    => 'Accountablity Type',
             'vehicle_no'    => 'Vehicle Number',
             'chassis_number'=> 'Chassis Number',
             'vehicle_type'    => 'Vehicle Type',
@@ -309,4 +310,10 @@ class B2BAdminServiceRequestExport implements FromCollection, WithHeadings, With
 
         return $headers;
     }
+    
+    public function chunkSize(): int
+    {
+        return 1000; 
+    }
 }
+

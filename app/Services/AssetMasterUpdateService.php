@@ -21,6 +21,7 @@ use Modules\MasterManagement\Entities\RegistrationTypeMaster;
 use Modules\MasterManagement\Entities\TelemetricOEMMaster;
 use Modules\MasterManagement\Entities\InventoryLocationMaster;
 use Modules\MasterManagement\Entities\ColorMaster;
+use Modules\MasterManagement\Entities\LeasingPartnerMaster;
 use Modules\AssetMaster\Entities\VehicleTransferChassisLog;
 
 class AssetMasterUpdateService
@@ -145,6 +146,7 @@ class AssetMasterUpdateService
                 'registration_type' => [RegistrationTypeMaster::class, 'name'],
                 'zone'              => [Zones::class, 'name'],
                 'telematics_oem'    => [TelemetricOEMMaster::class, 'name'],
+                'leasing_partner'    => [LeasingPartnerMaster::class, 'name'],
             ];
 
             $masterIds = [];
@@ -280,6 +282,15 @@ class AssetMasterUpdateService
                     $updatedReadable[] = 'Asset Ownership';
                 } else {
                     $errors[] = "Master lookup failed for asset_ownership: '{$rowData['asset_ownership']}'";
+                }
+            }
+            if (!empty($rowData['leasing_partner'])) {
+                $id = $masterIds['leasing_partner'] ?? $this->lookup(LeasingPartnerMaster::class, 'name', $rowData['leasing_partner']);
+                if ($id) {
+                    $updateData['leasing_partner'] = $id;
+                    $updatedReadable[] = 'Leasing Partner';
+                } else {
+                    $errors[] = "Master lookup failed for leasing_partner: '{$rowData['leasing_partner']}'";
                 }
             }
 

@@ -631,7 +631,7 @@ class AssetManagementContoller extends Controller
                 'motor_number'       => 'required',
                 'result'             => 'required',
                 'remarks'            => 'max:255',
-                'file'               => 'required|file|mimes:jpg,jpeg,png,pdf|max:1024',
+                'file'               => 'required|file|mimes:jpg,jpeg,png,pdf',
                 'is_recoverable' => 'required|in:0,1'
             ];
             
@@ -641,7 +641,7 @@ class AssetManagementContoller extends Controller
             
             $messages = [
                 'qc.required' => 'QC Checklist is required.',
-                'file.max'                   => 'Please upload a file smaller than 1MB.',
+                // 'file.max'                   => 'Please upload a file smaller than 1MB.',
                 'customer.required_if' => 'Please select a customer when accountability type is Fixed.',
             ];
             
@@ -812,7 +812,7 @@ class AssetManagementContoller extends Controller
                 'motor_number'       => 'required',
                 'result'             => 'required',
                 'remarks'            => 'max:255',
-                'file'               => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:1024',//1MB Accept
+                'file'               => 'nullable|file|mimes:jpg,jpeg,png,pdf',
                 'qc_id' => 'required' ,
                 'is_recoverable' => 'required|in:0,1'
                 
@@ -825,7 +825,7 @@ class AssetManagementContoller extends Controller
             
             $validator = Validator::make($request->all(), $rules, [
                 'qc.required' => 'QC Checklist is required.',
-                'file.max'                   => 'Please upload a file smaller than 1MB.',
+                // 'file.max'                   => 'Please upload a file smaller than 1MB.',
                 'customer.required_if' => 'Please select a customer when accountability type is Fixed.',
             ]);
 

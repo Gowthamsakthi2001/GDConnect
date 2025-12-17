@@ -2,15 +2,16 @@
 
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Illuminate\Support\Facades\Auth;
-use Modules\B2B\Entities\B2BRecoveryRequest;
+use Illuminate\Support\Facades\DB;
 use Modules\MasterManagement\Entities\CustomerLogin;
 use Carbon\Carbon;
 
-class B2BRecoveryReportExport implements FromCollection, WithHeadings, WithMapping
+class B2BRecoveryReportExport implements FromQuery, WithHeadings, WithMapping, WithChunkReading
 {
     protected $date_range;
     protected $from_date;
@@ -59,112 +60,142 @@ class B2BRecoveryReportExport implements FromCollection, WithHeadings, WithMappi
         }
     }
 
-    public function collection()
+    public function query()
     {
         $guard = Auth::guard('master')->check() ? 'master' : 'zone';
-        $user  = Auth::guard($guard)->user();
+        $user = Auth::guard($guard)->user();
 
         $customerId = CustomerLogin::where('id', $user->id)->value('customer_id');
+
         $customerLoginIds = CustomerLogin::where('customer_id', $customerId)
             ->where('city_id', $user->city_id)
             ->pluck('id');
 
-        $query = B2BRecoveryRequest::with([
-            'assignment.rider',
-            'assignment.vehicle.vehicle_type_relation',
-            'assignment.vehicle.vehicle_model_relation',
-            'assignment.vehicle.quality_check.customer_relation',
-            'assignment.vehicle.quality_check.location_relation',
-            'assignment.vehicle.quality_check.zone',
-            'assignment.zone',
-            'assignment.VehicleRequest',
-            'recovery_agent',
-            'assignment.VehicleRequest.accountAbilityRelation'
-        ]);
+        $query = DB::table('b2b_tbl_recovery_request as rr')
+            ->join('b2b_tbl_vehicle_assignments as va', 'rr.assign_id', '=', 'va.id')
+            ->join('b2b_tbl_vehicle_requests as vr', 'va.req_id', '=', 'vr.req_id')
+            ->leftJoin('ev_tbl_accountability_types as actype', 'actype.id', '=', 'vr.account_ability_type')
+            ->leftJoin('ev_tbl_city as c', 'vr.city_id', '=', 'c.id')
+            ->leftJoin('zones as z', 'vr.zone_id', '=', 'z.id')
+            ->leftJoin('b2b_tbl_riders as r', 'va.rider_id', '=', 'r.id')
+            ->leftJoin('ev_tbl_customer_logins as cl', 'r.created_by', '=', 'cl.id')
+            ->leftJoin('ev_tbl_customer_master as cm', 'cl.customer_id', '=', 'cm.id')
+            ->leftJoin('ev_tbl_asset_master_vehicles as v', 'va.asset_vehicle_id', '=', 'v.id')
+            ->leftJoin('vehicle_qc_check_lists as qc', 'qc.id', '=', 'v.qc_id')
+            ->leftJoin('ev_tbl_vehicle_models as vm', 'qc.vehicle_model', '=', 'vm.id')
+            ->leftJoin('vehicle_types as vt', 'qc.vehicle_type', '=', 'vt.id')
+            ->leftJoin('ev_tbl_customer_master as cr', 'cl.customer_id', '=', 'cr.id')
+            ->leftJoin('ev_tbl_delivery_men as agent', 'agent.id', '=', 'rr.recovery_agent_id')
+            ->select([
+                'vr.req_id as req_id',//
+                'r.name as rider_name',//
+                'actype.name as accountability_type',//
+                'v.permanent_reg_number as vehicle_no',//
+                'v.chassis_number as chassis_number',//
+                'v.id as vehicle_id',//
+                'vt.name as vehicle_type',//
+                'vm.vehicle_model as vehicle_model',//
+                'vm.make as vehicle_make',//
+                'r.mobile_no as mobile_no',//
+                'cr.trade_name as created_by',//
+                'cr.trade_name as poc_name',
+                'cr.phone as poc_number',
+                'c.city_name as city',//
+                'z.name as zone',//
+                'rr.description',//
+                'rr.terms_condition',//
+                'agent.first_name',//
+                'agent.last_name',//
+                'rr.created_at as created_at',//
+                'rr.closed_by_type',//
+                'rr.video',//
+                'rr.images',//
+                'rr.status',//
+                'rr.agent_status',//
+                'rr.created_by_type',//
+                'rr.recovery_agent_id',//
+                
+            ]);
 
-        // ---------------- FILTERS ---------------- //
+        if ($customerLoginIds->isNotEmpty()) {
+            $query->whereIn('r.created_by', $customerLoginIds);
+        }
 
-        $query->whereHas('assignment.VehicleRequest', function ($q) use ($user, $guard, $customerLoginIds) {
+        if ($guard === 'master') {
+            $query->where('r.createdby_city', $user->city_id);
+        }
 
-            if ($customerLoginIds->isNotEmpty()) {
-                $q->whereIn('created_by', $customerLoginIds);
+        if ($guard === 'zone') {
+            $query->where('r.createdby_city', $user->city_id)
+                ->whereIn('r.assign_zone_id', $user->zone_id);
+        }
+
+        if (!empty($this->selectedIds)) {
+            $query->whereIn('rr.id', $this->selectedIds);
+        } else {
+            if (!empty($this->city)) {
+                $query->whereIn('vr.city_id', $this->city);
             }
 
-            if (!empty(array_filter($this->accountability_type))) {
-                $q->whereIn('account_ability_type', $this->accountability_type);
+            if (!empty($this->zone)) {
+                $query->whereIn('vr.zone_id', $this->zone);
             }
 
-            if ($guard === 'master') {
-                $q->where('city_id', $user->city_id);
-
-                if (!empty(array_filter($this->zone))) {
-                    $q->whereIn('zone_id', $this->zone);
-                }
+            if ($this->from_date) {
+                $query->whereDate('rr.created_at', '>=', $this->from_date);
             }
 
-            if ($guard === 'zone') {
-                $zoneId = !empty($this->zone) ? $this->zone : [$user->zone_id];
-                $q->where('city_id', $user->city_id)
-                  ->whereIn('zone_id', $zoneId);
+            if ($this->to_date) {
+                $query->whereDate('rr.created_at', '<=', $this->to_date);
             }
-        });
 
-        // Vehicle Model
-        if (!empty(array_filter($this->vehicle_model))) {
-            $query->whereHas('assignment.vehicle', fn($q) =>
-                $q->whereIn('model', $this->vehicle_model)
-            );
+            if (!empty($this->vehicle_model)) {
+                $query->whereIn('qc.vehicle_model', $this->vehicle_model);
+            }
+
+            if (!empty($this->vehicle_type)) {
+                $query->whereIn('qc.vehicle_type', $this->vehicle_type);
+            }
+
+            if (!empty($this->vehicle_make)) {
+                $query->whereIn('vm.make', $this->vehicle_make);
+            }
+            
+            if (!empty($this->vehicle_no)) {
+                $query->whereIn('v.id', $this->vehicle_no);
+            }
+            
+            // DATE FILTERS
+            $from = $this->from_date;
+            $to   = $this->to_date;
+
+            switch ($this->date_range) {
+                case 'yesterday':
+                    $from = $to = now()->subDay()->toDateString();
+                    break;
+                case 'last7':
+                    $from = now()->subDays(6)->toDateString();
+                    $to   = now()->toDateString();
+                    break;
+                case 'last30':
+                    $from = now()->subDays(29)->toDateString();
+                    $to   = now()->toDateString();
+                    break;
+                case 'custom':
+                    // already passed via constructor
+                    break;
+                default:
+                    $from = $to = now()->toDateString();
+                    break;
+            }
+
+            if ($from && $to) {
+                $query->whereBetween(DB::raw('DATE(rr.created_at)'), [$from, $to]);
+            }
+        
         }
 
-        // Vehicle Type
-        if (!empty(array_filter($this->vehicle_type))) {
-            $query->whereHas('assignment.vehicle', fn($q) =>
-                $q->whereIn('vehicle_type', $this->vehicle_type)
-            );
-        }
-
-        // Vehicle Make
-        if (!empty(array_filter($this->vehicle_make))) {
-            $query->whereHas('assignment.vehicle.vehicle_model_relation', fn($q) =>
-                $q->whereIn('make', $this->vehicle_make)
-            );
-        }
-
-        // Vehicle Number
-        if (!empty($this->vehicle_no)) {
-            $query->whereHas('assignment.vehicle', fn($q) =>
-                $q->whereIn('id', $this->vehicle_no)
-            );
-        }
-
-        // Date Range
-        $from = $this->from_date;
-        $to   = $this->to_date;
-
-        switch ($this->date_range) {
-            case 'yesterday':
-                $from = $to = now()->subDay()->toDateString();
-                break;
-            case 'last7':
-                $from = now()->subDays(6)->toDateString();
-                $to   = now()->toDateString();
-                break;
-            case 'last30':
-                $from = now()->subDays(29)->toDateString();
-                $to   = now()->toDateString();
-                break;
-        }
-
-        if ($from && $to) {
-            $query->whereBetween('created_at', [$from, $to]);
-        }
-
-        // Status
-        if (!empty(array_filter($this->status))) {
-            $query->whereIn('status', $this->status);
-        }
-
-        return $query->orderBy('id', 'desc')->get();
+        return $query->orderBy('rr.id', 'desc');
     }
 
     public function map($row): array
@@ -200,8 +231,8 @@ class B2BRecoveryReportExport implements FromCollection, WithHeadings, WithMappi
             default             => '-',
         };
 
-        $agentName = $row->recovery_agent
-            ? trim(($row->recovery_agent->first_name ?? '') . ' ' . ($row->recovery_agent->last_name ?? ''))
+        $agentName = $row->recovery_agent_id
+            ? trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? ''))
             : '-';
 
         $createdAt = $row->created_at
@@ -230,21 +261,21 @@ class B2BRecoveryReportExport implements FromCollection, WithHeadings, WithMappi
 
         return [
             $this->sl,
-            $row->assignment->VehicleRequest->req_id ?? '-',
-            $row->assignment->VehicleRequest->accountAbilityRelation->name ?? '-',
-            $row->assignment->vehicle->permanent_reg_number ?? '-',
-            $row->assignment->vehicle->chassis_number ?? '-',
-            $row->assignment->vehicle->vehicle_id ?? '-',
-            $row->assignment->vehicle->vehicle_model_relation->vehicle_model ?? '-',
-            $row->assignment->vehicle->vehicle_model_relation->make ?? '-',
-            $row->assignment->vehicle->vehicle_type_relation->name ?? '-',
-            $row->assignment->vehicle->quality_check->location_relation->city_name ?? '-',
-            $row->assignment->vehicle->quality_check->zone->name ?? '-',
+            $row->req_id ?? '-',
+            $row->accountability_type ?? '-',
+            $row->vehicle_no ?? '-',
+            $row->chassis_number ?? '-',
+            $row->vehicle_id ?? '-',
+            $row->vehicle_type ?? '-',
+            $row->vehicle_model ?? '-',
+            $row->vehicle_make ?? '-',
+            $row->city ?? '-',
+            $row->zone ?? '-',
             $row->description ?? '-',
             $terms,
-            $row->assignment->VehicleRequest->customerLogin->customer_relation->trade_name ?? '-',
-            $row->assignment->rider->name ?? '-',
-            $row->assignment->rider->mobile_no ?? '-',
+            $row->created_by ?? '-',
+            $row->rider_name ?? '-',
+            $row->mobile_no ?? '-',
             $agentName,
             $closed_by,
             $videoPath,
@@ -255,7 +286,12 @@ class B2BRecoveryReportExport implements FromCollection, WithHeadings, WithMappi
             $agentStatusText,
         ];
     }
-
+    
+    public function chunkSize(): int
+        {
+            return 500; // or 1000, depends on your requirement
+        }
+        
     public function headings(): array
     {
         return [
@@ -265,9 +301,9 @@ class B2BRecoveryReportExport implements FromCollection, WithHeadings, WithMappi
             'Vehicle Number',
             'Chassis Number',
             'Vehicle ID',
+            'Vehicle Type',
             'Vehicle Model',
             'Vehicle Make',
-            'Vehicle Type',
             'City',
             'Zone',
             'Description',

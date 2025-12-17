@@ -847,143 +847,6 @@ public function update_request(Request $request)
     }
 }
 
-//     public function get_vehicle_list(Request $request)
-//     {
-//         $user = $request->user('agent');
-        
-//         $RequestId = $request->dep_req_id ?? '';
-//         $reqData = B2BVehicleRequests::with(['rider.customerLogin.customer_relation'])
-//             ->where('req_id', $RequestId)->first();
-            
-//         if(!$reqData){
-//              return response()->json([
-//             'status'   => false,
-//             'message'  => "Deployment Request Not Found!"
-//         ],404);
-//         }
-// // dd($reqData);
-//         $tempAssigned = B2BTempVehicleAssignment::where('req_id',$RequestId)->first();
-//         $isVehicleAssigned = false;
-//         $vehicleId = '';
-//         $assignedMessage = '';
-//         if(!empty($tempAssigned)){
-//             $isVehicleAssigned = true;
-//             $vehicleId = $tempAssigned->asset_vehicle_id ?? '';
-//             $assignedMessage = "You have already assigned rider {$reqData->rider->name} (Request #{$RequestId}) to vehicle {$tempAssigned->asset_vehicle_id}. Do you want to continue?";
-//         }
-//         if(isset($request->delete_status) && $request->delete_status){
-//             $tempAssigned->delete();
-//             $isVehicleAssigned = false;
-//             $vehicleId = '';
-//         }
-        
-//         $vehicle_ids = B2BTempVehicleAssignment::where('req_id','!=',$RequestId)
-//                     ->pluck('asset_vehicle_id')
-//                     ->toArray();
-        
-//         $vehicleType = $reqData->vehicle_type; //updated by Gowtham.s
-        
-//         $acType = $reqData->account_ability_type ?? ''; //updated by Gowtham.s
-//         $customer_id = $reqData->customerLogin->customer_id ?? ''; //updated by Gowtham.s
-
-//         $query = AssetVehicleInventory::where('asset_vehicle_inventories.transfer_status', 3)
-//             ->join('ev_tbl_asset_master_vehicles as amv', 'asset_vehicle_inventories.asset_vehicle_id', '=', 'amv.id')
-//             ->leftJoin('vehicle_qc_check_lists as qc', 'amv.qc_id', '=', 'qc.id')
-//             ->leftJoin('ev_tbl_accountability_types as act', 'act.id', '=', 'qc.accountability_type')
-//             ->leftJoin('vehicle_types as vt', 'amv.vehicle_type', '=', 'vt.id')
-//             ->leftJoin('ev_tbl_vehicle_models as vm', 'amv.model', '=', 'vm.id')
-//             ->leftJoin('ev_tbl_brands as vb', 'vm.brand', '=', 'vb.id')
-//             ->leftJoin('ev_tbl_color_master as vc', 'amv.color', '=', 'vc.id')
-//             ->leftJoin('ev_tbl_financing_type_master as ftm', 'amv.financing_type', '=', 'ftm.id')
-//             ->leftJoin('ev_tbl_asset_ownership_master as aom', 'amv.asset_ownership', '=', 'aom.id')
-//             ->leftJoin('ev_tbl_registration_types as rt', 'amv.registration_type', '=', 'rt.id')
-//             ->leftJoin('ev_tbl_insurer_name_master as inm', 'amv.insurer_name', '=', 'inm.id')
-//             ->leftJoin('ev_tbl_insurance_types as it', 'amv.insurance_type', '=', 'it.id')
-//             ->leftJoin('ev_tbl_city as ct', 'qc.location', '=', 'ct.id')
-//             ->leftJoin('zones as zones', 'qc.zone_id', '=', 'zones.id')
-//             ->select(
-//                 'amv.*',
-//                 'act.name as account_ability_name',
-//                 'vt.name as vehicle_type_name',
-//                 'vm.vehicle_model',
-//                  'vm.make as vehicle_make',
-//                 'vc.name as vehicle_color',
-//                 'vb.brand_name as vehicle_brand',
-//                 'ftm.name as financing_type_name',
-//                 'aom.name as asset_ownership_name',
-//                 'rt.name as registration_type_name',
-//                 'inm.name as insurer_type_name',
-//                 'it.name as insurance_type_name',
-//                 'ct.city_name as city_name',
-//                 'zones.name as zone_name',
-//                 DB::raw("CASE 
-//                 WHEN amv.battery_type = 1 THEN 'Self-Charging' 
-//                 WHEN amv.battery_type = 2 THEN 'Portable' 
-//                 ELSE 'Unknown' 
-//             END as battery_type_name"),
-//                 DB::raw("CASE
-//                     WHEN qc.is_recoverable = 1 THEN 'YES'
-//                     WHEN qc.is_recoverable = 0 THEN 'NO'
-//                     ELSE 'Unknown'
-//                 END as recovery_status")
-//             );
-        
-//         if($vehicleId){
-//             $query->where('amv.id', $vehicleId);
-//         }
-//         // Apply login_type conditions
-//         if ($user->login_type == 1) {
-//             $query->where('qc.location', $user->city_id);
-//         } elseif ($user->login_type == 2) {
-//             $query->where('qc.location', $user->city_id)
-//                   ->where('qc.zone_id', $user->zone_id);
-//         }
-    
-//         if(!empty($vehicleType)){
-//             $query->where('qc.vehicle_type', $vehicleType);
-//         }
-//         if(!empty($acType)){ //updated by Gowtham.s
-//             if($acType == 2){
-//                 $query->where('qc.accountability_type', $acType);
-//             }
-//             else if($acType == 1){
-//                 $query->where('qc.accountability_type', $acType);
-//             }
-            
-//         }
-        
-//         if ($request->filled('search')) {
-//             $s = mb_strtolower(trim($request->search), 'UTF-8');
-    
-//             $query->where(function ($q) use ($s) {
-//                 $q->whereRaw("LOWER(COALESCE(amv.permanent_reg_number, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(amv.chassis_number, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(amv.vehicle_category, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(amv.make, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(amv.variant, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(vb.brand_name, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(vm.vehicle_model, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(vt.name, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("LOWER(COALESCE(vc.name, '')) LIKE ?", ["%{$s}%"])
-//                   ->orWhereRaw("CAST(amv.id AS CHAR) LIKE ?", ["%{$s}%"]);
-//             });
-//         }
-    
-//         // $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
-//         $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
-//         $vehicles->getCollection()->transform(function ($item) use ($vehicle_ids) {
-//             $item->is_assigned = in_array($item->id, $vehicle_ids);
-//             return $item;
-//         });
-//         return response()->json([
-//             'status'   => true,
-//             'message'  => "Vehicle List Fetched Successfully",
-//             'vehicles' => $vehicles,
-//             'is_vehicle_assigned' =>$isVehicleAssigned,
-//             'assigned_message' =>$assignedMessage
-//         ]);
-//     }
-
     public function get_vehicle_list(Request $request)
     {
         $user = $request->user('agent');
@@ -999,6 +862,25 @@ public function update_request(Request $request)
         ],404);
         }
 // dd($reqData);
+        $tempAssigned = B2BTempVehicleAssignment::where('req_id',$RequestId)->first();
+        $isVehicleAssigned = false;
+        $vehicleId = '';
+        $assignedMessage = '';
+        if(!empty($tempAssigned)){
+            $isVehicleAssigned = true;
+            $vehicleId = $tempAssigned->asset_vehicle_id ?? '';
+            $assignedMessage = "You have already assigned rider {$reqData->rider->name} (Request #{$RequestId}) to vehicle {$tempAssigned->asset_vehicle_id}. Do you want to continue?";
+        }
+        if(isset($request->delete_status) && $request->delete_status){
+            $tempAssigned->delete();
+            $isVehicleAssigned = false;
+            $vehicleId = '';
+        }
+        
+        $vehicle_ids = B2BTempVehicleAssignment::where('req_id','!=',$RequestId)
+                    ->pluck('asset_vehicle_id')
+                    ->toArray();
+        
         $vehicleType = $reqData->vehicle_type; //updated by Gowtham.s
         
         $acType = $reqData->account_ability_type ?? ''; //updated by Gowtham.s
@@ -1045,7 +927,10 @@ public function update_request(Request $request)
                     ELSE 'Unknown'
                 END as recovery_status")
             );
-            
+        
+        if($vehicleId){
+            $query->where('amv.id', $vehicleId);
+        }
         // Apply login_type conditions
         if ($user->login_type == 1) {
             $query->where('qc.location', $user->city_id);
@@ -1086,12 +971,127 @@ public function update_request(Request $request)
     
         // $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
         $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
+        $vehicles->getCollection()->transform(function ($item) use ($vehicle_ids) {
+            $item->is_assigned = in_array($item->id, $vehicle_ids);
+            return $item;
+        });
         return response()->json([
             'status'   => true,
             'message'  => "Vehicle List Fetched Successfully",
-            'vehicles' => $vehicles
+            'vehicles' => $vehicles,
+            'is_vehicle_assigned' =>$isVehicleAssigned,
+            'assigned_message' =>$assignedMessage
         ]);
     }
+
+//     public function get_vehicle_list(Request $request)
+//     {
+//         $user = $request->user('agent');
+        
+//         $RequestId = $request->dep_req_id ?? '';
+//         $reqData = B2BVehicleRequests::with(['rider.customerLogin.customer_relation'])
+//             ->where('req_id', $RequestId)->first();
+            
+//         if(!$reqData){
+//              return response()->json([
+//             'status'   => false,
+//             'message'  => "Deployment Request Not Found!"
+//         ],404);
+//         }
+// // dd($reqData);
+//         $vehicleType = $reqData->vehicle_type; //updated by Gowtham.s
+        
+//         $acType = $reqData->account_ability_type ?? ''; //updated by Gowtham.s
+//         $customer_id = $reqData->customerLogin->customer_id ?? ''; //updated by Gowtham.s
+
+//         $query = AssetVehicleInventory::where('asset_vehicle_inventories.transfer_status', 3)
+//             ->join('ev_tbl_asset_master_vehicles as amv', 'asset_vehicle_inventories.asset_vehicle_id', '=', 'amv.id')
+//             ->leftJoin('vehicle_qc_check_lists as qc', 'amv.qc_id', '=', 'qc.id')
+//             ->leftJoin('ev_tbl_accountability_types as act', 'act.id', '=', 'qc.accountability_type')
+//             ->leftJoin('vehicle_types as vt', 'amv.vehicle_type', '=', 'vt.id')
+//             ->leftJoin('ev_tbl_vehicle_models as vm', 'amv.model', '=', 'vm.id')
+//             ->leftJoin('ev_tbl_brands as vb', 'vm.brand', '=', 'vb.id')
+//             ->leftJoin('ev_tbl_color_master as vc', 'amv.color', '=', 'vc.id')
+//             ->leftJoin('ev_tbl_financing_type_master as ftm', 'amv.financing_type', '=', 'ftm.id')
+//             ->leftJoin('ev_tbl_asset_ownership_master as aom', 'amv.asset_ownership', '=', 'aom.id')
+//             ->leftJoin('ev_tbl_registration_types as rt', 'amv.registration_type', '=', 'rt.id')
+//             ->leftJoin('ev_tbl_insurer_name_master as inm', 'amv.insurer_name', '=', 'inm.id')
+//             ->leftJoin('ev_tbl_insurance_types as it', 'amv.insurance_type', '=', 'it.id')
+//             ->leftJoin('ev_tbl_city as ct', 'qc.location', '=', 'ct.id')
+//             ->leftJoin('zones as zones', 'qc.zone_id', '=', 'zones.id')
+//             ->select(
+//                 'amv.*',
+//                 'act.name as account_ability_name',
+//                 'vt.name as vehicle_type_name',
+//                 'vm.vehicle_model',
+//                  'vm.make as vehicle_make',
+//                 'vc.name as vehicle_color',
+//                 'vb.brand_name as vehicle_brand',
+//                 'ftm.name as financing_type_name',
+//                 'aom.name as asset_ownership_name',
+//                 'rt.name as registration_type_name',
+//                 'inm.name as insurer_type_name',
+//                 'it.name as insurance_type_name',
+//                 'ct.city_name as city_name',
+//                 'zones.name as zone_name',
+//                 DB::raw("CASE 
+//                 WHEN amv.battery_type = 1 THEN 'Self-Charging' 
+//                 WHEN amv.battery_type = 2 THEN 'Portable' 
+//                 ELSE 'Unknown' 
+//             END as battery_type_name"),
+//                 DB::raw("CASE
+//                     WHEN qc.is_recoverable = 1 THEN 'YES'
+//                     WHEN qc.is_recoverable = 0 THEN 'NO'
+//                     ELSE 'Unknown'
+//                 END as recovery_status")
+//             );
+            
+//         // Apply login_type conditions
+//         if ($user->login_type == 1) {
+//             $query->where('qc.location', $user->city_id);
+//         } elseif ($user->login_type == 2) {
+//             $query->where('qc.location', $user->city_id)
+//                   ->where('qc.zone_id', $user->zone_id);
+//         }
+    
+//         if(!empty($vehicleType)){
+//             $query->where('qc.vehicle_type', $vehicleType);
+//         }
+//         if(!empty($acType)){ //updated by Gowtham.s
+//             if($acType == 2){
+//                 $query->where('qc.accountability_type', $acType);
+//             }
+//             else if($acType == 1){
+//                 $query->where('qc.accountability_type', $acType);
+//             }
+            
+//         }
+        
+//         if ($request->filled('search')) {
+//             $s = mb_strtolower(trim($request->search), 'UTF-8');
+    
+//             $query->where(function ($q) use ($s) {
+//                 $q->whereRaw("LOWER(COALESCE(amv.permanent_reg_number, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(amv.chassis_number, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(amv.vehicle_category, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(amv.make, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(amv.variant, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(vb.brand_name, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(vm.vehicle_model, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(vt.name, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("LOWER(COALESCE(vc.name, '')) LIKE ?", ["%{$s}%"])
+//                   ->orWhereRaw("CAST(amv.id AS CHAR) LIKE ?", ["%{$s}%"]);
+//             });
+//         }
+    
+//         // $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
+//         $vehicles = $query->paginate(20)->appends($request->only('search', 'page'));
+//         return response()->json([
+//             'status'   => true,
+//             'message'  => "Vehicle List Fetched Successfully",
+//             'vehicles' => $vehicles
+//         ]);
+//     }
 
     
     // public function assign_vehicle(Request $request)
