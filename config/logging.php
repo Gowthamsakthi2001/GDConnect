@@ -117,6 +117,11 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+        'reverse_geocode' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/reverse-geocode.log'),
+            'level' => 'info',
+        ],
     ],
 
 ];

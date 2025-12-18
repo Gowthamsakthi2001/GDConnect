@@ -1350,7 +1350,8 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'created_by'      => $user->id,
                 'city_id'         => $user->city_id,
                 'zone_id'         => $request->assign_zone,
-                'account_ability_type'=>$request->account_ability_type
+                'account_ability_type'=>$request->account_ability_type,
+                'deployment_type'=>$request->deployment_type ?? 'new_deployment'
                 
             ]);
             
@@ -3306,7 +3307,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             
             DB::beginTransaction();
             try{
-                
+            $created_at = $request->filled('created_at') ? Carbon::parse($request->created_at)->format('Y-m-d H:i:s'): Carbon::now()->format('Y-m-d H:i:s');    
         $returnRequest=B2BReturnRequest::create([
             'assign_id'            => $request->id ,
             'return_reason'        => $validated['return_reason'],
@@ -3321,11 +3322,14 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             'contact_email'        => $validated['contact_email'] ?? null,
             'description'          => $validated['description'] ?? null,
             'created_by'       => $user->id,
+            'created_at'       => $created_at,
+            'updated_at'       => $created_at
         ]);
         $assignment = B2BVehicleAssignment::find($request->id);
             if ($assignment) {
                 $assignment->update([
-                    'status' => 'return_request'
+                    'status' => 'return_request',
+                    'updated_at'=>$created_at
                 ]);
                 
             $inventory = AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)->first();
@@ -3335,7 +3339,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             
                            
             AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
-                    ->update(['transfer_status' => 29]);
+                    ->update(['transfer_status' => 29,'updated_at'=>$created_at]);
                     
                                 
             $remarks = "Inventory status updated to 'Return Pending' due to customer return request.";
@@ -3349,7 +3353,9 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'status'         => 'updated',
                 'remarks'        => $remarks,
                 'created_by'     => $user->id,
-                'type'           => 'b2b-web-dashboard'
+                'type'           => 'b2b-web-dashboard',
+                'created_at'       => $created_at,
+                'updated_at'       => $created_at,
             ]);
             
             
@@ -3368,7 +3374,9 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             'action_by'     => $user->id ?? null,
             'type'          => 'b2b-web-dashboard',
             'request_type'  => 'return_request',
-            'request_type_id'=>$vehicle_request->id?? null
+            'request_type_id'=>$vehicle_request->id?? null,
+            'created_at'       => $created_at,
+            'updated_at'       => $created_at,
         ]);
          
        $rider = $vehicle_request->rider ?? null; //updated by Gowtham.s
@@ -4237,7 +4245,7 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             $guard = Auth::guard('master')->check() ? 'master' : 'zone';
             $user = Auth::guard($guard)->user();
     
-    
+            $created_at = $request->filled('created_at') ? Carbon::parse($request->created_at)->format('Y-m-d H:i:s'): Carbon::now()->format('Y-m-d H:i:s');
             // Save to DB
             $recovery = new B2BRecoveryRequest();
             $recovery->assign_id              = $request->id;
@@ -4257,6 +4265,8 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             $recovery->terms_condition       = $request->has('terms_condition') ? 1 : 0;
             $recovery->created_by = $user->id;
             $recovery->created_by_type = 'b2b-web-dashboard';
+            $recovery->created_at = $created_at;
+            $recovery->updated_at = $created_at;
          
     
             $recovery->save();
@@ -4264,7 +4274,8 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
             $assignment = B2BVehicleAssignment::find($request->id);
                 if ($assignment) {
                     $assignment->update([
-                        'status' => 'recovery_request'
+                        'status' => 'recovery_request',
+                        'updated_at' => $created_at,
                     ]);
                     
                     
@@ -4275,7 +4286,8 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 
                                
                 AssetVehicleInventory::where('asset_vehicle_id', $assignment->asset_vehicle_id)
-                        ->update(['transfer_status' => 28]);
+                        ->update(['transfer_status' => 28,
+                         'updated_at' => $created_at]);
                         
                                     
                 $remarks = "Inventory status updated to 'Recovery Pending' due to customer recovery request.";
@@ -4289,7 +4301,9 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                     'status'         => 'updated',
                     'remarks'        => $remarks,
                     'created_by'     => $user->id,
-                    'type'           => ''
+                    'type'           => '',
+                    'created_at'       => $created_at,
+                    'updated_at'       => $created_at,
                 ]);
                 
                 // $vehicle_request = B2BVehicleRequests::where('req_id',$assignment->req_id)->where('is_active',1)->first();
@@ -4306,7 +4320,9 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'action_by'     => $user->id ?? null,
                 'type'          => 'b2b-web-dashboard',
                 'request_type'  => 'recovery_request',
-                'request_type_id'=>$recovery->id??null  //updated by logesh
+                'request_type_id'=>$recovery->id??null, //updated by logesh
+                'created_at'       => $created_at,
+                'updated_at'       => $created_at,
             ]);
             
             RecoveryComment::create([
@@ -4315,6 +4331,8 @@ $query->whereHas('VehicleRequest', function ($q) use ($user, $guard, $customerLo
                 'comments'  => "Vehicle {$request->vehicle_number} has been requested for recovery",
                 'user_id'   => $user->id ?? null,
                 'user_type' => 'b2b-web-dashboard',
+                'created_at'       => $created_at,
+                'updated_at'       => $created_at,
             ]);
             
             DB::commit();
