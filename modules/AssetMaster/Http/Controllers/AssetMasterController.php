@@ -8443,11 +8443,11 @@ class AssetMasterController extends Controller
         }
     }
 
-    public function destroy(Request $request)
+    public function destroy(Request $request) //updated by Gowtham.S
     {
 
         $request->validate([
-            'id' => 'required|exists:ev_tbl_asset_master_vehicles,id',
+            'id' => 'required|exists:ev_tbl_asset_master_vehicles,id', //updated by Gowtham.S
             'remarks' => 'required|string'
         ]);
 
@@ -8499,5 +8499,4 @@ class AssetMasterController extends Controller
 
         return view('assetmaster::asset_master.bulk_upload_form');
     }
-    
 }
