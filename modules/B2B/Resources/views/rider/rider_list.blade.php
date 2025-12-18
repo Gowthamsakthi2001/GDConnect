@@ -215,7 +215,7 @@
                         </select>
                       </div>
                 </div>
-                 
+                        
                  <div class="col-md-6">
                        <label class="form-label">Assigned Zone <span style="color:red;">*</span></label>
                           @if($login_type == 'master')
@@ -264,8 +264,20 @@
                 <!--  </div>-->
                 <!--</div>-->
               </div>
-    
-            <div class="row g-3 mb-3">
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                          <div class="mb-3">
+                            <label class="form-label">Deployment Type<span style="color:red;">*</span></label>
+                            
+                            <select class="form-control" id="deployment_type" name="deployment_type" >
+                            <option value="">Select Deployment Type</option>
+                            <option value="new_deployment">New Deployment</option>
+                            <option value="exchange">Exchange</option>
+                            </select>
+                          </div>
+                    </div>
+                    
+            
                 <div class="col-md-6">
                       <div class="mb-3">
                         <label class="form-label">Battery Type</label>
@@ -289,6 +301,8 @@
                     @endif
                   </select>
                 </div>
+                
+                
             </div>
               <div class="mb-3">
                 <label class="form-label">Terms and Conditions</label>
@@ -1244,6 +1258,7 @@ $(document).ready(function () {
             // end_date: $('#end_date').val(),
             // account_ability_type: $('#Accountability_type_Default').val(),
             account_ability_type: $('#Accountability_type').val(),
+            deployment_type: $('select[name="deployment_type"]').val(),
             battery_type: $('select[name="battery_type"]').val(),
             vehicle_type: $('select[name="vehicle_type"]').val(),
             terms_agreed: $('#termsCheck').is(':checked') ? 1 : 0,
@@ -1284,7 +1299,13 @@ $(document).ready(function () {
              $btn.prop('disabled', false).text('Confirm Request');
             return;
         }
-
+        
+        if (!formData.deployment_type) {
+            Toast.fire({ icon: 'warning', title: 'Deployment type is required.' });
+             $btn.prop('disabled', false).text('Confirm Request');
+            return;
+        }
+        
         if (!formData.terms_agreed) {
             Toast.fire({ icon: 'warning', title: 'You must agree to terms and conditions.' });
              $btn.prop('disabled', false).text('Confirm Request');

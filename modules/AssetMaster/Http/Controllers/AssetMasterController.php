@@ -4754,7 +4754,6 @@ class AssetMasterController extends Controller
 
     public function update_data(Request $request)
     {
-
         $user     = Auth::user();
         $roleName = optional(\Modules\Role\Entities\Role::find($user->role))->name ?? 'Unknown';
 
@@ -4775,7 +4774,7 @@ class AssetMasterController extends Controller
         $validator = Validator::make(
             $request->all(),
             [
-                'chassis_number' => 'required|string|unique:ev_tbl_asset_master_vehicles,chassis_number,' . $request->id,
+                'chassis_number' => 'required|string',
                 'vehicle_category' => 'nullable|string',
                 'vehicle_type' => 'required|numeric',
                 'make' => 'required|string',
@@ -4884,7 +4883,15 @@ class AssetMasterController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
+       $get_exists_chassis_no = AssetMasterVehicle::where('chassis_number', $request->chassis_number)
+             ->where('delete_status',0)->where('id','!=',$request->id)->first();
 
+        if ($get_exists_chassis_no) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The chassis number has already been taken.',
+            ],200);
+        }
         DB::beginTransaction();
         try {
             $exist_vehicle_update = AssetMasterVehicle::where('id', $request->id)
