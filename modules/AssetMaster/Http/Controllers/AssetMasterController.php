@@ -8499,4 +8499,5 @@ class AssetMasterController extends Controller
 
         return view('assetmaster::asset_master.bulk_upload_form');
     }
+    
 }
